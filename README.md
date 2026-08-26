@@ -61,7 +61,7 @@ pip install -r requirements.txt
 ## Çalıştırma
 
 ```bash
-# Normal başlatma
+# Terminal başlatma
 python main.py
 
 # Debug modu (ayrıntılı loglar)
@@ -72,6 +72,13 @@ python main.py --no-crawl
 
 # Özel veritabanı
 python main.py --db /path/to/nova.db
+
+# Arayüzlü Başlatma
+python nova_launcher.py
+
+# Sorunsuz Başlatma
+py -3.10 nova_launcher.py
+
 ```
 
 ---
