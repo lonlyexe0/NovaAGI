@@ -195,12 +195,18 @@ class SesMotoru:
         # TTS
         try:
             import pyttsx3
+            from config_manager import get_language
+            lang = get_language() or "en"
             self._tts_motor = pyttsx3.init()
             self._tts_motor.setProperty("rate", 175)
             self._tts_motor.setProperty("volume", 0.9)
-            # Türkçe ses seç (varsa)
+            # Dil sesini seç (en veya tr)
+            target_code = "en" if lang == "en" else "tr"
             for ses in self._tts_motor.getProperty("voices"):
-                if "tr" in ses.id.lower() or "turkish" in ses.name.lower():
+                s_id = ses.id.lower()
+                s_name = getattr(ses, "name", "").lower()
+                if (target_code == "en" and ("en" in s_id or "english" in s_name)) or \
+                   (target_code == "tr" and ("tr" in s_id or "turkish" in s_name)):
                     self._tts_motor.setProperty("voice", ses.id)
                     break
             self._tts_aktif = True
@@ -208,9 +214,13 @@ class SesMotoru:
                 target=self._tts_dongusu, daemon=True, name="NovaTTS"
             )
             self._tts_thread.start()
-            logger.info("[Ses] pyttsx3 TTS hazır.")
+            logger.info(f"[Ses] pyttsx3 TTS hazır ({'English' if lang=='en' else 'Türkçe'}).")
         except ImportError:
             logger.warning("[Ses] pyttsx3 bulunamadı → pip install pyttsx3")
+        except Exception as e:
+            self._tts_motor = None
+            self._tts_aktif = False
+            logger.warning(f"[Ses] pyttsx3 TTS başlatılamadı: {e}")
 
     def _tts_dongusu(self):
         """TTS kuyruğunu işleyen thread (pyttsx3 thread-safe değil)."""
@@ -238,13 +248,17 @@ class SesMotoru:
             self._tts_kuyruk.join()
         return f"Sesli okunuyor: {metin_kisa[:60]}..."
 
-    def dinle(self, zaman_asimi: int = 5, dil: str = "tr-TR") -> str:
+    def dinle(self, zaman_asimi: int = 5, dil: Optional[str] = None) -> str:
         """
         Mikrofondan ses dinle ve metne çevir.
         Döner: tanınan metin veya hata mesajı
         """
         if not self._sr_aktif:
             return "Ses tanıma aktif değil (pip install speechrecognition pyaudio)"
+        if dil is None:
+            from config_manager import get_language
+            lang = get_language() or "en"
+            dil = "en-US" if lang == "en" else "tr-TR"
         sr = self._sr
         try:
             with sr.Microphone() as kaynak:

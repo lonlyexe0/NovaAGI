@@ -10,31 +10,28 @@
 # RAG: TF-IDF benzeri anahtar kelime örtüşmesi ile bağlam getirme
 # Thread-safe: threading.Lock + thread-local SQLite bağlantıları
 # ═══════════════════════════════════════════════════════════════════════════════
-from sentence_transformers import SentenceTransformer
-from scipy.spatial.distance import cosine
-import numpy as np
 import re
 import sqlite3
 import threading
 import logging
 from datetime import datetime
 from typing import Optional
+from config_manager import get_data_path
 
 logger = logging.getLogger("nova.memory")
 
 
 class HafizaYoneticisi:
     """Nova'nın merkezi hafıza yöneticisi."""
-    def __init__(self, db_yolu: str = "nova.db"):
-        # ... (eski kodlar)
-        logger.info("[Hafıza] Vektörel anlamsal model yükleniyor (Bu işlem ilk seferde biraz sürebilir)...")
-        self.embedder = SentenceTransformer('all-MiniLM-L6-v2') # Dünyanın en hafif ve hızlı vektör modeli
-    def __init__(self, db_yolu: str = "nova.db"):
-        self.db_yolu = db_yolu
+    def __init__(self, db_yolu: Optional[str] = None):
+        if db_yolu is None or db_yolu == "nova.db":
+            self.db_yolu = get_data_path("nova.db")
+        else:
+            self.db_yolu = db_yolu
         self._local  = threading.local()   # Her thread'e özel bağlantı
         self._lock   = threading.Lock()    # Yazma işlemleri için kilit
         self.tablolari_kur()
-        logger.info(f"[Hafıza] Veritabanı hazır: {db_yolu}")
+        logger.info(f"[Hafıza] Veritabanı hazır: {self.db_yolu}")
 
     # ── Bağlantı Yönetimi ─────────────────────────────────────────────────────
     def _baglanti(self) -> sqlite3.Connection:
@@ -90,6 +87,8 @@ class HafizaYoneticisi:
                     ON anilar(zaman DESC);
                 CREATE INDEX IF NOT EXISTS idx_bilgi_islendi
                     ON bilgi_agaci(islendi, zaman ASC);
+                CREATE INDEX IF NOT EXISTS idx_bilgi_islendi_desc
+                    ON bilgi_agaci(islendi, id DESC);
                 CREATE INDEX IF NOT EXISTS idx_gorev_durum
                     ON gorevler(durum, oncelik ASC, id ASC);
 
@@ -205,12 +204,13 @@ class HafizaYoneticisi:
                 logger.info(f"[Hafıza] Bilgi eklendi ({len(icerik):,} kar.): {konu[:60]}")
                 return cur.lastrowid
 
-    def egitilmemis_bilgi_getir(self, limit: int = 16) -> list[dict]:
-        """Henüz eğitimde kullanılmamış bilgileri getir."""
+    def egitilmemis_bilgi_getir(self, limit: int = 16, ters: bool = True) -> list[dict]:
+        """Henüz eğitimde kullanılmamış bilgileri geriye/ileriye doğru tarayarak getir (ters=True: geriden öne / scan backwards)."""
         conn = self._baglanti()
+        siralama = "DESC" if ters else "ASC"
         rows = conn.execute(
-            "SELECT * FROM bilgi_agaci WHERE islendi = 0 "
-            "ORDER BY zaman ASC LIMIT ?",
+            f"SELECT * FROM bilgi_agaci WHERE islendi = 0 "
+            f"ORDER BY id {siralama} LIMIT ?",
             (limit,)
         ).fetchall()
         return [dict(r) for r in rows]

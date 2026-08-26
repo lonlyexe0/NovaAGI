@@ -35,8 +35,21 @@ from torch.optim.lr_scheduler import CosineAnnealingWarmRestarts
 logger = logging.getLogger("nova.brain")
 
 os.environ.setdefault("OMP_NUM_THREADS", "12")
-os.environ.setdefault("MKL_NUM_THREADS", "12")
+# DirectML desteği için güvenli import (privateuseone arka ucu)
+try:
+    import torch_directml
+    _DIRECTML_MEVCUT = True
+except Exception:
+    _DIRECTML_MEVCUT = False
 
+def varsayilan_cihaz() -> str:
+    if "NOVA_DEVICE" in os.environ:
+        return os.environ["NOVA_DEVICE"]
+    if torch.cuda.is_available():
+        return "cuda"
+    if _DIRECTML_MEVCUT:
+        return "privateuseone"
+    return "cpu"
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -79,9 +92,10 @@ class Config:
     min_text_len  : int   = 20
 
     # ── Dosyalar ──────────────────────────────────────────────────────────────
-    weights_path  : str   = "nova_weights.pth"
-    vocab_path    : str   = "nova_vocab.json"
-    device        : str   = "cpu"
+    from config_manager import get_data_path
+    weights_path  : str   = get_data_path("nova_weights.pth")
+    vocab_path    : str   = get_data_path("nova_vocab.json")
+    device        : str   = varsayilan_cihaz()
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -479,7 +493,15 @@ class BeynYoneticisi:
     def __init__(self, hafiza):
         self.hafiza = hafiza
         self.cfg    = Config()
-        self.device = torch.device(self.cfg.device)
+        dev_str = self.cfg.device or varsayilan_cihaz()
+        if str(dev_str).lower() in ("privateuseone", "directml", "privateuseone:0"):
+            try:
+                import torch_directml
+                self.device = torch_directml.device()
+            except Exception:
+                self.device = torch.device(dev_str)
+        else:
+            self.device = torch.device(dev_str)
         self._lock  = threading.RLock()
         self.adim   = 0
         self._son_loss_toplami = 0.0
@@ -521,8 +543,14 @@ class BeynYoneticisi:
 
     # ── Vocab ─────────────────────────────────────────────────────────────────
     def _vocab_yukle_veya_olustur(self):
-        if os.path.exists(self.cfg.vocab_path):
-            with open(self.cfg.vocab_path, "r", encoding="utf-8") as f:
+        target_path = self.cfg.vocab_path
+        if not os.path.exists(target_path):
+            bundled = os.path.join(os.path.dirname(os.path.abspath(__file__)), "nova_vocab.json")
+            if os.path.exists(bundled):
+                target_path = bundled
+
+        if os.path.exists(target_path):
+            with open(target_path, "r", encoding="utf-8") as f:
                 d = json.load(f)
             self.char2id = d["char2id"]
             self.id2char = {int(k): v for k,v in d["id2char"].items()}
@@ -592,14 +620,15 @@ class BeynYoneticisi:
 
     # ── Üretim ────────────────────────────────────────────────────────────────
     def uret(self, tohum: str, uzunluk: int = 250, sicaklik: float = 0.85,
-             top_k: int = 50, top_p: float = 0.92) -> str:
+             top_k: int = 50, top_p: float = 0.92, rep_ceza: float = 1.3, **kwargs) -> str:
         with self._lock:
             self._vocab_guncelle(tohum)
             ids = self.encode(tohum) or [self.char2id.get("<BOS>", 0)]
             ids = ids[-self.cfg.max_seq_len:]
             idx = torch.tensor([ids], dtype=torch.long, device=self.device)
             out = self.model.uret(idx, max_new=uzunluk,
-                                   sicaklik=sicaklik, top_k=top_k, top_p=top_p)
+                                   sicaklik=sicaklik, top_k=top_k, top_p=top_p,
+                                   rep_ceza=rep_ceza)
             return self.decode(out[0, len(ids):].tolist())
 
     # ── Eğitim ────────────────────────────────────────────────────────────────
@@ -712,11 +741,17 @@ class BeynYoneticisi:
             logger.error(f"[Beyin] Kaydetme hatası: {e}")
 
     def yukle(self):
-        if not os.path.exists(self.cfg.weights_path):
+        target_weights = self.cfg.weights_path
+        if not os.path.exists(target_weights):
+            bundled = os.path.join(os.path.dirname(os.path.abspath(__file__)), "nova_weights.pth")
+            if os.path.exists(bundled):
+                target_weights = bundled
+
+        if not os.path.exists(target_weights):
             logger.info("[Beyin] Sıfırdan başlıyor."); return
         try:
-            ck = torch.load(self.cfg.weights_path,
-                            map_location=self.device, weights_only=False)
+            ck = torch.load(target_weights,
+                            map_location="cpu", weights_only=False)
             # Mimariyi geri yükle
             if "embed_dim" in ck:
                 self.cfg.embed_dim = ck["embed_dim"]

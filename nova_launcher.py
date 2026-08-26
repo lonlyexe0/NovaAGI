@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!python3.10
 from __future__ import annotations
 # ═══════════════════════════════════════════════════════════════════════════════
 # nova_launcher.py  —  Nova AGI Ana Başlatıcı v3  [Python 3.10]
@@ -16,11 +16,39 @@ import sys, os, time, signal, logging, argparse, threading, queue
 from typing import Optional
 from datetime import datetime
 
-os.environ.setdefault("OMP_NUM_THREADS",        "12")
-os.environ.setdefault("MKL_NUM_THREADS",        "12")
-os.environ.setdefault("OPENBLAS_NUM_THREADS",   "12")
-os.environ.setdefault("VECLIB_MAXIMUM_THREADS", "12")
-os.environ.setdefault("NUMEXPR_NUM_THREADS",    "12")
+# PyInstaller / Standalone bundle yol desteği
+_bundle_dir = getattr(sys, "_MEIPASS", os.path.dirname(os.path.abspath(__file__)))
+if _bundle_dir not in sys.path:
+    sys.path.insert(0, _bundle_dir)
+_curr_dir = os.path.dirname(os.path.abspath(__file__))
+if _curr_dir not in sys.path:
+    sys.path.insert(0, _curr_dir)
+
+class _NullWriter:
+    def write(self, s): pass
+    def flush(self): pass
+    def reconfigure(self, **kwargs): pass
+
+if sys.stdout is None:
+    sys.stdout = _NullWriter()
+if sys.stderr is None:
+    sys.stderr = _NullWriter()
+
+if sys.platform == "win32":
+    try:
+        if hasattr(sys.stdout, "reconfigure"):
+            sys.stdout.reconfigure(encoding="utf-8")
+        if hasattr(sys.stderr, "reconfigure"):
+            sys.stderr.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
+
+# GPU / DirectML ve Donanım Optimizasyonu
+try:
+    import gpu_setup
+    gpu_setup.gpu_hazirla()
+except Exception:
+    pass
 
 import torch
 torch.set_num_threads(12)
@@ -31,14 +59,19 @@ torch.set_num_interop_threads(4)
 # LOGGING
 # ═══════════════════════════════════════════════════════════════════════════════
 def logging_kur(debug: bool = False):
+    from config_manager import get_data_path
+    log_file = get_data_path("nova.log")
     seviye  = logging.DEBUG if debug else logging.INFO
     fmt     = "%(asctime)s [%(name)-18s] %(levelname)-7s %(message)s"
+    handlers = [logging.StreamHandler(sys.stdout)]
+    try:
+        handlers.insert(0, logging.FileHandler(log_file, encoding="utf-8"))
+    except Exception:
+        pass
     logging.basicConfig(
         level=seviye, format=fmt, datefmt="%H:%M:%S",
-        handlers=[
-            logging.FileHandler("nova.log", encoding="utf-8"),
-            logging.StreamHandler(sys.stdout),
-        ],
+        handlers=handlers,
+        force=True,
     )
     for lib in ("urllib3","requests","charset_normalizer",
                 "datasets","huggingface_hub","filelock","fsspec","aiohttp"):
@@ -72,6 +105,12 @@ def arguman_isle() -> argparse.Namespace:
     p.add_argument("--db",       default="nova.db")
     p.add_argument("--hf-limit", type=int, default=0,
                    help="HF makale limiti (0=sonsuz)")
+    p.add_argument("--hf-token", type=str, default=None,
+                   help="Hugging Face Access Token (hf_...)")
+    p.add_argument("--lang",     type=str, default=None, choices=["en", "tr"],
+                   help="Language preference ('en' or 'tr')")
+    p.add_argument("--reset-lang", action="store_true",
+                   help="Reset language choice")
     return p.parse_args()
 
 
@@ -79,22 +118,26 @@ def arguman_isle() -> argparse.Namespace:
 # HUGGINGFACE SÜREKLİ AKIŞ
 # ═══════════════════════════════════════════════════════════════════════════════
 class HuggingFaceAkisi:
-    DATASET_ADI    = "wikimedia/wikipedia"
-    DATASET_CONFIG = "20231101.tr"
-    MIN_UZUN       = 300
-    MAX_BEKLE      = 5_000
-    HATA_BEKLE     = 60
-    KAYIT_BEKLE    = 5
-    LOG_ARALIK     = 100
+    DATASET_ADI = "wikimedia/wikipedia"
+    MIN_UZUN    = 300
+    MAX_BEKLE   = 5_000
+    HATA_BEKLE  = 60
+    KAYIT_BEKLE = 5
+    LOG_ARALIK  = 100
 
-    def __init__(self, hafiza, dur: threading.Event, limit: int = 0):
+    def __init__(self, hafiza, dur: threading.Event, limit: int = 0, lang: Optional[str] = None):
         self.hafiza  = hafiza
         self.dur     = dur
         self.limit   = limit
         self.sayac   = 0
         self.atlandi = 0
         self._thread: Optional[threading.Thread] = None
-        self._kurulu = self._kontrol()
+        self._kurulu = True
+        self.lang    = lang or "en"
+
+    @property
+    def dataset_config(self) -> str:
+        return "20231101.en" if self.lang == "en" else "20231101.tr"
 
     def _kontrol(self) -> bool:
         try:
@@ -108,7 +151,7 @@ class HuggingFaceAkisi:
         self._thread = threading.Thread(
             target=self._dis_dongu, name="NovaHF", daemon=True)
         self._thread.start()
-        logger.info(f"[HF] ✅ Başladı — {self.DATASET_CONFIG} | "
+        logger.info(f"[HF] ✅ Başladı — {self.dataset_config} | "
                     f"Limit: {'Sonsuz' if not self.limit else self.limit}")
 
     def _dis_dongu(self):
@@ -123,10 +166,14 @@ class HuggingFaceAkisi:
 
     def _ic_dongu(self):
         from datasets import load_dataset
+        from hf_auth import hf_token_al
         logger.info("[HF] Bağlanıyor...")
-        ds = load_dataset(self.DATASET_ADI, self.DATASET_CONFIG,
-                          split="train", streaming=True, trust_remote_code=True)
-        logger.info("[HF] Bağlandı, akıyor...")
+        token = hf_token_al()
+        kwargs = {"split": "train", "streaming": True}
+        if token:
+            kwargs["token"] = token
+        ds = load_dataset(self.DATASET_ADI, self.dataset_config, **kwargs)
+        logger.info(f"[HF] Bağlandı ({self.dataset_config}), akıyor...")
         for veri in ds:
             if self.dur.is_set(): return
             if self.limit > 0 and self.sayac >= self.limit:
@@ -542,26 +589,37 @@ def gui_baslat(hafiza, beyin, beden):
 def main():
     args = arguman_isle()
     logging_kur(debug=args.debug)
+
+    # ── Dil Seçimi (İlk Açılışta Sorulur, Sonra Hatırlanır) ────────────────────
+    from config_manager import ask_language_on_first_launch, _config_yaz
+    if args.reset_lang:
+        _config_yaz({})
+    aktif_dil = ask_language_on_first_launch(arg_lang=args.lang)
+
+    # ── Hugging Face Girişi ───────────────────────────────────────────────────
+    from hf_auth import hf_giris_sor
+    hf_giris_sor(arg_token=args.hf_token)
+
     logger.info("Nova AGI v3 başlatılıyor...")
 
     dur = threading.Event()
 
     # Bileşenler
-    print(f"{R.GRI}[1/4] Hafıza...{R.SIFIR}")
+    print(f"{R.GRI}[1/4] Hafıza başlatılıyor...{R.SIFIR}", flush=True)
     from memory import HafizaYoneticisi
     hafiza = HafizaYoneticisi(db_yolu=args.db)
 
-    print(f"{R.GRI}[2/4] Beyin (Sınırsız Büyüyen Transformer)...{R.SIFIR}")
     from brain import BeynYoneticisi, Config
-    Config.device = "cpu"
+    print(f"{R.GRI}[2/4] Beyin yükleniyor ({Config.device.upper()})...{R.SIFIR}", flush=True)
     beyin = BeynYoneticisi(hafiza)
 
-    print(f"{R.GRI}[3/4] Beden (Bilgisayar+Ses+Görüntü+Merak)...{R.SIFIR}")
+    print(f"{R.GRI}[3/4] Beden başlatılıyor (Bilgisayar+Ses+Görüntü+Merak)...{R.SIFIR}", flush=True)
     from body import AjanBeden
     beden = AjanBeden(hafiza, beyin)
 
-    print(f"{R.GRI}[4/4] HuggingFace akışı hazırlanıyor...{R.SIFIR}")
-    hf_akisi = HuggingFaceAkisi(hafiza=hafiza, dur=dur, limit=args.hf_limit)
+    wiki_src = "English Wikipedia (20231101.en)" if aktif_dil == "en" else "Türkçe Wikipedia (20231101.tr)"
+    print(f"{R.GRI}[4/4] HuggingFace akışı hazırlanıyor ({wiki_src})...{R.SIFIR}", flush=True)
+    hf_akisi = HuggingFaceAkisi(hafiza=hafiza, dur=dur, limit=args.hf_limit, lang=aktif_dil)
 
     # Eğitim ve arka plan thread'leri
     beyin.surekli_egitim_baslat()
@@ -576,17 +634,24 @@ def main():
     t_bilincalti.start()
 
     def sinyal_isle(sig, frame):
-        print(f"\n{R.SARI}[Launcher] Kapatılıyor...{R.SIFIR}")
+        print(f"\n{R.SARI}[Launcher] Kapatılıyor...{R.SIFIR}", flush=True)
         dur.set()
 
-    signal.signal(signal.SIGINT,  sinyal_isle)
-    signal.signal(signal.SIGTERM, sinyal_isle)
+    try:
+        signal.signal(signal.SIGINT,  sinyal_isle)
+        if hasattr(signal, "SIGTERM"):
+            signal.signal(signal.SIGTERM, sinyal_isle)
+    except Exception:
+        pass
 
     # Mod seçimi
     mod = "gui" if not (args.term or args.both) else ("term" if args.term else "both")
     print(f"\n{R.YESIL}✅ Hazır. Mod: {mod.upper()} | "
           f"Parametre: {beyin.model.param_sayisi():,} | "
-          f"Büyüme: {beyin.model._toplam_buyume}x{R.SIFIR}\n")
+          f"Büyüme: {beyin.model._toplam_buyume}x{R.SIFIR}\n", flush=True)
+
+    if mod == "gui":
+        print(f"{R.CYAN}🖥️ Nova AGI Grafik Penceresi açıldı (Masaüstünüzü kontrol edin).{R.SIFIR}", flush=True)
 
     try:
         if mod == "gui":
@@ -617,4 +682,6 @@ def main():
 
 
 if __name__ == "__main__":
+    import multiprocessing
+    multiprocessing.freeze_support()
     main()

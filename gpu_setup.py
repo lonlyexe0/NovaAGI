@@ -20,6 +20,15 @@ import sys
 import platform
 import logging
 
+if sys.platform == "win32":
+    try:
+        if hasattr(sys.stdout, "reconfigure"):
+            sys.stdout.reconfigure(encoding="utf-8")
+        if hasattr(sys.stderr, "reconfigure"):
+            sys.stderr.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
+
 logger = logging.getLogger("nova.gpu")
 
 
@@ -72,69 +81,56 @@ def gpu_hazirla() -> str:
     """
     sistemios = platform.system()   # "Linux" veya "Windows"
 
-    # ── 1. ROCm (Linux) ───────────────────────────────────────────────────────
-    if sistemios == "Linux":
-        try:
-            import torch
+    # ── 1. CUDA / ROCm (Linux / Windows NVIDIA veya ROCm) ──────────────────────
+    try:
+        import torch
+        if torch.cuda.is_available():
+            gpu_adi    = torch.cuda.get_device_name(0)
+            gpu_bellek = torch.cuda.get_device_properties(0).total_memory // (1024**2)
 
-            # RX 6500 XT = gfx1035 — ROCm resmi olarak desteklemez ama
-            # bu override ile çalıştırır (RDNA 2 mimarisi uyumlu)
-            
-
-            # ROCm'da PyTorch CUDA API'sini yeniden kullanır
-            if torch.cuda.is_available():
-                gpu_adi    = torch.cuda.get_device_name(0)
-                gpu_bellek = torch.cuda.get_device_properties(0).total_memory // (1024**2)
-
-                # Mixed precision için TF32 etkinleştir
+            if hasattr(torch.backends, "cuda") and hasattr(torch.backends.cuda, "matmul"):
                 torch.backends.cuda.matmul.allow_tf32 = True
-                torch.backends.cudnn.allow_tf32       = True
+            if hasattr(torch.backends, "cudnn"):
+                torch.backends.cudnn.allow_tf32 = True
 
-                # 6500 XT 4GB VRAM — bellek verimli dikkat
-                os.environ["PYTORCH_CUDA_ALLOC_CONF"] = (
-                    "max_split_size_mb:512,"
-                    "garbage_collection_threshold:0.8"
-                )
+            os.environ["PYTORCH_CUDA_ALLOC_CONF"] = (
+                "max_split_size_mb:512,"
+                "garbage_collection_threshold:0.8"
+            )
 
-                logger.info(
-                    f"[GPU] 🔥 ROCm/AMD GPU etkin: {gpu_adi} "
-                    f"| VRAM: {gpu_bellek} MB"
-                )
-                return "cuda"
+            logger.info(
+                f"[GPU] 🔥 CUDA/ROCm etkin: {gpu_adi} | VRAM: {gpu_bellek} MB"
+            )
+            return "cuda"
+    except Exception as e:
+        logger.debug(f"[GPU] CUDA/ROCm kontrol hatası: {e}")
 
-        except Exception as e:
-            logger.debug(f"[GPU] ROCm denenemedi: {e}")
-
-    # ── 2. DirectML (Windows) ─────────────────────────────────────────────────
-    if sistemios == "Windows" and _directml_kurulu_mu():
+    # ── 2. DirectML (Windows - AMD / Intel / NVIDIA) ─────────────────────────
+    if _directml_kurulu_mu():
         try:
             import torch_directml
-
-            cihaz = torch_directml.device()   # AMD/Intel/NVIDIA hepsini destekler
+            cihaz = torch_directml.device()
+            dev_name = torch_directml.device_name(0)
             logger.info(
-                f"[GPU] ⚡ DirectML etkin — Windows AMD GPU modu | "
-                f"Cihaz: {torch_directml.device_name(0)}"
+                f"[GPU] ⚡ DirectML etkin — Windows GPU modu | Cihaz: {dev_name}"
             )
-            return "privateuseone"   # DirectML'nin PyTorch cihaz adı
-
+            return "privateuseone"
         except Exception as e:
-            logger.warning(f"[GPU] DirectML başarısız: {e}")
+            logger.warning(f"[GPU] DirectML başlatma başarısız: {e}")
 
     # ── 3. CPU Fallback (Ryzen 5600X optimize) ────────────────────────────────
     try:
         import torch
         torch.set_num_threads(12)
-        torch.set_num_interop_threads(4)   # Operasyonlar arası paralellik
+        torch.set_num_interop_threads(4)
 
-        # AVX2 / AVX-512 — Zen 3 destekler
         if hasattr(torch, "set_flush_denormal"):
-            torch.set_flush_denormal(True)   # Denormal sayıları temizle (hız)
+            torch.set_flush_denormal(True)
 
         logger.info(
             "[GPU] 💻 CPU modu — Ryzen 5600X (12 thread, AVX2) | "
             "GPU bulunamadı veya sürücü eksik"
         )
-
     except Exception:
         pass
 

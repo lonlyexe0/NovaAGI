@@ -15,6 +15,9 @@
 #   • Thread-safe queue ile Nova motoru ile iletişim
 # ═══════════════════════════════════════════════════════════════════════════════
 
+import os
+import sys
+import re
 import queue
 import threading
 import time
@@ -109,6 +112,15 @@ class NovaGUI:
         # Uygulama ikonu (emoji fallback)
         try:
             self.root.iconbitmap("nova_icon.ico")
+        except Exception:
+            pass
+
+        # Pencereyi doğrudan öne getir
+        try:
+            self.root.lift()
+            self.root.attributes("-topmost", True)
+            self.root.after_idle(self.root.attributes, "-topmost", False)
+            self.root.focus_force()
         except Exception:
             pass
 
@@ -747,12 +759,35 @@ class NovaGUI:
             if arg:
                 return f"RAG: {self.hafiza.rag_sorgula(arg, k=2)[:400]}"
             return "Kullanım: !rag <sorgu>"
+        elif cmd == "hf":
+            from hf_auth import hf_durum_metni, hf_token_kaydet_ve_giris, hf_token_sil
+            if not arg:
+                return hf_durum_metni()
+            elif arg.lower() in ("sil", "cikis", "çıkış", "logout"):
+                hf_token_sil()
+                return "Hugging Face token'ı silindi. Anonim moda geçildi."
+            else:
+                ok, msg = hf_token_kaydet_ve_giris(arg)
+                return msg
+        elif cmd in ("lang", "dil"):
+            from config_manager import get_language, set_language
+            if not arg:
+                l = get_language() or "en"
+                return f"🌐 Active language / Aktif dil: {'English (en)' if l=='en' else 'Türkçe (tr)'}"
+            elif arg.lower() in ("en", "eng", "english", "1"):
+                set_language("en")
+                return "✓ Switched to English mode. (Wikipedia: 20231101.en)"
+            elif arg.lower() in ("tr", "tur", "turkish", "türkçe", "2"):
+                set_language("tr")
+                return "✓ Türkçe moduna geçildi. (Wikipedia: 20231101.tr)"
+            else:
+                return "Usage: !lang en  or  !lang tr"
         elif cmd == "yardim":
             return (
                 "📖 Komutlar:\n"
                 "  !istatistik  !anilar [N]  !tara <url>\n"
                 "  !yetenekler  !kaydet      !gorevler\n"
-                "  !rag <sorgu> !cikis"
+                "  !hf [token]  !lang [en|tr] !rag <sorgu> !cikis"
             )
         else:
             return f"Bilinmeyen komut: !{cmd}. !yardim deneyin."
@@ -847,9 +882,12 @@ class NovaGUI:
             pass
 
     def _vram_guncelle(self):
-        """GPU VRAM çubuğunu güncelle."""
+        """GPU VRAM ve cihaz durumunu güncelle (CUDA + DirectML + CPU)."""
         try:
             import torch
+            dev = getattr(self.beyin, "device", None)
+            dev_type = getattr(dev, "type", str(dev)) if dev else ""
+
             if torch.cuda.is_available():
                 toplam    = torch.cuda.get_device_properties(0).total_memory // (1024**2)
                 kullanilan = torch.cuda.memory_allocated(0) // (1024**2)
@@ -859,9 +897,22 @@ class NovaGUI:
                     text=f"{kullanilan} / {toplam} MB  ({yuzde:.1f}%)"
                 )
                 renk = Palet.DURUM_GPU if yuzde < 80 else Palet.TEMIZLE_DUGME
+                gpu_name = torch.cuda.get_device_name(0)
                 self._gpu_etiket.configure(
-                    text=f"🔥 AMD RX 6500 XT  {kullanilan}/{toplam} MB",
+                    text=f"🔥 {gpu_name}  {kullanilan}/{toplam} MB",
                     fg=renk
+                )
+            elif dev_type in ("privateuseone", "directml") or "privateuseone" in str(dev).lower():
+                try:
+                    import torch_directml
+                    gpu_name = torch_directml.device_name(0)
+                except Exception:
+                    gpu_name = "AMD DirectML GPU"
+                self._vram_cubuk["value"] = 100
+                self._vram_etiket.configure(text="DirectML (4096 MB RX 6500 XT)")
+                self._gpu_etiket.configure(
+                    text=f"⚡ {gpu_name.strip()} (DirectML)",
+                    fg=Palet.DURUM_GPU
                 )
             else:
                 self._vram_cubuk["value"] = 0

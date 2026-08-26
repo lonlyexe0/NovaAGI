@@ -5,6 +5,9 @@
 
 # NOVA — Otonom Öğrenen AGI Prototipi
 
+> [!IMPORTANT]
+> ⚠️ **Not:** Ben EXE yapmayı beceremedim, istediğiniz gibi deneyebilir ve geliştirebilirsiniz!
+
 ```
 ███╗   ██╗ ██████╗ ██╗   ██╗ █████╗
 ████╗  ██║██╔═══██╗██║   ██║██╔══██╗

@@ -23,6 +23,13 @@ venv/
 env/
 nova_env/
 
+# Build & Packaging
+build/
+dist/
+dist_installer/
+*.spec
+.nova_config.json
+
 # IDE & OS
 .vscode/
 .idea/

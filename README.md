@@ -5,6 +5,9 @@
 
 # NOVA — Autonomous Learning AGI Prototype
 
+> [!IMPORTANT]
+> ⚠️ **Note:** I couldn't manage to build the standalone EXE properly; feel free to experiment and try it yourself however you like!
+
 ```
 ███╗   ██╗ ██████╗ ██╗   ██╗ █████╗
 ████╗  ██║██╔═══██╗██║   ██║██╔══██╗
