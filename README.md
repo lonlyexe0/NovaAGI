@@ -9,7 +9,7 @@
 ███╗   ██╗ ██████╗ ██╗   ██╗ █████╗
 ████╗  ██║██╔═══██╗██║   ██║██╔══██╗
 ██╔██╗ ██║██║   ██║██║   ██║███████║
-██║╚██╗██║██║   ██║╚██╗ ██╔╝██╔══██║
+██║╚██╗██║██║   ██║╚██╗ ██╔╝██╔══██╗
 ██║ ╚████║╚██████╔╝ ╚████╔╝ ██║  ██║
 ╚═╝  ╚═══╝ ╚═════╝   ╚═══╝  ╚═╝  ╚═╝
 ```
@@ -225,6 +225,12 @@ python main.py         # Full system test
 - [ ] REST API interface (FastAPI)
 - [ ] Visual memory (image embedding)
 - [ ] Multi-agent communication
+
+---
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ---
 

@@ -228,4 +228,10 @@ python main.py         # Tam sistem
 
 ---
 
+## Lisans
+
+Bu proje MIT Lisansı ile lisanslanmıştır - detaylar için [LICENSE](LICENSE) dosyasına bakabilirsiniz.
+
+---
+
 *Nova, her konuşmayla, her web sayfasıyla, her yazdığı kodla büyümeye devam eder.*
