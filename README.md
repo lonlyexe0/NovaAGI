@@ -1,4 +1,9 @@
-# NOVA  —  Otonom Öğrenen AGI Prototipi
+<div align="right">
+  <strong>Languages:</strong> 
+  <b>English</b> | <a href="README.tr.md">Türkçe</a>
+</div>
+
+# NOVA — Autonomous Learning AGI Prototype
 
 ```
 ███╗   ██╗ ██████╗ ██╗   ██╗ █████╗
@@ -9,106 +14,105 @@
 ╚═╝  ╚═══╝ ╚═════╝   ╚═══╝  ╚═╝  ╚═╝
 ```
 
-## Proje Vizyonu
+## Project Vision
 
-Nova sadece bir chatbot değildir. İki ana bileşenden oluşan **yaşayan bir organizmadır**:
+Nova is not just a chatbot. It is a **living organism** composed of two core components:
 
-1. **Üretken Beyin** — PyTorch Mini-GPT Transformer (~15M parametre)
-2. **Otonom Beden** — Web Crawler + Self-Coding + Hot-Reload Yetenek Sistemi
+1. **Generative Brain** — PyTorch Mini-GPT Transformer (~15M parameters)
+2. **Autonomous Body** — Web Crawler + Self-Coding + Hot-Reload Skill System
 
 ---
 
-## Mimari
+## Architecture
 
 ```
 nova/
-├── main.py          ← Bilinç Döngüsü (2 Thread orkestratörü)
-├── brain.py         ← Mini-GPT Transformer + Sürekli Eğitim
-├── memory.py        ← SQLite3 Hafıza + RAG Altyapısı
-├── body.py          ← Crawler + Self-Coding + Araç Motoru
-├── yetenekler.py    ← Hot-reload ile büyüyen yetenek havuzu
+├── main.py          ← Consciousness Loop (2 Thread Orchestrator)
+├── brain.py         ← Mini-GPT Transformer + Continuous Training
+├── memory.py        ← SQLite3 Memory + RAG Infrastructure
+├── body.py          ← Crawler + Self-Coding + Tool Engine
+├── yetenekler.py    ← Dynamic Hot-reload Skill Pool
 ├── requirements.txt
 └── README.md
 ```
 
-### Otomatik Oluşturulan Dosyalar
+### Auto-Generated Files
 ```
-nova.db              ← SQLite veritabanı
-nova_weights.pth     ← Model checkpoint (otomatik kaydedilir)
-nova_vocab.json      ← Karakter sözlüğü (dinamik büyür)
-nova.log             ← Sistem logları
+nova.db              ← SQLite database
+nova_weights.pth     ← Model checkpoint (auto-saved)
+nova_vocab.json      ← Character vocabulary (dynamically expands)
+nova.log             ← System logs
 ```
 
 ---
 
-## Kurulum
+## Installation
 
 ```bash
-# 1. Sanal ortam oluştur (önerilir)
+# 1. Create virtual environment (recommended)
 python -m venv nova_env
 source nova_env/bin/activate        # Linux/macOS
 # nova_env\Scripts\activate         # Windows
 
-# 2. Bağımlılıkları yükle
+# 2. Install dependencies
 pip install -r requirements.txt
 
-# 3. CUDA ile PyTorch (GPU varsa):
+# 3. PyTorch with CUDA (if GPU available):
 # pip install torch --index-url https://download.pytorch.org/whl/cu118
 ```
 
 ---
 
-## Çalıştırma
+## Running
 
 ```bash
-# Terminal başlatma
+# Terminal startup
 python main.py
 
-# Debug modu (ayrıntılı loglar)
-python main.py --debug
-
-# Web taraması olmadan (sadece konuşma + eğitim)
-python main.py --no-crawl
-
-# Özel veritabanı
-python main.py --db /path/to/nova.db
-
-# Arayüzlü Başlatma
+# GUI Launcher startup
 python nova_launcher.py
 
-# Sorunsuz Başlatma
+# Python 3.10 Launcher startup
 py -3.10 nova_launcher.py
 
+# Debug mode (detailed logs)
+python main.py --debug
+
+# Without web crawling (chat + training only)
+python main.py --no-crawl
+
+# Custom database path
+python main.py --db /path/to/nova.db
 ```
 
 ---
 
-## Model Mimarisi
+## Model Architecture
 
-| Parametre | Değer |
+| Parameter | Value |
 |-----------|-------|
-| Mimari | Decoder-only Causal Transformer (GPT tarzı) |
-| Toplam parametre | ~15 Milyon |
-| Gömme boyutu | 384 |
-| Dikkat kafası | 6 |
-| Transformer katmanı | 6 |
-| Feed-forward boyutu | 1536 |
-| Bağlam penceresi | 256 token |
-| Tokenizasyon | Karakter düzeyinde (dinamik vocab) |
-| Örnekleme | Top-k (k=50) + Nucleus Top-p (p=0.92) + Tekrar Cezası |
+| Architecture | Decoder-only Causal Transformer (GPT-style) |
+| Total Parameters | ~15 Million |
+| Embedding Size | 384 |
+| Attention Heads | 6 |
+| Transformer Layers | 6 |
+| Feed-forward Size | 1536 |
+| Context Window | 256 tokens |
+| Tokenization | Character-level (dynamic vocabulary) |
+| Sampling | Top-k (k=50) + Nucleus Top-p (p=0.92) + Repetition Penalty |
 
-### Özel Özellikler
-- **Pre-Norm**: LayerNorm sublayer öncesinde → daha stabil eğitim
-- **Weight Tying**: Embedding ↔ Output katmanı paylaşımı → az parametre, iyi genelleme
-- **Label Smoothing**: 0.05 → overfitting önleme
-- **AdamW + CosineAnnealingWarmRestarts**: LR yerel minimumdan kaçar
+### Key Features
+- **Pre-Norm**: LayerNorm prior to sublayers → stable training
+- **Weight Tying**: Shared Embedding ↔ Output Layer → parameter efficiency & generalization
+- **Label Smoothing**: 0.05 → prevents overfitting
+- **AdamW + CosineAnnealingWarmRestarts**: Learning rate escapes local minima
 
 ---
 
-## Veritabanı Şeması
+## Database Schema
 
 ```sql
--- Epizodik hafıza
+-- Episodic Memory
 CREATE TABLE anilar (
     id          INTEGER PRIMARY KEY AUTOINCREMENT,
     rol         TEXT NOT NULL CHECK(rol IN ('kullanici','nova','sistem')),
@@ -117,17 +121,17 @@ CREATE TABLE anilar (
     onem_skoru  REAL DEFAULT 0.5
 );
 
--- Semantik hafıza (internetten öğrenilen)
+-- Semantic Memory (learned from internet)
 CREATE TABLE bilgi_agaci (
     id          INTEGER PRIMARY KEY AUTOINCREMENT,
     kaynak_url  TEXT,
     konu        TEXT,
     icerik      TEXT NOT NULL,
-    islendi     INTEGER DEFAULT 0,   -- 0=ham, 1=eğitimde kullanıldı
+    islendi     INTEGER DEFAULT 0,   -- 0=raw, 1=used in training
     zaman       TEXT DEFAULT (datetime('now','localtime'))
 );
 
--- Görev kuyruğu
+-- Task Queue
 CREATE TABLE gorevler (
     id          INTEGER PRIMARY KEY AUTOINCREMENT,
     tanim       TEXT NOT NULL,
@@ -140,88 +144,88 @@ CREATE TABLE gorevler (
 
 ---
 
-## Komut Rehberi
+## Command Reference
 
-| Komut | Açıklama |
-|-------|----------|
-| `!yardim` | Tüm komutları listele |
-| `!istatistik` | DB, model ve eğitim durumu |
-| `!tara <url>` | URL'yi tara ve öğren |
-| `!yetenekler` | Mevcut yetenekleri listele |
-| `!cagir hesapla(2**10)` | Yetenek çağır |
-| `!kod isim\|def isim():...` | Yeni yetenek yaz & yükle |
-| `!gorev TARA: <url>` | Görevi kuyruğa ekle |
-| `!anilar 10` | Son 10 anıyı göster |
-| `!rag <sorgu>` | Hafızadan bağlam sorgula |
-| `!komut ls -la` | Shell komutu çalıştır |
-| `!kaydet` | Model checkpoint'i zorla kaydet |
-| `!cikis` | Güvenli kapanış |
+| Command | Description |
+|---------|-------------|
+| `!yardim` | List all commands |
+| `!istatistik` | Display DB, model, and training status |
+| `!tara <url>` | Crawl URL and learn |
+| `!yetenekler` | List available skills |
+| `!cagir calculate(2**10)` | Execute a skill |
+| `!kod name\|def name():...` | Write & load a new skill |
+| `!gorev TARA: <url>` | Add a task to queue |
+| `!anilar 10` | Show last 10 memory entries |
+| `!rag <query>` | Query context from memory |
+| `!komut ls -la` | Execute shell command |
+| `!kaydet` | Force model checkpoint save |
+| `!cikis` | Safe shutdown |
 
 ---
 
-## Self-Coding Örneği
+## Self-Coding Example
 
-Nova terminalde:
+Nova terminal interaction:
 ```
-Sen » !kod hava_durumu|def hava_durumu(sehir: str) -> str:
+You » !kod weather|def weather(city: str) -> str:
     import requests
-    r = requests.get(f"https://wttr.in/{sehir}?format=3")
-    return r.text if r.ok else "Alınamadı"
+    r = requests.get(f"https://wttr.in/{city}?format=3")
+    return r.text if r.ok else "Failed"
 
-Nova » ✓ 'hava_durumu' yeteneği sisteme eklendi.
+Nova » ✓ Skill 'weather' added to the system.
 
-Sen » !cagir hava_durumu(Istanbul)
+You » !cagir weather(Istanbul)
 Nova » Istanbul: ⛅️  +18°C
 ```
 
 ---
 
-## Sürekli Öğrenme Döngüsü
+## Continuous Learning Loop
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│  Thread 1 (Bilinçaltı, 90s aralıkla)                        │
+│  Thread 1 (Subconscious, 90s interval)                     │
 │                                                             │
-│  Wikipedia/Web  ──►  bilgi_agaci  ──►  egitim_adimi()       │
+│  Wikipedia/Web  ──►  knowledge_tree  ──►  train_step()      │
 │                           ↑                                 │
-│  Görev Kuyruğu  ──►  gorevi_coz()                           │
+│  Task Queue     ──►  solve_task()                           │
 └─────────────────────────────────────────────────────────────┘
-           ↕ (paylaşılan SQLite WAL modunda)
+           ↕ (shared SQLite WAL mode)
 ┌─────────────────────────────────────────────────────────────┐
-│  Thread 2 (Bilinç, terminal REPL)                           │
+│  Thread 2 (Consciousness, terminal REPL)                    │
 │                                                             │
-│  Kullanıcı  ──►  RAG  ──►  brain.uret()  ──►  Cevap        │
-│                                    │                        │
-│                          [EYLEM:...]  ──►  body.gorevi_coz  │
+│  User  ──►  RAG  ──►  brain.generate()  ──►  Response       │
+│                                │                            │
+│                      [ACTION:...]  ──►  body.solve_task     │
 └─────────────────────────────────────────────────────────────┘
 
-  Thread 3 (Daemon, brain.surekli_egitim_baslat())
-  ─ Her 15 saniyede bir eğitilmemiş verileri çek ve eğit
+  Thread 3 (Daemon, brain.start_continuous_training())
+  ─ Fetch untrained data every 15 seconds and train
 ```
 
 ---
 
-## Modül Test Komutları
+## Module Test Commands
 
 ```bash
-# Her modülü ayrı ayrı test et
+# Test each module individually
 python memory.py       # SQLite + RAG test
-python brain.py        # Model + eğitim test (5 adım)
+python brain.py        # Model + training test (5 steps)
 python body.py         # Crawler + self-coding test
-python main.py         # Tam sistem
+python main.py         # Full system test
 ```
 
 ---
 
-## Geliştirme Yol Haritası
+## Development Roadmap
 
-- [ ] Embedding tabanlı vektör RAG (FAISS)
-- [ ] Çok GPU desteği (DataParallel)
-- [ ] LoRA fine-tuning adaptörü
-- [ ] REST API arayüzü (FastAPI)
-- [ ] Görsel hafıza (image embedding)
-- [ ] Çoklu ajan iletişimi
+- [ ] Embedding-based vector RAG (FAISS)
+- [ ] Multi-GPU support (DataParallel)
+- [ ] LoRA fine-tuning adapter
+- [ ] REST API interface (FastAPI)
+- [ ] Visual memory (image embedding)
+- [ ] Multi-agent communication
 
 ---
 
-*Nova, her konuşmayla, her web sayfasıyla, her yazdığı kodla büyümeye devam eder.*
+*Nova continues to grow with every conversation, every webpage, and every line of code it writes.*
