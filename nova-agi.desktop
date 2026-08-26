@@ -1,0 +1,26 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Nova AGI
+GenericName=Yapay Genel Zeka Asistanı
+Comment=Nova AGI - Otonom Öğrenen ve Büyüyen Yapay Zeka Sistemi
+Exec=/home/lonly/Desktop/AGi/run_nova.sh
+Icon=/home/lonly/Desktop/AGi/nova_icon.svg
+Path=/home/lonly/Desktop/AGi
+Terminal=true
+Categories=Development;Science;ArtificialIntelligence;Utility;
+Keywords=AI;AGI;Nova;GPT;MachineLearning;NeuralNetwork;
+StartupNotify=true
+Actions=GUI;Terminal;Both;
+
+[Desktop Action GUI]
+Name=Nova AGI (Grafik Arayüz)
+Exec=/home/lonly/Desktop/AGi/run_nova.sh --gui
+
+[Desktop Action Terminal]
+Name=Nova AGI (Terminal Modu)
+Exec=/home/lonly/Desktop/AGi/run_nova.sh --term
+
+[Desktop Action Both]
+Name=Nova AGI (GUI + Terminal Modu)
+Exec=/home/lonly/Desktop/AGi/run_nova.sh --both
