@@ -46,7 +46,23 @@ nova.log             ← System logs
 
 ---
 
-## Installation
+## ⚡ Quick Start (Recommended One-Command Setup)
+
+> [!IMPORTANT]
+> **The fastest and recommended way to install, configure, and run Nova AGI on Linux:**
+> ```bash
+> chmod +x install.sh
+> ./install.sh
+> ```
+> **What `install.sh` does:**
+> 1. Detects and installs system packages (`tk`, `espeak-ng`, `python-pip`, etc.)
+> 2. Installs all required Python dependencies.
+> 3. **Registers Nova AGI as a Desktop Application** (creates Desktop shortcut and Application Launcher icon).
+> 4. Launches Nova AGI immediately.
+
+---
+
+## Manual Installation
 
 ```bash
 # 1. Create virtual environment (recommended)
@@ -63,17 +79,19 @@ pip install -r requirements.txt
 
 ---
 
-## Running
+## Running Options
 
 ```bash
-# Terminal startup
-python main.py
+# 🚀 One-Click / Script Launch (Recommended)
+./install.sh
+# or
+./run_nova.sh
 
 # GUI Launcher startup
 python nova_launcher.py
 
-# Python 3.10 Launcher startup
-py -3.10 nova_launcher.py
+# Terminal REPL startup
+python main.py
 
 # Debug mode (detailed logs)
 python main.py --debug

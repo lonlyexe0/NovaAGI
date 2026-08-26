@@ -46,7 +46,23 @@ nova.log             ← Sistem logları
 
 ---
 
-## Kurulum
+## ⚡ Hızlı Başlangıç (Önerilen Tek Komutla Kurulum)
+
+> [!IMPORTANT]
+> **Linux kullanıcıları için tek komutla tüm sistemi kurup başlatmanın en kolay yolu:**
+> ```bash
+> chmod +x install.sh
+> ./install.sh
+> ```
+> **`install.sh` scripti neler yapar?**
+> 1. Sistem paketlerini (`tk`, `espeak-ng`, `python-pip` vb.) otomatik tespit edip kurar.
+> 2. Tüm Python bağımlılıklarını eksiksiz yükler.
+> 3. **Nova AGI'yi masaüstü uygulaması olarak kaydeder** (Masaüstü kısayolu & Başlat menüsü ikonu ekler).
+> 4. Nova'yı doğrudan başlatır.
+
+---
+
+## Manuel Kurulum
 
 ```bash
 # 1. Sanal ortam oluştur (önerilir)
@@ -63,17 +79,19 @@ pip install -r requirements.txt
 
 ---
 
-## Çalıştırma
+## Çalıştırma Alternatifleri
 
 ```bash
-# Terminal başlatma
-python main.py
+# 🚀 Tek Tıkla / Script ile Başlatma (Önerilen)
+./install.sh
+# veya
+./run_nova.sh
 
-# Arayüzlü Başlatma
+# Arayüzlü Başlatıcı (GUI Launcher)
 python nova_launcher.py
 
-# Sorunsuz Başlatma
-py -3.10 nova_launcher.py
+# Terminal REPL Başlatma
+python main.py
 
 # Debug modu (ayrıntılı loglar)
 python main.py --debug
@@ -81,7 +99,7 @@ python main.py --debug
 # Web taraması olmadan (sadece konuşma + eğitim)
 python main.py --no-crawl
 
-# Özel veritabanı
+# Özel veritabanı yolu
 python main.py --db /path/to/nova.db
 ```
 
