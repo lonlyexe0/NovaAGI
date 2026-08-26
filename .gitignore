@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Databases and runtime data
+*.db
+*.db-shm
+*.db-wal
+*.log
+
+# Models & Weights
+*.pth
+*.pt
+*.bin
+*.safetensors
+*.onnx
+
+# Environments
+.venv/
+venv/
+env/
+nova_env/
+
+# IDE & OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
