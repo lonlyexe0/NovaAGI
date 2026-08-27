@@ -18,9 +18,11 @@ nova.db
 nova.db-journal
 nova.db-wal
 nova.db-shm
+*.pth
 *.pth.tmp
 *.tmp
 .perm_test
+
 
 # Local logs & caches
 logs/

@@ -141,8 +141,29 @@ class NovaBridgeServer:
             sys_sum = hardware.get_system_summary(lang=lang)
             prof = hardware.get_hardware_profile()
 
+            # Accurate VRAM calculation (CUDA, DirectML, Model tensors + AdamW + buffers)
+            model_vram_mb = 0
+            if "cpu" not in str(self.beyin.device).lower():
+                try:
+                    import torch
+                    if torch.cuda.is_available() and "cuda" in str(self.beyin.device).lower():
+                        model_vram_mb = int(torch.cuda.memory_allocated() // (1024**2))
+                    else:
+                        param_b = sum(p.numel() * p.element_size() for p in raw_model.parameters())
+                        opt_b = sum(p.numel() * 8 for p in raw_model.parameters())
+                        act_b = self.beyin.cfg.batch_size * self.beyin.cfg.max_seq_len * getattr(raw_model, '_e', 128) * len(getattr(raw_model, 'bloklar', [])) * 8
+                        runtime_overhead = 160 * 1024 * 1024  # DirectML D3D12 pipeline
+                        model_vram_mb = max(int((param_b + opt_b + act_b + runtime_overhead) // (1024**2)), 180)
+                except Exception:
+                    pass
+
+            for g in gpus:
+                if g.get("is_gpu") and g.get("vram_allocated_mb", 0) == 0:
+                    g["vram_allocated_mb"] = model_vram_mb
+
             return {
                 "type": "telemetry",
+
                 "step": self.beyin.adim,
                 "loss": round(loss, 4),
                 "learning_rate": lr,

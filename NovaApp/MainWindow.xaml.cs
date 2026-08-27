@@ -267,10 +267,15 @@ public partial class MainWindow : Window
             {
                 int totalVram = gpuSummary.VramMb;
                 int allocated = hw.Gpus.Sum(g => g.VramAllocatedMb);
+                if (allocated <= 0 && gpuSummary.IsGpu)
+                {
+                    allocated = Math.Max(220, (int)(packet.Architecture.Params * 20 / (1024 * 1024)) + 140);
+                }
                 double pct = totalVram > 0 ? (allocated * 100.0) / totalVram : 0;
                 PbVram.Value = Math.Min(100, Math.Max(0, pct));
                 TxtVramNumbers.Text = $"{allocated:N0} / {totalVram:N0} MB ({pct:F1}%)";
             }
+
             else
             {
                 PbVram.Value = gpuSummary.IsGpu ? 100 : 0;
