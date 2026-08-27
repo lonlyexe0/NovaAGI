@@ -62,6 +62,11 @@ public partial class SettingsWindow : Window
             else if (cInt <= 25) CmbCuriosityInterval.SelectedIndex = 1;
             else if (cInt <= 50) CmbCuriosityInterval.SelectedIndex = 2;
             else CmbCuriosityInterval.SelectedIndex = 3;
+
+            // Web Server & Mobile
+            ChkWebServer.IsChecked = _settings.WebServerEnabled;
+            TxtWebPort.Text = _settings.WebServerPort > 0 ? _settings.WebServerPort.ToString() : "8080";
+            UpdateWebConnectionUrl();
         }
         catch (Exception ex)
         {
@@ -73,7 +78,7 @@ public partial class SettingsWindow : Window
     private void TabButton_Checked(object sender, RoutedEventArgs e)
     {
         if (PanelGeneral == null || PanelHardware == null || PanelNeural == null || 
-            PanelData == null || PanelAppearance == null || PanelExport == null)
+            PanelData == null || PanelWeb == null || PanelAppearance == null || PanelExport == null)
             return;
 
         // Hide all panels
@@ -81,6 +86,7 @@ public partial class SettingsWindow : Window
         PanelHardware.Visibility = Visibility.Collapsed;
         PanelNeural.Visibility = Visibility.Collapsed;
         PanelData.Visibility = Visibility.Collapsed;
+        PanelWeb.Visibility = Visibility.Collapsed;
         PanelExport.Visibility = Visibility.Collapsed;
         PanelAppearance.Visibility = Visibility.Collapsed;
 
@@ -101,6 +107,11 @@ public partial class SettingsWindow : Window
         {
             PanelData.Visibility = Visibility.Visible;
         }
+        else if (sender == TabBtnWeb)
+        {
+            PanelWeb.Visibility = Visibility.Visible;
+            UpdateWebConnectionUrl();
+        }
         else if (sender == TabBtnExport)
         {
             PanelExport.Visibility = Visibility.Visible;
@@ -110,6 +121,7 @@ public partial class SettingsWindow : Window
             PanelAppearance.Visibility = Visibility.Visible;
         }
     }
+
 
     private async void BtnExportOnnx_Click(object sender, RoutedEventArgs e)
     {
@@ -198,6 +210,13 @@ public partial class SettingsWindow : Window
                 _settings.CuriosityInterval = cInterval;
             }
 
+            // Web Server
+            _settings.WebServerEnabled = ChkWebServer.IsChecked ?? false;
+            if (int.TryParse(TxtWebPort.Text, out var wp))
+            {
+                _settings.WebServerPort = wp;
+            }
+
             await _backend.SaveSettingsAsync(_settings);
             DialogResult = true;
             Close();
@@ -205,6 +224,49 @@ public partial class SettingsWindow : Window
         catch (Exception ex)
         {
             MessageBox.Show($"Ayarlar kaydedilemedi: {ex.Message}", "Hata", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
+
+    private void UpdateWebConnectionUrl()
+    {
+        int port = int.TryParse(TxtWebPort.Text, out var p) ? p : 8080;
+        string ip = "127.0.0.1";
+        try
+        {
+            var host = System.Net.Dns.GetHostEntry(System.Net.Dns.GetHostName());
+            foreach (var a in host.AddressList)
+            {
+                if (a.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork && !System.Net.IPAddress.IsLoopback(a))
+                {
+                    ip = a.ToString();
+                    break;
+                }
+            }
+        }
+        catch { }
+
+        TxtWebConnectionUrl.Text = $"📍 Telefon Bağlantı Adresi: http://{ip}:{port}";
+    }
+
+    private void ChkWebServer_Changed(object sender, RoutedEventArgs e)
+    {
+        if (IsLoaded) UpdateWebConnectionUrl();
+    }
+
+    private void BtnOpenWebBrowser_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            int port = int.TryParse(TxtWebPort.Text, out var p) ? p : 8080;
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = $"http://localhost:{port}",
+                UseShellExecute = true
+            });
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show($"Tarayıcı açılamadı: {ex.Message}", "Hata", MessageBoxButton.OK, MessageBoxImage.Warning);
         }
     }
 
@@ -248,4 +310,5 @@ public partial class SettingsWindow : Window
         Close();
     }
 }
+
 

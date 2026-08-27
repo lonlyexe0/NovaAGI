@@ -191,6 +191,21 @@ public partial class MainWindow : Window
                 TxtParams.Text = "689,408 (0x)";
             }
 
+            // Web Server status
+            if (packet.WebServer != null && packet.WebServer.IsRunning)
+            {
+                TxtWebStatus.Text = $"{packet.WebServer.LocalIp}:{packet.WebServer.Port}";
+                TxtWebIcon.Text = "📱";
+                BtnWebStatus.ToolTip = $"Mobil Web Sunucusu Aktif!\nTelefondan: http://{packet.WebServer.LocalIp}:{packet.WebServer.Port}\nBilgisayardan: http://localhost:{packet.WebServer.Port}";
+            }
+            else
+            {
+                TxtWebStatus.Text = "Mobil Web";
+                TxtWebIcon.Text = "🌐";
+                BtnWebStatus.ToolTip = "Mobil Web Sunucusu (Ayarlardan açabilirsiniz)";
+            }
+
+
 
             // Loss history tracking for graph
             if (packet.Loss > 0 && !double.IsInfinity(packet.Loss))
@@ -448,7 +463,27 @@ public partial class MainWindow : Window
     }
 
 
+    private async void BtnWebStatus_Click(object sender, RoutedEventArgs e)
+    {
+        var settingsWin = new SettingsWindow(_backend)
+        {
+            Owner = this
+        };
+        settingsWin.TabBtnWeb.IsChecked = true;
+        if (settingsWin.ShowDialog() == true)
+        {
+            try
+            {
+                var cfg = await _backend.GetSettingsAsync();
+                ApplyLocalization(cfg.Language);
+                ApplyTheme(cfg.Theme);
+            }
+            catch { }
+        }
+    }
+
     private void BtnOpenGraph_Click(object sender, RoutedEventArgs e)
+
     {
         var graphWin = new MemoryGraphWindow(_backend)
         {
@@ -456,6 +491,7 @@ public partial class MainWindow : Window
         };
         graphWin.Show();
     }
+
 
     private void BtnVoiceOutput_Click(object sender, RoutedEventArgs e)
     {

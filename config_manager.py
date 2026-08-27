@@ -65,6 +65,20 @@ def _config_yaz(cfg: Dict[str, Any]) -> bool:
         return False
 
 
+def get_setting(key: str, default: Any = None) -> Any:
+    """Genel bir ayar değerini okur."""
+    cfg = _config_oku()
+    return cfg.get(key, default)
+
+
+def set_setting(key: str, val: Any) -> bool:
+    """Genel bir ayar değerini kaydeder."""
+    cfg = _config_oku()
+    cfg[key] = val
+    return _config_yaz(cfg)
+
+
+
 def get_language() -> Optional[str]:
     """Kayıtlı dili döner ('en' veya 'tr'), henüz ayarlanmamışsa None döner."""
     cfg = _config_oku()

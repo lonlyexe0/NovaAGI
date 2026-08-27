@@ -39,6 +39,7 @@ import hardware
 import config_manager
 import yetenekler
 import re
+from web_server import NovaWebServer, get_local_ip
 from memory import HafizaYoneticisi
 from brain import BeynYoneticisi
 from body import AjanBeden
@@ -67,6 +68,16 @@ class NovaBridgeServer:
         # Sürekli arka plan eğitimi başlat
         self._egitim_thread = self.beyin.surekli_egitim_baslat()
 
+        # Web & Mobil Sunucusu
+        try:
+            w_port = int(config_manager.get_setting("web_server_port", 8080))
+            self.web_sunucu = NovaWebServer(bridge_instance=self, port=w_port)
+            if config_manager.get_setting("web_server_enabled", False):
+                self.web_sunucu.start(port=w_port)
+        except Exception as e:
+            logger.warning(f"[Bridge] Web sunucusu başlatılamadı: {e}")
+            self.web_sunucu = None
+
         # Otonom Merak Motoru (Arka plan Wikipedia araştırmacısı)
         try:
             from hugging_loader import OtonomMerakMotoru
@@ -75,6 +86,7 @@ class NovaBridgeServer:
             self._merak_thread.start()
         except Exception:
             self.merak_motoru = None
+
 
     def _merak_dongusu(self):
         """Arka planda periyodik olarak özerk Wikipedia araştırması yapar."""
@@ -154,10 +166,17 @@ class NovaBridgeServer:
                     "gpu_summary": gpu_summary,
                     "ram": ram_info,
                     "system_summary": sys_sum,
+                },
+                "web_server": {
+                    "is_running": getattr(self.web_sunucu, "is_running", False) if self.web_sunucu else False,
+                    "port": getattr(self.web_sunucu, "port", 8080) if self.web_sunucu else 8080,
+                    "local_ip": get_local_ip(),
+                    "url": f"http://{get_local_ip()}:{getattr(self.web_sunucu, 'port', 8080)}" if self.web_sunucu else f"http://{get_local_ip()}:8080"
                 }
             }
         except Exception as e:
             return {"type": "telemetry_error", "message": str(e)}
+
 
     def _sohbet_uret(self, girdi: str) -> Dict[str, Any]:
         """Kullanıcı mesajını işler, araç niyetlerini kontrol eder ve yanıt üretir."""
@@ -361,8 +380,24 @@ class NovaBridgeServer:
                             from hf_auth import hf_token_kaydet_ve_giris
                             hf_token_kaydet_ve_giris(new_cfg["hf_token"])
                         except Exception: pass
+                    # Canlı Web Sunucusu Kontrolü
+                    if "web_server_enabled" in new_cfg or "web_server_port" in new_cfg:
+                        try:
+                            w_en = bool(new_cfg.get("web_server_enabled", False))
+                            w_pt = int(new_cfg.get("web_server_port", 8080))
+                            if self.web_sunucu:
+                                if w_en:
+                                    if not self.web_sunucu.is_running or self.web_sunucu.port != w_pt:
+                                        self.web_sunucu.stop()
+                                        self.web_sunucu.start(port=w_pt)
+                                else:
+                                    if self.web_sunucu.is_running:
+                                        self.web_sunucu.stop()
+                        except Exception as e:
+                            logger.error(f"[Bridge] Web sunucusu ayar hatası: {e}")
 
                     self._cevap_yaz({"type": "save_settings_reply", "id": req_id, "status": "ok", "settings": new_cfg})
+
                 elif action == "graph":
                     limit_ani = int(req.get("limit_ani", 100))
                     limit_bilgi = int(req.get("limit_bilgi", 250))
@@ -421,11 +456,17 @@ class NovaBridgeServer:
 
 
         # Güvenli kapat
+        try:
+            if hasattr(self, "web_sunucu") and self.web_sunucu:
+                self.web_sunucu.stop()
+        except Exception:
+            pass
 
         try:
             self.beyin.kaydet()
         except Exception:
             pass
+
 
 
 if __name__ == "__main__":

@@ -150,6 +150,24 @@ public class TelemetryPacket
 
     [JsonPropertyName("hardware")]
     public HardwareTelemetry Hardware { get; set; } = new();
+
+    [JsonPropertyName("web_server")]
+    public WebServerInfo WebServer { get; set; } = new();
+}
+
+public class WebServerInfo
+{
+    [JsonPropertyName("is_running")]
+    public bool IsRunning { get; set; }
+
+    [JsonPropertyName("port")]
+    public int Port { get; set; } = 8080;
+
+    [JsonPropertyName("local_ip")]
+    public string LocalIp { get; set; } = "127.0.0.1";
+
+    [JsonPropertyName("url")]
+    public string Url { get; set; } = "http://localhost:8080";
 }
 
 public class ChatMessage
@@ -200,9 +218,16 @@ public class NovaSettings
     [JsonPropertyName("curiosity_interval")]
     public int CuriosityInterval { get; set; } = 20;
 
+    [JsonPropertyName("web_server_enabled")]
+    public bool WebServerEnabled { get; set; } = false;
+
+    [JsonPropertyName("web_server_port")]
+    public int WebServerPort { get; set; } = 8080;
+
     [JsonPropertyName("theme")]
     public string Theme { get; set; } = "Dark";
 }
+
 
 
 public class GraphNode

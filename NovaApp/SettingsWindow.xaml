@@ -114,10 +114,12 @@
                     <RadioButton x:Name="TabBtnHardware" Content="⚡  Donanım &amp; Multi-GPU" Style="{StaticResource SettingsTabButton}" Checked="TabButton_Checked" />
                     <RadioButton x:Name="TabBtnNeural" Content="🧠  Sinir Ağı &amp; Model" Style="{StaticResource SettingsTabButton}" Checked="TabButton_Checked" />
                     <RadioButton x:Name="TabBtnData" Content="🔑  HuggingFace &amp; Veri" Style="{StaticResource SettingsTabButton}" Checked="TabButton_Checked" />
+                    <RadioButton x:Name="TabBtnWeb" Content="📱  Mobil &amp; Web Erişimi" Style="{StaticResource SettingsTabButton}" Checked="TabButton_Checked" />
                     <RadioButton x:Name="TabBtnExport" Content="📦  Dışa Aktar &amp; Yayınla" Style="{StaticResource SettingsTabButton}" Checked="TabButton_Checked" />
                     <RadioButton x:Name="TabBtnAppearance" Content="🎨  Görünüm &amp; Tema" Style="{StaticResource SettingsTabButton}" Checked="TabButton_Checked" />
                 </StackPanel>
             </Border>
+
 
             <!-- Right Content Panels Container -->
             <Border Grid.Column="1" Background="{StaticResource PanelBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="10" Margin="14,0,0,0" Padding="24">
@@ -228,10 +230,50 @@
                             <TextBox x:Name="TxtHfToken" Margin="0,0,0,14" />
                         </StackPanel>
 
+                        <!-- PANEL 5: MOBİL & WEB ERİŞİMİ -->
+                        <StackPanel x:Name="PanelWeb" Visibility="Collapsed">
+                            <TextBlock Text="Mobil &amp; Yerel Ağ Web Sunucusu" FontWeight="Bold" FontSize="16" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,0,0,6" />
+                            <TextBlock Text="Bilgisayarınızdaki Nova yapay zekasına telefon, tablet veya harici cihazlardan anında erişin." FontSize="12" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,18" />
 
-                        <!-- PANEL 5: DIŞA AKTAR & YAYINLA -->
+                            <!-- Web Server Toggle Card -->
+                            <Border Background="{StaticResource CardBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="8" Padding="14" Margin="0,0,0,14">
+                                <StackPanel>
+                                    <CheckBox x:Name="ChkWebServer" Content="🌐  Yerel Ağ ve Mobil Web Sunucusunu Aç" FontWeight="SemiBold" FontSize="13.5" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,0,0,8" Checked="ChkWebServer_Changed" Unchecked="ChkWebServer_Changed" />
+                                    <TextBlock Text="Aynı Wi-Fi ağına bağlı telefonunuzun tarayıcısından bilgisayarınızdaki yapay zekayla sohbet edin." FontSize="11.5" Foreground="{StaticResource TextSecondaryBrush}" Margin="24,0,0,12" />
+
+                                    <Grid Margin="24,0,0,0">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="120" />
+                                            <ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Grid.Column="0" Margin="0,0,12,0">
+                                            <TextBlock Text="Web Port:" FontSize="11.5" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,4" />
+                                            <TextBox x:Name="TxtWebPort" Text="8080" Height="34" />
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="1" VerticalAlignment="Bottom">
+                                            <Button x:Name="BtnOpenWebBrowser" Content="🔗 Bilgisayar Tarayıcısında Aç" Style="{StaticResource SecondaryButton}" Height="34" Padding="14,0" HorizontalAlignment="Left" Click="BtnOpenWebBrowser_Click" />
+                                        </StackPanel>
+                                    </Grid>
+                                </StackPanel>
+                            </Border>
+
+                            <!-- Connection Info Card -->
+                            <Border Background="{StaticResource CardBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="8" Padding="14" Margin="0,0,0,14">
+                                <StackPanel>
+                                    <TextBlock Text="📱 Telefonla Bağlanma Rehberi" FontWeight="SemiBold" FontSize="13" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,0,0,6" />
+                                    <TextBlock x:Name="TxtWebConnectionUrl" Text="📍 Telefon Bağlantı Adresi: http://127.0.0.1:8080" FontSize="12.5" FontWeight="SemiBold" Foreground="{StaticResource AccentCyanBrush}" Margin="0,0,0,8" />
+                                    
+                                    <TextBlock Text="1. Telefonunuzun bilgisayarınızla AYNI Wi-Fi ağına bağlı olduğundan emin olun." FontSize="11.5" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,4" />
+                                    <TextBlock Text="2. Telefonunuzun tarayıcısında (Safari / Chrome) yukarıdaki adresi açın." FontSize="11.5" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,4" />
+                                    <TextBlock Text="3. İpucu: Tarayıcı menüsünden 'Ana Ekrana Ekle' seçeneğine basarak Nova'yı tam ekran bağımsız bir mobil uygulama olarak kullanabilirsiniz!" FontSize="11.5" Foreground="{StaticResource TextSecondaryBrush}" />
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
+
+                        <!-- PANEL 6: DIŞA AKTAR & YAYINLA -->
                         <StackPanel x:Name="PanelExport" Visibility="Collapsed">
                             <TextBlock Text="Model Dışa Aktarma &amp; Yayınlama" FontWeight="Bold" FontSize="16" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,0,0,6" />
+
                             <TextBlock Text="Eğitilmiş sinir ağını endüstri standardı formatlara dönüştürün veya paylaşın." FontSize="12" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,18" />
 
                             <!-- ONNX Export Card -->

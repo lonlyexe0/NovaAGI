@@ -70,8 +70,17 @@
                         </StackPanel>
                     </Border>
 
+                    <!-- Web Server Mobile Access Button -->
+                    <Button x:Name="BtnWebStatus" Style="{StaticResource SecondaryButton}" Margin="0,0,8,0" ToolTip="Mobil &amp; Web Sunucusu (Telefonla Bağlanın)" Click="BtnWebStatus_Click">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock x:Name="TxtWebIcon" Text="🌐" Margin="0,0,5,0" />
+                            <TextBlock x:Name="TxtWebStatus" Text="Mobil Web" />
+                        </StackPanel>
+                    </Button>
+
                     <!-- Memory Graph Button -->
                     <Button x:Name="BtnOpenGraph" Style="{StaticResource SecondaryButton}" Margin="0,0,8,0" ToolTip="Hafıza ve Bilgi Haritası Grafiği" Click="BtnOpenGraph_Click">
+
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Text="🧠" Margin="0,0,5,0" />
                             <TextBlock x:Name="TxtBtnGraph" Text="Hafıza Grafiği" />
