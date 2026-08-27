@@ -653,20 +653,30 @@ class NovaHttpHandler(BaseHTTPRequestHandler):
             if NovaHttpHandler.server_bridge:
                 bridge = NovaHttpHandler.server_bridge
                 try:
-                    # Beden / Beyin üzerinden yanıt üret
-                    cevap, eylem = bridge.beden.karar_ver(message)
-                    bridge.hafiza.ani_kaydet("user", message)
-                    bridge.hafiza.ani_kaydet("nova", cevap)
-
+                    res = bridge._sohbet_uret(message)
+                    reply = res.get("reply", "")
+                    tool_used = res.get("tool_used", False)
+                    source = res.get("source")
+                    action_label = f"Kaynak: {source}" if source else ("Akıllı Araç" if tool_used else None)
                     self._send_json(200, {
-                        "reply": cevap,
-                        "action": eylemler_ozeti(eylem) if eylem else None,
+                        "reply": reply,
+                        "action": action_label,
                         "status": "ok"
                     })
                 except Exception as e:
                     self._send_json(500, {"error": str(e), "reply": f"Hata: {e}"})
             else:
-                self._send_json(200, {"reply": f"Echo: {message}", "status": "standalone"})
+                try:
+                    from memory import HafizaYoneticisi
+                    from brain import BeynYoneticisi
+                    from body import AjanBeden
+                    hafiza = HafizaYoneticisi()
+                    beyin = BeynYoneticisi(hafiza)
+                    beden = AjanBeden(hafiza, beyin)
+                    reply = beden.akilli_arac_isleyici(message) or beyin.uret(message, uzunluk=120)
+                    self._send_json(200, {"reply": reply, "status": "standalone"})
+                except Exception as e:
+                    self._send_json(200, {"reply": f"Echo: {message}", "status": "fallback"})
             return
 
         # 2. Wikipedia Madde İndir (/api/wiki)
@@ -683,13 +693,9 @@ class NovaHttpHandler(BaseHTTPRequestHandler):
             if NovaHttpHandler.server_bridge:
                 import yetenekler
                 try:
-                    info = yetenekler.wikipedia_ozet(topic)
-                    if info:
-                        NovaHttpHandler.server_bridge.hafiza.bilgi_kaydet(
-                            url=f"https://tr.wikipedia.org/wiki/{topic}",
-                            konu=topic,
-                            icerik=info
-                        )
+                    info = yetenekler.wiki_ara(topic)
+                    if info and "hata" not in info.lower():
+                        NovaHttpHandler.server_bridge.hafiza.bilgi_kaydet(topic, info)
                         self._send_json(200, {"success": True, "topic": topic, "summary": info[:200]})
                         return
                 except Exception as e:
@@ -697,6 +703,7 @@ class NovaHttpHandler(BaseHTTPRequestHandler):
                     return
             self._send_json(400, {"success": False, "message": "Konu bulunamadı"})
             return
+
 
         self.send_error(404, "Endpoint Bulunamadı")
 

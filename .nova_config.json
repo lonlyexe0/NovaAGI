@@ -10,5 +10,7 @@
   "curiosity_enabled": true,
   "curiosity_topics": "",
   "curiosity_interval": 10,
+  "web_server_enabled": true,
+  "web_server_port": 8080,
   "theme": "Dark"
 }

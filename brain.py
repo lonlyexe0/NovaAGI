@@ -769,42 +769,51 @@ class BeynYoneticisi:
 
         if len(bx) < 2: return 0.0
 
-        target_batch = self.cfg.batch_size * 2 if "cpu" not in str(self.device).lower() else self.cfg.batch_size
-        sel = random.sample(range(len(bx)), min(target_batch, len(bx)))
-        xt = torch.tensor([bx[i] for i in sel], dtype=torch.long, device=self.device)
-        yt = torch.tensor([by[i] for i in sel], dtype=torch.long, device=self.device)
+        try:
+            target_batch = min(self.cfg.batch_size, len(bx))
+            sel = random.sample(range(len(bx)), target_batch)
+            xt = torch.tensor([bx[i] for i in sel], dtype=torch.long, device=self.device)
+            yt = torch.tensor([by[i] for i in sel], dtype=torch.long, device=self.device)
 
-        with self._lock:
-            self.model.train()
-            self.optimizer.zero_grad(set_to_none=True)
-            if self.adim < self.cfg.warmup_steps:
-                for g in self.optimizer.param_groups:
-                    g["lr"] = self.cfg.lr * (self.adim+1) / self.cfg.warmup_steps
-            _, loss = self.model(xt, yt)
-            if loss is None or torch.isnan(loss): return 0.0
-            loss.backward()
-            nn.utils.clip_grad_norm_(self.model.parameters(), self.cfg.grad_clip)
-            self.optimizer.step()
-            self.scheduler.step()
-            self.adim += 1
-            lv = loss.item()
-            self._son_loss_toplami += lv
-            self._son_loss_sayisi  += 1
+            with self._lock:
+                self.model.train()
+                self.optimizer.zero_grad(set_to_none=True)
+                if self.adim < self.cfg.warmup_steps:
+                    for g in self.optimizer.param_groups:
+                        g["lr"] = self.cfg.lr * (self.adim+1) / self.cfg.warmup_steps
+                _, loss = self.model(xt, yt)
+                if loss is None or torch.isnan(loss): return 0.0
+                loss.backward()
+                nn.utils.clip_grad_norm_(self.model.parameters(), self.cfg.grad_clip)
+                self.optimizer.step()
+                self.scheduler.step()
+                self.adim += 1
+                lv = loss.item()
+                self._son_loss_toplami += lv
+                self._son_loss_sayisi  += 1
 
-            # Plato kontrolü → otomatik büyüme
-            if self.plato.guncelle(lv):
-                self.buyut()
+                # Plato kontrolü → otomatik büyüme
+                if self.plato.guncelle(lv):
+                    self.buyut()
 
-            if self.adim % self.cfg.save_every == 0:
-                ort = self._son_loss_toplami / max(self._son_loss_sayisi, 1)
-                lr  = self.optimizer.param_groups[0]["lr"]
-                raw = getattr(self, "raw_model", self.model)
-                logger.info(f"[Beyin] Adım {self.adim:>5} | Loss: {ort:.4f} | "
-                            f"LR: {lr:.2e} | {raw.mimari_ozet() if hasattr(raw, 'mimari_ozet') else ''}")
-                self._son_loss_toplami = 0.0
-                self._son_loss_sayisi  = 0
-                self.kaydet()
-            return lv
+                if self.adim % self.cfg.save_every == 0:
+                    ort = self._son_loss_toplami / max(self._son_loss_sayisi, 1)
+                    lr  = self.optimizer.param_groups[0]["lr"]
+                    raw = getattr(self, "raw_model", self.model)
+                    logger.info(f"[Beyin] Adım {self.adim:>5} | Loss: {ort:.4f} | "
+                                f"LR: {lr:.2e} | {raw.mimari_ozet() if hasattr(raw, 'mimari_ozet') else ''}")
+                    self._son_loss_toplami = 0.0
+                    self._son_loss_sayisi  = 0
+                    self.kaydet()
+                return lv
+        except RuntimeError as re_err:
+            if "memory" in str(re_err).lower() or "allocate" in str(re_err).lower():
+                self.cfg.batch_size = max(4, self.cfg.batch_size // 2)
+                import gc
+                gc.collect()
+                return 0.0
+            raise
+
 
 
     # ── Sürekli Eğitim ────────────────────────────────────────────────────────
