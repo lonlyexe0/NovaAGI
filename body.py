@@ -24,7 +24,9 @@ import requests
 from bs4 import BeautifulSoup
 
 import yetenekler
+import config_manager
 logger = logging.getLogger("nova.body")
+
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -882,6 +884,105 @@ class AjanBeden:
         except subprocess.TimeoutExpired: return f"⏱ Zaman aşımı ({zaman_asimi}s)"
         except Exception as e: return f"Hata: {e}"
 
+    # ══ AKILLI ARAÇ VE YETENEK YÖNETİCİSİ ═════════════════════════════════════
+    def akilli_arac_isleyici(self, prompt: str) -> Optional[str]:
+        """
+        Kullanıcı mesajındaki araç niyetlerini (hesaplama, arama, dosya okuma, kod çalıştırma)
+        otonom olarak algılar ve uygun yetenek fonksiyonunu çalıştırır.
+        """
+        p = prompt.strip()
+        pl = p.lower()
+        lang = config_manager.get_language() or "tr"
+
+        # 1. Doğrudan Komutlar
+        if pl.startswith("!hesapla ") or pl.startswith("!calc "):
+            ifade = p.split(" ", 1)[1]
+            return f"🧮 **Hesaplama Sonucu**: `{yetenekler.hesapla(ifade)}`"
+
+        if pl.startswith("!wiki ") or pl.startswith("!vikipedi "):
+            konu = p.split(" ", 1)[1]
+            res = yetenekler.wiki_ara(konu, lang=lang)
+            try:
+                self.hafiza.bilgi_kaydet(konu, res[:2000], lang)
+            except Exception: pass
+            return res
+
+        if pl.startswith("!ara ") or pl.startswith("!search "):
+            sorgu = p.split(" ", 1)[1]
+            res = yetenekler.web_ara(sorgu)
+            try:
+                self.hafiza.bilgi_kaydet(sorgu, res[:2000], lang)
+            except Exception: pass
+            return res
+
+        if pl.startswith("!oku ") or pl.startswith("!read "):
+            dosya = p.split(" ", 1)[1]
+            return yetenekler.dosya_oku(dosya)
+
+        if pl.startswith("!python ") or pl.startswith("!kod "):
+            kod = p.split(" ", 1)[1]
+            return yetenekler.python_calistir(kod)
+
+        if pl.startswith("!zaman") or pl.startswith("!saat") or pl.startswith("!time"):
+            return f"⏰ **Tarih & Saat**: {yetenekler.tarih_saat()} ({yetenekler.bugun_gun()})"
+
+        # 2. Matematik Hesabı Niyet Tespiti (örn: 154 * 28 + 19 kaç eder)
+        math_match = re.search(r"(\d+\s*[\+\-\*\/\^%]\s*\d+[\s\d\+\-\*\/\^%]*)", p)
+        if math_match and any(w in pl for w in ["hesapla", "kaç eder", "sonucu", "eşittir", "=", "calculate", "what is"]):
+            expr = math_match.group(1).replace("^", "**")
+            res = yetenekler.hesapla(expr)
+            if "Hata" not in res:
+                return f"🧮 `{expr.strip()}` = **{res}**"
+
+        # 3. Saat / Tarih Niyeti (Türkçe & İngilizce)
+        if any(w in pl for w in ["saat kaç", "bugün ayın kaçı", "hangi gündeyiz", "tarih ne", "what time is it", "current time", "what day is it"]):
+            return f"⏰ Şu an: **{yetenekler.tarih_saat()}**, **{yetenekler.bugun_gun()}**."
+
+        # 4. İnternet / Wikipedia Canlı Araştırma Tespiti (Genişletilmiş Doğal Dil)
+        search_triggers_tr = [
+            r"(.+?)\s+(nedir\??|kimdir\??|nerededir\??|nelerdir\??)",
+            r"(.+?)\s+hakkında\s+(bilgi\s+ver|bilgi|ne\s+biliyorsun|anlat)",
+            r"(.+?)\s+(nasıl\s+çalışır|tarihçesi|açıkla|özetle)",
+            r"(araştır|ara|bilgi\s+ver)\s+[:\s]*(.+)",
+        ]
+        search_triggers_en = [
+            r"(what is|who is|where is|tell me about|explain|describe)\s+([a-zA-Z0-9\s_\-]+)",
+            r"([a-zA-Z0-9\s_\-]+)\s+(definition|history|overview|explained)",
+            r"(search for|search|lookup)\s+([a-zA-Z0-9\s_\-]+)",
+        ]
+
+        query = None
+        for pat in search_triggers_tr + search_triggers_en:
+            m = re.search(pat, p, re.IGNORECASE)
+            if m:
+                groups = [g for g in m.groups() if g and len(g) > 2]
+                for g in groups:
+                    clean_g = re.sub(r"(nedir\??|kimdir\??|nerededir\??|hakkında|bilgi\s+ver|anlat|açıkla|what is|who is|tell me about|search for)", "", g, flags=re.IGNORECASE).strip()
+                    if len(clean_g) > 2 and not any(w == clean_g.lower() for w in ["sen", "ben", "bu", "o", "biz", "siz", "you", "me", "it", "adın", "your name"]):
+                        query = clean_g
+                        break
+                if query:
+                    break
+
+        if query:
+            wiki_res = yetenekler.wiki_ara(query, lang=lang)
+            if "hata" not in wiki_res.lower() and len(wiki_res) > 50:
+                try:
+                    self.hafiza.bilgi_kaydet(query, wiki_res[:2000], lang)
+                except Exception: pass
+                return wiki_res
+            
+            # Wikipedia yetersizse DuckDuckGo / Web araması yap
+            web_res = yetenekler.web_ara(query)
+            if "hata" not in web_res.lower() and len(web_res) > 50:
+                try:
+                    self.hafiza.bilgi_kaydet(query, web_res[:2000], lang)
+                except Exception: pass
+                return web_res
+
+        return None
+
+
     def __repr__(self) -> str:
         return (f"AjanBeden("
                 f"bilgisayar={'✅' if self.bilgisayar.aktif else '❌'}, "
@@ -889,3 +990,4 @@ class AjanBeden:
                 f"tts={'✅' if self.ses.tts_aktif_mi() else '❌'}, "
                 f"goruntu={'✅' if self.goruntu._pil_aktif else '❌'}, "
                 f"merak_kuyruk={self.merak.kuyruk_boyutu()})")
+

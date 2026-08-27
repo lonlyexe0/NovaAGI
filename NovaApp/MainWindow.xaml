@@ -1,0 +1,371 @@
+<Window x:Class="NovaApp.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:models="clr-namespace:NovaApp.Models"
+        mc:Ignorable="d"
+        Title="Nova AGI — Autonomous Neural Intelligence System" 
+        Height="820" Width="1360"
+        MinHeight="680" MinWidth="1050"
+        WindowStartupLocation="CenterScreen"
+        Background="{StaticResource BgDarkBrush}">
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <!-- Top Header -->
+            <RowDefinition Height="64" />
+            <!-- Main Content Area -->
+            <RowDefinition Height="*" />
+            <!-- Bottom Status Bar -->
+            <RowDefinition Height="28" />
+        </Grid.RowDefinitions>
+
+        <!-- ═══════════════════════════════════════════════════════════════════════
+             1. TOP HEADER BAR
+             ═══════════════════════════════════════════════════════════════════════ -->
+        <Border Grid.Row="0" Background="{StaticResource PanelBrush}" 
+                BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,0,0,1">
+            <Grid Margin="20,0">
+                <Grid.ColumnDefinitions>
+                    <!-- Left: Brand / Title -->
+                    <ColumnDefinition Width="Auto" />
+                    <!-- Center: Quick Status -->
+                    <ColumnDefinition Width="*" />
+                    <!-- Right: Hardware Badge & Action Buttons -->
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <!-- Brand & Logo -->
+                <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                    <Border Width="36" Height="36" CornerRadius="10" Background="{StaticResource AccentGradient}" Margin="0,0,12,0">
+                        <TextBlock Text="🌟" FontSize="18" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                    <StackPanel VerticalAlignment="Center">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="NOVA" FontWeight="Bold" FontSize="18" Foreground="{StaticResource TextPrimaryBrush}" />
+                            <TextBlock Text=" AGI" FontWeight="SemiBold" FontSize="18" Foreground="{StaticResource AccentCyanBrush}" />
+                            <Border Background="#1C2844" CornerRadius="4" Padding="6,2" Margin="10,0,0,0" VerticalAlignment="Center">
+                                <TextBlock Text="v3.5 Native" FontSize="10" FontWeight="Bold" Foreground="#8EB4FF" />
+                            </Border>
+                        </StackPanel>
+                        <TextBlock x:Name="TxtSubtitle" Text="Otonom Büyüyen Sinir Ağı &amp; Bilinç Döngüsü" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}" />
+                    </StackPanel>
+                </StackPanel>
+
+                <!-- Center Status indicator -->
+                <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
+                    <Ellipse x:Name="StatusDot" Width="8" Height="8" Fill="{StaticResource GpuGreenBrush}" Margin="0,0,8,0" />
+                    <TextBlock x:Name="StatusText" Text="Motor Hazır (Sürekli Öğrenme Aktif)" FontSize="12" Foreground="{StaticResource TextSecondaryBrush}" />
+                </StackPanel>
+
+                <!-- Right: Multi-GPU Badge & Quick Actions -->
+                <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                    <!-- Dynamic GPU / Multi-GPU Badge -->
+                    <Border x:Name="GpuBadgeBorder" Background="#162238" BorderBrush="#2A3D66" BorderThickness="1" 
+                            CornerRadius="8" Padding="12,6" Margin="0,0,12,0" Cursor="Hand" ToolTip="Donanım Hızlandırma Durumu">
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <TextBlock x:Name="GpuBadgeIcon" Text="⚡" FontSize="13" Margin="0,0,6,0" VerticalAlignment="Center" />
+                            <TextBlock x:Name="GpuBadgeText" Text="GPU Yükleniyor..." FontWeight="SemiBold" FontSize="12" Foreground="{StaticResource AccentCyanBrush}" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Memory Graph Button -->
+                    <Button x:Name="BtnOpenGraph" Style="{StaticResource SecondaryButton}" Margin="0,0,8,0" ToolTip="Hafıza ve Bilgi Haritası Grafiği" Click="BtnOpenGraph_Click">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="🧠" Margin="0,0,5,0" />
+                            <TextBlock x:Name="TxtBtnGraph" Text="Hafıza Grafiği" />
+                        </StackPanel>
+                    </Button>
+
+                    <!-- Save Checkpoint Button -->
+                    <Button x:Name="BtnSaveWeights" Style="{StaticResource SecondaryButton}" Margin="0,0,8,0" ToolTip="Ağırlıkları Kaydet (!kaydet)" Click="BtnSaveWeights_Click">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="💾" Margin="0,0,5,0" />
+                            <TextBlock x:Name="TxtBtnSave" Text="Kaydet" />
+                        </StackPanel>
+                    </Button>
+
+                    <!-- Trigger Growth Button -->
+                    <Button x:Name="BtnTriggerGrowth" Style="{StaticResource SecondaryButton}" Margin="0,0,8,0" ToolTip="Sinir Ağını Büyüt (!buyut)" Click="BtnTriggerGrowth_Click">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="⚡" Margin="0,0,5,0" />
+                            <TextBlock x:Name="TxtBtnGrow" Text="Büyüt" />
+                        </StackPanel>
+                    </Button>
+
+                    <!-- Settings Button -->
+                    <Button x:Name="BtnOpenSettings" Style="{StaticResource PrimaryButton}" ToolTip="Ayarlar" Click="BtnOpenSettings_Click">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="⚙️" Margin="0,0,6,0" />
+                            <TextBlock x:Name="TxtBtnSettings" Text="Ayarlar" />
+                        </StackPanel>
+                    </Button>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- ═══════════════════════════════════════════════════════════════════════
+             2. MAIN CONTENT (LEFT: CHAT / RIGHT: TELEMETRY)
+             ═══════════════════════════════════════════════════════════════════════ -->
+        <Grid Grid.Row="1" Margin="14,12">
+            <Grid.ColumnDefinitions>
+                <!-- Chat View: 66% -->
+                <ColumnDefinition Width="2*" MinWidth="480" />
+                <!-- Splitter -->
+                <ColumnDefinition Width="12" />
+                <!-- Live Telemetry: 34% -->
+                <ColumnDefinition Width="1*" MinWidth="340" MaxWidth="500" />
+            </Grid.ColumnDefinitions>
+
+            <!-- ── LEFT: CHAT & COMMAND VIEW ────────────────────────────────────── -->
+            <Border Grid.Column="0" Background="{StaticResource PanelBrush}" 
+                    BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="12">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <!-- Quick Action Chips -->
+                        <RowDefinition Height="46" />
+                        <!-- Chat Conversation History -->
+                        <RowDefinition Height="*" />
+                        <!-- Prompt Input Area -->
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <!-- Quick Command Chips -->
+                    <Border Grid.Row="0" BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,0,0,1" Padding="14,0">
+                        <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                <TextBlock x:Name="TxtQuickCmds" Text="Hızlı Komutlar:" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource TextMutedBrush}" VerticalAlignment="Center" Margin="0,0,10,0" />
+                                <Button x:Name="BtnChipStats" Content="🧠 !istatistik" Style="{StaticResource SecondaryButton}" Margin="0,0,6,0" Click="QuickCommand_Click" Tag="!istatistik" />
+                                <Button x:Name="BtnChipMemories" Content="📜 !anilar" Style="{StaticResource SecondaryButton}" Margin="0,0,6,0" Click="QuickCommand_Click" Tag="!anilar 5" />
+                                <Button Content="🔑 !hf" Style="{StaticResource SecondaryButton}" Margin="0,0,6,0" Click="QuickCommand_Click" Tag="!hf" />
+                                <Button Content="🌐 !lang" Style="{StaticResource SecondaryButton}" Margin="0,0,6,0" Click="QuickCommand_Click" Tag="!lang" />
+                                <Button x:Name="BtnChipHelp" Content="❓ !yardim" Style="{StaticResource SecondaryButton}" Margin="0,0,6,0" Click="QuickCommand_Click" Tag="!yardim" />
+                                <Button x:Name="BtnChipClear" Content="🧹 Temizle" Style="{StaticResource SecondaryButton}" Click="BtnClearChat_Click" Margin="0,0,6,0" />
+                            </StackPanel>
+                        </ScrollViewer>
+                    </Border>
+
+                    <!-- Chat Messages Stream -->
+                    <ScrollViewer x:Name="ChatScrollViewer" Grid.Row="1" Padding="16,12" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                        <ItemsControl x:Name="ChatItemsControl">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate DataType="{x:Type models:ChatMessage}">
+                                    <Grid Margin="0,6">
+                                        <!-- USER MESSAGE (Right aligned) -->
+                                        <Border x:Name="UserBubble" HorizontalAlignment="Right" MaxWidth="620"
+                                                Background="#1E2A4A" BorderBrush="#314478" BorderThickness="1"
+                                                CornerRadius="14,14,2,14" Padding="14,10"
+                                                Visibility="{Binding IsUser, Converter={StaticResource BoolToVis}}">
+                                            <StackPanel>
+                                                <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+                                                    <TextBlock Text="👤 You" FontWeight="Bold" FontSize="11" Foreground="#99C0FF" />
+                                                    <TextBlock Text="{Binding Timestamp}" FontSize="10" Foreground="#6C8BB8" Margin="10,0,0,0" VerticalAlignment="Center" />
+                                                </StackPanel>
+                                                <TextBlock Text="{Binding Text}" TextWrapping="Wrap" FontSize="13.5" Foreground="#E2EEFF" LineHeight="20" />
+                                            </StackPanel>
+                                        </Border>
+
+                                        <!-- NOVA MESSAGE (Left aligned) -->
+                                        <Border x:Name="NovaBubble" HorizontalAlignment="Left" MaxWidth="640"
+                                                Background="#14261C" BorderBrush="#254734" BorderThickness="1"
+                                                CornerRadius="14,14,14,2" Padding="14,10"
+                                                Visibility="{Binding IsNova, Converter={StaticResource BoolToVis}}">
+                                            <StackPanel>
+                                                <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
+                                                    <TextBlock Text="🌟 Nova AGI" FontWeight="Bold" FontSize="11" Foreground="{StaticResource AccentCyanBrush}" />
+                                                    <TextBlock Text="{Binding Timestamp}" FontSize="10" Foreground="#5E9675" Margin="10,0,0,0" VerticalAlignment="Center" />
+                                                </StackPanel>
+                                                <TextBlock Text="{Binding Text}" TextWrapping="Wrap" FontSize="13.5" Foreground="#D6FDE0" LineHeight="21" FontFamily="Consolas, Segoe UI" />
+
+                                                <!-- Action Highlight box if action occurred -->
+                                                <Border Background="#1B3828" CornerRadius="6" Padding="10,6" Margin="0,8,0,0"
+                                                        Visibility="{Binding HasAction, Converter={StaticResource BoolToVis}}">
+                                                    <TextBlock Text="{Binding ActionText}" FontSize="11.5" Foreground="{StaticResource AccentCyanBrush}" TextWrapping="Wrap" />
+                                                </Border>
+                                            </StackPanel>
+                                        </Border>
+
+                                        <!-- SYSTEM / COMMAND MESSAGE (Centered) -->
+                                        <Border x:Name="SystemBubble" HorizontalAlignment="Center" MaxWidth="680"
+                                                Background="#241B32" BorderBrush="#472E66" BorderThickness="1"
+                                                CornerRadius="10" Padding="14,10"
+                                                Visibility="{Binding IsSystem, Converter={StaticResource BoolToVis}}">
+                                            <StackPanel>
+                                                <TextBlock Text="⚙️ Sistem Yanıtı" FontWeight="Bold" FontSize="11" Foreground="#C9A3FF" Margin="0,0,0,4" />
+                                                <TextBlock Text="{Binding Text}" TextWrapping="Wrap" FontSize="12.5" Foreground="#EADBFF" FontFamily="Consolas" LineHeight="19" />
+                                            </StackPanel>
+                                        </Border>
+                                    </Grid>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
+
+                    <!-- Bottom Prompt Input Bar -->
+                    <Border Grid.Row="2" Background="{StaticResource CardBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,1,0,0" Padding="14,12" CornerRadius="0,0,12,12">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+
+                            <TextBox x:Name="TxtInput" MinHeight="42" MaxHeight="120"
+                                     TextWrapping="Wrap" AcceptsReturn="True"
+                                     VerticalScrollBarVisibility="Auto"
+                                     KeyDown="TxtInput_KeyDown"
+                                     FontSize="13.5"
+                                     Padding="12,10"
+                                     Margin="0,0,10,0" />
+
+                            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Bottom">
+                                <!-- Voice Output Toggle Button (TTS) -->
+                                <Button x:Name="BtnVoiceOutput" Style="{StaticResource SecondaryButton}" 
+                                        Width="44" Height="42" Margin="0,0,6,0" 
+                                        ToolTip="Sesli Yanıtı Aç / Kapat (Metin Okuma TTS)" Click="BtnVoiceOutput_Click">
+                                    <TextBlock x:Name="TxtVoiceIcon" Text="🔇" FontSize="16" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                </Button>
+
+                                <!-- Microphone Speech Input Button (STT) -->
+                                <Button x:Name="BtnMic" Style="{StaticResource SecondaryButton}" 
+                                        Width="44" Height="42" Margin="0,0,8,0" 
+                                        ToolTip="Sesle Konuş / Yazdır (Mikrofon)" Click="BtnMic_Click">
+                                    <TextBlock x:Name="TxtMicIcon" Text="🎙️" FontSize="16" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                </Button>
+
+                                <!-- Send Prompt Button -->
+                                <Button x:Name="BtnSend" Style="{StaticResource PrimaryButton}" 
+                                        Width="90" Height="42" Click="BtnSend_Click">
+                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                                        <TextBlock x:Name="TxtBtnSend" Text="Gönder" Margin="0,0,6,0" VerticalAlignment="Center" />
+                                        <TextBlock Text="➔" FontWeight="Bold" VerticalAlignment="Center" />
+                                    </StackPanel>
+                                </Button>
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+                </Grid>
+            </Border>
+
+            <!-- ── RIGHT: LIVE TELEMETRY & MULTI-GPU MONITOR ─────────────────────── -->
+            <Border Grid.Column="2" Background="{StaticResource PanelBrush}" 
+                    BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="12" Padding="16,14">
+                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                    <StackPanel>
+                        <!-- Section 1: Multi-GPU & Hardware Status -->
+                        <TextBlock x:Name="TxtSecHardware" Text="⚡ DONANIM &amp; HIZLANDIRICI" FontWeight="Bold" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,8" />
+
+                        <!-- GPU Memory Card -->
+                        <Border Background="{StaticResource CardBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="10" Padding="12" Margin="0,0,0,14">
+                            <StackPanel>
+                                <Grid Margin="0,0,0,6">
+                                    <TextBlock x:Name="TxtGpuHeader" Text="GPU VRAM" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}" />
+                                    <TextBlock x:Name="TxtVramNumbers" Text="— / — MB" FontSize="11" Foreground="{StaticResource AccentCyanBrush}" HorizontalAlignment="Right" />
+                                </Grid>
+
+                                <!-- Custom Progress Bar -->
+                                <Border Height="8" Background="#212638" CornerRadius="4" ClipToBounds="True">
+                                    <ProgressBar x:Name="PbVram" Minimum="0" Maximum="100" Value="0" Height="8" 
+                                                 Foreground="{StaticResource AccentGradient}" BorderThickness="0" Background="Transparent" />
+                                </Border>
+
+                                <!-- Multi-GPU Device List Container -->
+                                <ItemsControl x:Name="GpuDevicesItemsControl" Margin="0,10,0,0">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate DataType="{x:Type models:GpuDevice}">
+                                            <Border Background="#1C2132" CornerRadius="6" Padding="8,5" Margin="0,0,0,4">
+                                                <Grid>
+                                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                                        <TextBlock Text="🔥" FontSize="11" Margin="0,0,5,0" />
+                                                        <TextBlock Text="{Binding Name}" FontSize="11" FontWeight="Medium" Foreground="{StaticResource TextPrimaryBrush}" MaxWidth="220" TextTrimming="CharacterEllipsis" />
+                                                    </StackPanel>
+                                                    <TextBlock Text="{Binding VramStr}" FontSize="10.5" Foreground="{StaticResource AccentCyanBrush}" HorizontalAlignment="Right" VerticalAlignment="Center" />
+                                                </Grid>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Section 2: Real-time Loss Curve Canvas -->
+                        <TextBlock x:Name="TxtSecLoss" Text="📉 ANLIK LOSS EĞRİSİ" FontWeight="Bold" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,8" />
+                        <Border Background="{StaticResource CardBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="10" Padding="8" Margin="0,0,0,14">
+                            <Grid Height="100">
+                                <Canvas x:Name="LossCanvas" ClipToBounds="True" Background="Transparent" SizeChanged="LossCanvas_SizeChanged" />
+                                <TextBlock x:Name="TxtLossMax" Text="max: —" FontSize="9" Foreground="{StaticResource TextMutedBrush}" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="4,2,0,0" />
+                                <TextBlock x:Name="TxtLossMin" Text="min: —" FontSize="9" Foreground="{StaticResource TextMutedBrush}" HorizontalAlignment="Left" VerticalAlignment="Bottom" Margin="4,0,0,2" />
+                            </Grid>
+                        </Border>
+
+                        <!-- Section 3: Model Metrics Grid -->
+                        <TextBlock x:Name="TxtSecMetrics" Text="🧠 SİNİR AĞI METRİKLERİ" FontWeight="Bold" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,8" />
+                        <Border Background="{StaticResource CardBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="10" Padding="12" Margin="0,0,0,14">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                </Grid.RowDefinitions>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+
+                                <!-- Row 1: Adım -->
+                                <TextBlock x:Name="TxtLblStep" Grid.Row="0" Grid.Column="0" Text="Eğitim Adımı" FontSize="12" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,3" />
+                                <TextBlock x:Name="TxtStep" Grid.Row="0" Grid.Column="1" Text="0" FontWeight="Bold" FontSize="12" Foreground="#A8D2FF" Margin="0,3" />
+
+                                <!-- Row 2: Loss -->
+                                <TextBlock x:Name="TxtLblLoss" Grid.Row="1" Grid.Column="0" Text="Anlık Loss" FontSize="12" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,3" />
+                                <TextBlock x:Name="TxtLoss" Grid.Row="1" Grid.Column="1" Text="∞" FontWeight="Bold" FontSize="12" Foreground="#FF8B8B" Margin="0,3" />
+
+                                <!-- Row 3: LR -->
+                                <TextBlock x:Name="TxtLblLr" Grid.Row="2" Grid.Column="0" Text="Öğrenme Hızı" FontSize="12" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,3" />
+                                <TextBlock x:Name="TxtLr" Grid.Row="2" Grid.Column="1" Text="3.00e-04" FontWeight="Bold" FontSize="12" Foreground="#8CE99A" Margin="0,3" />
+
+                                <!-- Row 4: Params -->
+                                <TextBlock x:Name="TxtLblParams" Grid.Row="3" Grid.Column="0" Text="Sinir Ağı Boyutu" FontSize="12" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,3" />
+                                <TextBlock x:Name="TxtParams" Grid.Row="3" Grid.Column="1" Text="—" FontWeight="Bold" FontSize="12" Foreground="#FFD166" Margin="0,3" />
+
+                                <!-- Row 5: Vocab -->
+                                <TextBlock x:Name="TxtLblVocab" Grid.Row="4" Grid.Column="0" Text="Vocab Boyutu" FontSize="12" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,3" />
+                                <TextBlock x:Name="TxtVocab" Grid.Row="4" Grid.Column="1" Text="1,024" FontWeight="Bold" FontSize="12" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,3" />
+
+                                <!-- Row 6: Epizodik Node -->
+                                <TextBlock x:Name="TxtLblEpisodic" Grid.Row="5" Grid.Column="0" Text="Epizodik Node (Anı)" FontSize="12" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,3" />
+                                <TextBlock x:Name="TxtEpisodic" Grid.Row="5" Grid.Column="1" Text="0" FontWeight="Bold" FontSize="12" Foreground="#D0BFFF" Margin="0,3" />
+
+                                <!-- Row 7: Semantik Node -->
+                                <TextBlock x:Name="TxtLblSemantic" Grid.Row="6" Grid.Column="0" Text="Semantik Node (Bilgi)" FontSize="12" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,3" />
+                                <TextBlock x:Name="TxtSemantic" Grid.Row="6" Grid.Column="1" Text="0" FontWeight="Bold" FontSize="12" Foreground="#FFE066" Margin="0,3" />
+                            </Grid>
+                        </Border>
+
+
+                        <!-- Section 4: System Specs Summary -->
+                        <TextBlock x:Name="TxtSecSys" Text="💻 SİSTEM BİLGİSİ" FontWeight="Bold" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,8" />
+                        <Border Background="{StaticResource CardBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="10" Padding="12">
+                            <TextBlock x:Name="TxtSystemSummary" Text="Sistem bilgisi taranıyor..." FontSize="11" Foreground="{StaticResource TextSecondaryBrush}" LineHeight="18" TextWrapping="Wrap" />
+                        </Border>
+                    </StackPanel>
+                </ScrollViewer>
+            </Border>
+        </Grid>
+
+        <!-- ═══════════════════════════════════════════════════════════════════════
+             3. BOTTOM STATUS BAR
+             ═══════════════════════════════════════════════════════════════════════ -->
+        <Border Grid.Row="2" Background="{StaticResource PanelBrush}" 
+                BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,1,0,0" Padding="16,0">
+            <Grid VerticalAlignment="Center">
+                <TextBlock x:Name="TxtBottomStatus" Text="Nova Motoru Bağlanıyor..." FontSize="11" Foreground="{StaticResource TextMutedBrush}" />
+                <TextBlock x:Name="TxtClock" Text="00:00:00" FontSize="11" FontFamily="Consolas" Foreground="{StaticResource TextMutedBrush}" HorizontalAlignment="Right" />
+            </Grid>
+        </Border>
+    </Grid>
+</Window>

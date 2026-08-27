@@ -1,37 +1,37 @@
-# Python
+# Byte-compiled / optimized / DLL files
 __pycache__/
+*.py[cod]
+*$py.class
 *.pyc
-*.pyo
-*.pyd
 
-# Databases and runtime data
-*.db
-*.db-shm
-*.db-wal
+# C# / .NET build artifacts
+[Bb]in/
+[Oo]bj/
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Database & Runtime State
+nova.db
+nova.db-journal
+nova.db-wal
+nova.db-shm
+*.pth.tmp
+*.tmp
+.perm_test
+
+# Local logs & caches
+logs/
 *.log
+.pytest_cache/
 
-# Models & Weights
-*.pth
-*.pt
-*.bin
-*.safetensors
-*.onnx
+# Scratch & Dev
+scratch/
+test_*.py
+test_features.py
 
-# Environments
-.venv/
-venv/
-env/
-nova_env/
-
-# Build & Packaging
-build/
-dist/
+# InnoSetup output
 dist_installer/
-*.spec
-.nova_config.json
-
-# IDE & OS
-.vscode/
-.idea/
-.DS_Store
-Thumbs.db
+Output/

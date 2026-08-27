@@ -273,6 +273,101 @@ def json_degerle(json_str: str, anahtar: str) -> str:
 
 
 # ══════════════════════════════════════════════════════════════════════════════
+# İNTERNET, WIKIPEDIA VE BİLGİ ARAMA
+# ══════════════════════════════════════════════════════════════════════════════
+
+def wiki_ara(konu: str, lang: str = "tr") -> str:
+    """Wikipedia'dan belirli bir konu hakkında özet bilgi çeker."""
+    import urllib.request
+    import urllib.parse
+    try:
+        encoded = urllib.parse.quote(konu.strip().replace(" ", "_"))
+        url = f"https://{lang}.wikipedia.org/api/rest_v1/page/summary/{encoded}"
+        req = urllib.request.Request(url, headers={"User-Agent": "NovaAGI/3.5 (AI Research Assistant)"})
+        with urllib.request.urlopen(req, timeout=5) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+            baslik = data.get("title", konu)
+            ozet = data.get("extract", "Özet bulunamadı.")
+            return f"📖 **{baslik}**:\n{ozet}"
+    except Exception as e:
+        # Fallback to English if Turkish fails
+        if lang == "tr":
+            return wiki_ara(konu, lang="en")
+        return f"Wikipedia arama hatası: {e}"
+
+
+def web_ara(sorgu: str) -> str:
+    """Web üzerinde anlık bilgi araması yapar (Wikipedia & DDG)."""
+    import urllib.request
+    import urllib.parse
+    try:
+        # 1. Önce doğrudan Wikipedia'da ara
+        wiki_res = wiki_ara(sorgu, lang="tr")
+        if "hata" not in wiki_res.lower() and len(wiki_res) > 30:
+            return wiki_res
+
+        # 2. DuckDuckGo Instant Answer API
+        encoded = urllib.parse.quote(sorgu)
+        url = f"https://api.duckduckgo.com/?q={encoded}&format=json&no_html=1&skip_disambig=1"
+        req = urllib.request.Request(url, headers={"User-Agent": "NovaAGI/3.5"})
+        with urllib.request.urlopen(req, timeout=5) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+            answer = data.get("AbstractText") or data.get("Answer")
+            if answer:
+                heading = data.get("Heading", sorgu)
+                return f"🔍 **{heading}**:\n{answer}"
+            return wiki_ara(sorgu, lang="en")
+    except Exception as e:
+        return f"Web arama hatası: {e}"
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# GELİŞMİŞ DOSYA VE KOD ÇALIŞTIRMA
+# ══════════════════════════════════════════════════════════════════════════════
+
+def dosya_oku(dosya_yolu: str, max_karakter: int = 4000) -> str:
+    """Yerel bir metin, python veya veri dosyasını güvenle okur."""
+    try:
+        # Güvenlik kontrolü: sadece belirli uzantılara izin ver
+        gecerli_uzantilar = (".txt", ".py", ".md", ".json", ".csv", ".log", ".xaml", ".cs", ".iss", ".bat")
+        if not any(dosya_yolu.lower().endswith(u) for u in gecerli_uzantilar):
+            return f"Güvenlik Uyarısı: Sadece metin dosyaları ({', '.join(gecerli_uzantilar)}) okunabilir."
+
+        if not os.path.exists(dosya_yolu):
+            return f"Dosya bulunamadı: '{dosya_yolu}'"
+
+        with open(dosya_yolu, "r", encoding="utf-8", errors="ignore") as f:
+            icerik = f.read(max_karakter)
+            ek = "...\n(İçerik kesildi)" if len(icerik) >= max_karakter else ""
+            return f"📄 **{os.path.basename(dosya_yolu)}** ({len(icerik)} karakter):\n```\n{icerik}{ek}\n```"
+    except Exception as e:
+        return f"Dosya okuma hatası: {e}"
+
+
+def python_calistir(kod: str) -> str:
+    """Güvenli kum havuzunda (sandbox) kısa Python kodu çalıştırır ve çıktısını döndürür."""
+    import sys
+    import io
+    # Tehlikeli işlemleri filtrele
+    yasakli = ["rmtree", "system(", "popen(", "remove(", "unlink(", "shutdown", "format "]
+    if any(y in kod.lower() for y in yasakli):
+        return "⚠️ Güvenlik: Bu işlem izin verilmeyen bir sistem komutu içeriyor."
+
+    eski_stdout = sys.stdout
+    tampon = io.StringIO()
+    sys.stdout = tampon
+    try:
+        yerel_alan = {"math": math, "json": json, "datetime": datetime, "random": random}
+        exec(kod, {"__builtins__": __builtins__}, yerel_alan)
+        cikti = tampon.getvalue().strip()
+        return f"🐍 **Kod Çıktısı**:\n```\n{cikti if cikti else '(Kod başarıyla çalıştı, çıktı üretmedi)'}\n```"
+    except Exception as e:
+        return f"Python çalıştırma hatası: {e}"
+    finally:
+        sys.stdout = eski_stdout
+
+
+# ══════════════════════════════════════════════════════════════════════════════
 # YETENEKLERİ LİSTELE (Meta-fonksiyon)
 # ══════════════════════════════════════════════════════════════════════════════
 
@@ -289,3 +384,4 @@ def yetenek_listesi() -> str:
 
 
 def selamla(): return "Komutanım, sistemler tam kapasite calisiyor!"
+

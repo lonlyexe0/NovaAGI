@@ -46,10 +46,12 @@ if %errorlevel% neq 0 (
 echo.
 
 :: 3. Masaüstü Kısayolu Oluşturma
-echo [3/4] Masaüstü kısayolu oluşturuluyor...
+echo [3/4] C# .NET 9 Arayüzü hazırlanıyor ve masaüstü kısayolu oluşturuluyor...
+dotnet build NovaApp\NovaApp.csproj -c Release >nul 2>&1
+
 set "SHORTCUT_SCRIPT=%TEMP%\create_nova_shortcut.vbs"
 set "DESKTOP_DIR=%USERPROFILE%\Desktop"
-set "TARGET_BAT=%PROJECT_DIR%baslat_gui.bat"
+set "TARGET_BAT=%PROJECT_DIR%baslat_cs_gui.bat"
 
 echo Set oWS = WScript.CreateObject("WScript.Shell") > "%SHORTCUT_SCRIPT%"
 echo sLinkFile = "%DESKTOP_DIR%\Nova AGI.lnk" >> "%SHORTCUT_SCRIPT%"
@@ -72,9 +74,5 @@ echo [4/4] Kurulum tamamlandı! Nova AGI başlatılıyor...
 echo ======================================================================
 echo.
 
-py -3.10 nova_launcher.py --gui
-if errorlevel 1 (
-    echo.
-    echo Bir hata olustu.
-    pause
-)
+call "%PROJECT_DIR%baslat_cs_gui.bat"
+

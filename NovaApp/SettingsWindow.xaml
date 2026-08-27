@@ -1,0 +1,296 @@
+<Window x:Class="NovaApp.SettingsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d"
+        Title="Nova AGI — Ayarlar &amp; Yapılandırma Merkezi" 
+        Height="660" Width="880"
+        MinHeight="600" MinWidth="800"
+        WindowStartupLocation="CenterOwner"
+        Background="{StaticResource BgDarkBrush}">
+
+    <Window.Resources>
+        <!-- Modern Sidebar Tab Button Style -->
+        <Style x:Key="SettingsTabButton" TargetType="RadioButton">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Foreground" Value="{StaticResource TextSecondaryBrush}" />
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Padding" Value="14,12" />
+            <Setter Property="Margin" Value="0,0,0,6" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="GroupName" Value="SettingsNav" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="RadioButton">
+                        <Border x:Name="TabBorder" Background="{TemplateBinding Background}" 
+                                BorderBrush="Transparent" BorderThickness="1" 
+                                CornerRadius="8" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="TabBorder" Property="Background" Value="{StaticResource CardHoverBrush}" />
+                                <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="TabBorder" Property="Background" Value="{StaticResource CardBrush}" />
+                                <Setter TargetName="TabBorder" Property="BorderBrush" Value="{StaticResource AccentBrush}" />
+                                <Setter Property="Foreground" Value="{StaticResource AccentCyanBrush}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Modern Dark ComboBox Style -->
+        <Style TargetType="ComboBox">
+            <Setter Property="Background" Value="{StaticResource CardBrush}" />
+            <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
+            <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Padding" Value="10,6" />
+            <Setter Property="FontSize" Value="13" />
+        </Style>
+
+        <Style TargetType="ComboBoxItem">
+            <Setter Property="Background" Value="#1C2132" />
+            <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
+            <Setter Property="Padding" Value="10,8" />
+            <Setter Property="FontSize" Value="12.5" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ComboBoxItem">
+                        <Border x:Name="ItemBorder" Background="{TemplateBinding Background}" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="ItemBorder" Property="Background" Value="#2A324B" />
+                            </Trigger>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="ItemBorder" Property="Background" Value="{StaticResource AccentBrush}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <!-- Title Bar -->
+            <RowDefinition Height="56" />
+            <!-- Body: Left Tab Nav + Right Settings Panels -->
+            <RowDefinition Height="*" />
+            <!-- Footer Buttons -->
+            <RowDefinition Height="60" />
+        </Grid.RowDefinitions>
+
+        <!-- 1. Header -->
+        <Border Grid.Row="0" Background="{StaticResource PanelBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,0,0,1" Padding="20,0">
+            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                <TextBlock Text="⚙️" FontSize="18" Margin="0,0,10,0" VerticalAlignment="Center" />
+                <TextBlock Text="Nova AGI Yapılandırma &amp; Donanım Ayarları" FontWeight="Bold" FontSize="16" Foreground="{StaticResource TextPrimaryBrush}" VerticalAlignment="Center" />
+            </StackPanel>
+        </Border>
+
+        <!-- 2. Main Body (Tab Control) -->
+        <Grid Grid.Row="1" Margin="20,16">
+            <Grid.ColumnDefinitions>
+                <!-- Navigation Tabs: 230px -->
+                <ColumnDefinition Width="230" />
+                <!-- Content Area -->
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <!-- Left Tab Buttons -->
+            <Border Grid.Column="0" Background="{StaticResource PanelBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="10" Padding="10">
+                <StackPanel>
+                    <RadioButton x:Name="TabBtnGeneral" Content="🌐  Genel &amp; Dil" IsChecked="True" Style="{StaticResource SettingsTabButton}" Checked="TabButton_Checked" />
+                    <RadioButton x:Name="TabBtnHardware" Content="⚡  Donanım &amp; Multi-GPU" Style="{StaticResource SettingsTabButton}" Checked="TabButton_Checked" />
+                    <RadioButton x:Name="TabBtnNeural" Content="🧠  Sinir Ağı &amp; Model" Style="{StaticResource SettingsTabButton}" Checked="TabButton_Checked" />
+                    <RadioButton x:Name="TabBtnData" Content="🔑  HuggingFace &amp; Veri" Style="{StaticResource SettingsTabButton}" Checked="TabButton_Checked" />
+                    <RadioButton x:Name="TabBtnExport" Content="📦  Dışa Aktar &amp; Yayınla" Style="{StaticResource SettingsTabButton}" Checked="TabButton_Checked" />
+                    <RadioButton x:Name="TabBtnAppearance" Content="🎨  Görünüm &amp; Tema" Style="{StaticResource SettingsTabButton}" Checked="TabButton_Checked" />
+                </StackPanel>
+            </Border>
+
+            <!-- Right Content Panels Container -->
+            <Border Grid.Column="1" Background="{StaticResource PanelBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="10" Margin="14,0,0,0" Padding="24">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <Grid>
+                        <!-- PANEL 1: GENEL & DİL -->
+                        <StackPanel x:Name="PanelGeneral" Visibility="Visible">
+                            <TextBlock Text="Genel Yapılandırma" FontWeight="Bold" FontSize="16" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,0,0,6" />
+                            <TextBlock Text="Dil tercihleri ve temel sistem parametreleri." FontSize="12" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,18" />
+
+                            <TextBlock Text="Arayüz ve Veri Dili:" FontWeight="SemiBold" FontSize="13" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,0,0,6" />
+                            <ComboBox x:Name="CmbLanguage" Height="38" Margin="0,0,0,18">
+                                <ComboBoxItem Content="English (en) — Wikipedia 20231101.en" IsSelected="True" Tag="en" />
+                                <ComboBoxItem Content="Türkçe (tr) — Wikipedia 20231101.tr" Tag="tr" />
+                            </ComboBox>
+
+                            <TextBlock Text="Otomatik Checkpoint Kaydetme:" FontWeight="SemiBold" FontSize="13" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,0,0,6" />
+                            <CheckBox x:Name="ChkAutoSave" Content="Her 50 eğitim adımında bir ağırlıkları otomatik kaydet" IsChecked="True" Foreground="{StaticResource TextSecondaryBrush}" FontSize="12.5" Margin="0,0,0,18" />
+                        </StackPanel>
+
+                        <!-- PANEL 2: DONANIM & MULTI-GPU -->
+                        <StackPanel x:Name="PanelHardware" Visibility="Collapsed">
+                            <TextBlock Text="Donanım &amp; Çoklu GPU Hızlandırma" FontWeight="Bold" FontSize="16" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,0,0,6" />
+                            <TextBlock Text="PyTorch donanım hızlandırıcıları ve Multi-GPU paralel eğitim yönetimi." FontSize="12" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,18" />
+
+                            <TextBlock Text="Hızlandırıcı Arka Ucu:" FontWeight="SemiBold" FontSize="13" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,0,0,6" />
+                            <ComboBox x:Name="CmbDevice" Height="38" Margin="0,0,0,18">
+                                <ComboBoxItem Content="Otomatik Algıla (Önerilen: En Hızlı GPU)" IsSelected="True" Tag="auto" />
+                                <ComboBoxItem Content="NVIDIA CUDA / ROCm GPU" Tag="cuda" />
+                                <ComboBoxItem Content="AMD / Intel DirectML GPU (Windows)" Tag="directml" />
+                                <ComboBoxItem Content="Sadece CPU (İşlemci Modu)" Tag="cpu" />
+                            </ComboBox>
+
+                            <TextBlock Text="Multi-GPU Desteği:" FontWeight="SemiBold" FontSize="13" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,0,0,6" />
+                            <CheckBox x:Name="ChkMultiGpu" Content="Birden fazla GPU tespit edildiğinde PyTorch DataParallel ile dağıtık eğitim yap" IsChecked="True" Foreground="{StaticResource TextSecondaryBrush}" FontSize="12.5" Margin="0,0,0,18" />
+
+                            <TextBlock Text="CPU Veri Hazırlama Worker Sayısı:" FontWeight="SemiBold" FontSize="13" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,0,0,6" />
+                            <Grid Margin="0,0,0,18">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="50" />
+                                </Grid.ColumnDefinitions>
+                                <Slider x:Name="SliderWorkers" Minimum="1" Maximum="16" Value="6" TickFrequency="1" IsSnapToTickEnabled="True" VerticalAlignment="Center" />
+                                <TextBlock Grid.Column="1" Text="{Binding ElementName=SliderWorkers, Path=Value}" FontWeight="Bold" Foreground="{StaticResource AccentCyanBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                            </Grid>
+                        </StackPanel>
+
+                        <!-- PANEL 3: SİNİR AĞI & MODEL -->
+                        <StackPanel x:Name="PanelNeural" Visibility="Collapsed">
+                            <TextBlock Text="Sinir Ağı &amp; Büyüme Parametreleri" FontWeight="Bold" FontSize="16" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,0,0,6" />
+                            <TextBlock Text="Dinamik büyüyen Transformer mimarisi hiperparametreleri." FontSize="12" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,18" />
+
+                            <TextBlock Text="Öğrenme Hızı (Learning Rate):" FontWeight="SemiBold" FontSize="13" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,0,0,6" />
+                            <TextBox x:Name="TxtLr" Text="0.0003" Margin="0,0,0,14" />
+
+                            <TextBlock Text="Batch Boyutu (Batch Size):" FontWeight="SemiBold" FontSize="13" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,0,0,6" />
+                            <TextBox x:Name="TxtBatchSize" Text="16" Margin="0,0,0,14" />
+
+                            <TextBlock Text="Otomatik Büyüme Plato Eşiği:" FontWeight="SemiBold" FontSize="13" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,0,0,6" />
+                            <TextBox x:Name="TxtGrowthThreshold" Text="0.003" Margin="0,0,0,14" />
+                        </StackPanel>
+
+                        <!-- PANEL 4: HUGGINGFACE & VERİ -->
+                        <StackPanel x:Name="PanelData" Visibility="Collapsed">
+                            <TextBlock Text="HuggingFace &amp; Wikipedia Veri Akışı" FontWeight="Bold" FontSize="16" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,0,0,6" />
+                            <TextBlock Text="Hugging Face Hub veri akışı, toplu Wikipedia indirme ve otonom merak tohumları." FontSize="12" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,18" />
+
+                            <!-- Toplu Wikipedia Verisi İçe Aktarma Kartı -->
+                            <Border Background="{StaticResource CardBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="8" Padding="14" Margin="0,0,0,16">
+                                <StackPanel>
+                                    <TextBlock Text="📚 Toplu Wikipedia Verisi İçe Aktar" FontWeight="SemiBold" FontSize="13" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,0,0,4" />
+                                    <TextBlock Text="Resmi Wikimedia veri setinden binlerce güncel makaleyi yerel hafızaya (nova.db) akıtır." FontSize="11.5" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,10" />
+                                    
+                                    <Grid Margin="0,0,0,10">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <ComboBox x:Name="CmbBulkCount" Height="36" Margin="0,0,8,0">
+                                            <ComboBoxItem Content="100 Makale (Hızlı İndirme)" Tag="100" />
+                                            <ComboBoxItem Content="500 Makale (Önerilen)" Tag="500" IsSelected="True" />
+                                            <ComboBoxItem Content="1,000 Makale (Geniş Bilgi Ağacı)" Tag="1000" />
+                                            <ComboBoxItem Content="5,000 Makale (Büyük Ansiklopedi)" Tag="5000" />
+                                            <ComboBoxItem Content="10,000 Makale (Tam Hafıza Paketi)" Tag="10000" />
+                                        </ComboBox>
+                                        <Button x:Name="BtnBulkWiki" Grid.Column="1" Content="🚀 İndirmeyi Başlat" Style="{StaticResource PrimaryButton}" Padding="16,8" Click="BtnBulkWiki_Click" />
+                                    </Grid>
+                                    <TextBlock x:Name="TxtBulkStatus" Text="" FontSize="11" Foreground="{StaticResource AccentCyanBrush}" />
+                                </StackPanel>
+                            </Border>
+
+                            <!-- Merak Motoru & Özel Konular -->
+                            <TextBlock Text="Otonom Merak &amp; Wikipedia Keşif Ayarları:" FontWeight="SemiBold" FontSize="13" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,0,0,6" />
+                            <CheckBox x:Name="ChkCuriosity" Content="Otonom Merak Motorunu Aktif Tut (Arka planda sürekli yeni sayfalar araştırır)" IsChecked="True" Foreground="{StaticResource TextSecondaryBrush}" FontSize="12.5" Margin="0,0,0,12" />
+
+                            <TextBlock Text="Özel Araştırma Konuları (Tohumlar - Virgülle ayırın):" FontSize="12" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,4" />
+                            <TextBox x:Name="TxtCuriosityTopics" Height="50" AcceptsReturn="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" Margin="0,0,0,12" />
+
+                            <TextBlock Text="Otomatik Keşif Aralığı:" FontSize="12" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,4" />
+                            <ComboBox x:Name="CmbCuriosityInterval" Height="36" Margin="0,0,0,16">
+                                <ComboBoxItem Content="10 Saniye (Süper Hızlı Keşif &amp; Hafıza Büyütme)" Tag="10" />
+                                <ComboBoxItem Content="20 Saniye (Dengeli)" Tag="20" IsSelected="True" />
+                                <ComboBoxItem Content="45 Saniye (Arka Plan)" Tag="45" />
+                                <ComboBoxItem Content="90 Saniye (Düşük Kaynak)" Tag="90" />
+                            </ComboBox>
+
+                            <TextBlock Text="HuggingFace User Access Token (Opsiyonel):" FontWeight="SemiBold" FontSize="13" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,0,0,6" />
+                            <TextBox x:Name="TxtHfToken" Margin="0,0,0,14" />
+                        </StackPanel>
+
+
+                        <!-- PANEL 5: DIŞA AKTAR & YAYINLA -->
+                        <StackPanel x:Name="PanelExport" Visibility="Collapsed">
+                            <TextBlock Text="Model Dışa Aktarma &amp; Yayınlama" FontWeight="Bold" FontSize="16" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,0,0,6" />
+                            <TextBlock Text="Eğitilmiş sinir ağını endüstri standardı formatlara dönüştürün veya paylaşın." FontSize="12" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,18" />
+
+                            <!-- ONNX Export Card -->
+                            <Border Background="{StaticResource CardBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="8" Padding="14" Margin="0,0,0,14">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel VerticalAlignment="Center">
+                                        <TextBlock Text="🔷  ONNX Model Formatı (.onnx)" FontWeight="SemiBold" FontSize="13" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,0,0,4" />
+                                        <TextBlock Text="DirectML, TensorRT, OpenVINO ve Web tarayıcılarında çalıştırma." FontSize="11.5" Foreground="{StaticResource TextSecondaryBrush}" />
+                                    </StackPanel>
+                                    <Button x:Name="BtnExportOnnx" Grid.Column="1" Content="ONNX Olarak Aktar" Style="{StaticResource PrimaryButton}" Padding="14,8" Click="BtnExportOnnx_Click" />
+                                </Grid>
+                            </Border>
+
+                            <!-- ZIP Weights Pack Card -->
+                            <Border Background="{StaticResource CardBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="8" Padding="14" Margin="0,0,0,14">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel VerticalAlignment="Center">
+                                        <TextBlock Text="📦  Taşınabilir Model Paketi (.zip)" FontWeight="SemiBold" FontSize="13" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,0,0,4" />
+                                        <TextBlock Text="Ağırlıklar, kelime haznesi ve yapılandırma dosyasını tek dosyada paketler." FontSize="11.5" Foreground="{StaticResource TextSecondaryBrush}" />
+                                    </StackPanel>
+                                    <Button x:Name="BtnExportZip" Grid.Column="1" Content="ZIP Paketi Oluştur" Style="{StaticResource SecondaryButton}" Padding="14,8" Click="BtnExportZip_Click" />
+                                </Grid>
+                            </Border>
+
+                            <!-- Status text for exports -->
+                            <TextBlock x:Name="TxtExportStatus" FontSize="12" Foreground="{StaticResource AccentCyanBrush}" FontWeight="SemiBold" TextWrapping="Wrap" />
+                        </StackPanel>
+
+                        <!-- PANEL 6: GÖRÜNÜM -->
+                        <StackPanel x:Name="PanelAppearance" Visibility="Collapsed">
+                            <TextBlock Text="Görünüm &amp; Kişiselleştirme" FontWeight="Bold" FontSize="16" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,0,0,6" />
+                            <TextBlock Text="Koyu tema ve arayüz seçenekleri." FontSize="12" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,18" />
+
+                            <TextBlock Text="Arayüz Teması:" FontWeight="SemiBold" FontSize="13" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,0,0,6" />
+                            <ComboBox x:Name="CmbTheme" Height="38" Margin="0,0,0,18">
+                                <ComboBoxItem Content="Deep Nebula (Önerilen Koyu Tema)" IsSelected="True" />
+                                <ComboBoxItem Content="Cyber Mint Dark" />
+                                <ComboBoxItem Content="OLED Midnight Black" />
+                            </ComboBox>
+                        </StackPanel>
+                    </Grid>
+                </ScrollViewer>
+            </Border>
+        </Grid>
+
+        <!-- 3. Footer Action Buttons -->
+        <Border Grid.Row="2" Background="{StaticResource PanelBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,1,0,0" Padding="20,0">
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                <Button x:Name="BtnCancel" Content="İptal" Style="{StaticResource SecondaryButton}" Width="90" Margin="0,0,10,0" Click="BtnCancel_Click" />
+                <Button x:Name="BtnSave" Content="Kaydet &amp; Uygula" Style="{StaticResource PrimaryButton}" Width="140" Click="BtnSave_Click" />
+            </StackPanel>
+        </Border>
+    </Grid>
+</Window>

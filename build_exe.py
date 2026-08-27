@@ -64,6 +64,7 @@ def build():
         "body",
         "gui",
         "hybrid_engine",
+        "hardware",
     ]
 
     # Ek veri dosyaları (data files)
@@ -74,6 +75,7 @@ def build():
         ("config_manager.py", "."),
         ("hf_auth.py", "."),
         ("gpu_setup.py", "."),
+        ("hardware.py", "."),
         ("memory.py", "."),
         ("brain.py", "."),
         ("body.py", "."),

@@ -32,21 +32,24 @@ if sys.platform == "win32":
 logger = logging.getLogger("nova.gpu")
 
 
+import hardware
+
 # ══════════════════════════════════════════════════════════════════════════════
-# RYZEN 5600X — CPU İŞ PARÇACIĞI OPTİMİZASYONU
-# (brain.py'daki 12 thread ayarını güçlendir)
+# CPU İŞ PARÇACIĞI VE DONANIM DİNAMİK YAPILANDIRMASI
 # ══════════════════════════════════════════════════════════════════════════════
 
-# 5600X'in 12 mantıksal çekirdeğini tam kullan
-os.environ["OMP_NUM_THREADS"]       = "12"
-os.environ["MKL_NUM_THREADS"]       = "12"
-os.environ["OPENBLAS_NUM_THREADS"]  = "12"
-os.environ["VECLIB_MAXIMUM_THREADS"]= "12"
-os.environ["NUMEXPR_NUM_THREADS"]   = "12"
+_opt_threads = str(hardware.get_optimal_cpu_threads())
+
+os.environ["OMP_NUM_THREADS"]        = _opt_threads
+os.environ["MKL_NUM_THREADS"]        = _opt_threads
+os.environ["OPENBLAS_NUM_THREADS"]   = _opt_threads
+os.environ["VECLIB_MAXIMUM_THREADS"] = _opt_threads
+os.environ["NUMEXPR_NUM_THREADS"]    = _opt_threads
 
 # Bellek ayırma optimizasyonu
-os.environ["MALLOC_ARENA_MAX"]      = "4"   # glibc malloc arena sayısı
+os.environ["MALLOC_ARENA_MAX"]       = "4"
 os.environ["PYTORCH_NO_CUDA_MEMORY_CACHING"] = "0"
+
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -118,17 +121,19 @@ def gpu_hazirla() -> str:
         except Exception as e:
             logger.warning(f"[GPU] DirectML başlatma başarısız: {e}")
 
-    # ── 3. CPU Fallback (Ryzen 5600X optimize) ────────────────────────────────
+    # ── 3. CPU Fallback (Dinamik CPU optimize) ────────────────────────────────
     try:
         import torch
-        torch.set_num_threads(12)
-        torch.set_num_interop_threads(4)
+        cpu_threads = hardware.get_optimal_cpu_threads()
+        torch.set_num_threads(cpu_threads)
+        torch.set_num_interop_threads(max(1, min(4, cpu_threads // 2)))
 
         if hasattr(torch, "set_flush_denormal"):
             torch.set_flush_denormal(True)
 
+        cpu_info = hardware.get_cpu_info()
         logger.info(
-            "[GPU] 💻 CPU modu — Ryzen 5600X (12 thread, AVX2) | "
+            f"[GPU] 💻 CPU modu — {cpu_info['full_name']} ({cpu_threads} thread) | "
             "GPU bulunamadı veya sürücü eksik"
         )
     except Exception:
@@ -160,33 +165,23 @@ def brain_config_yamala():
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# RX 6500 XT VRAM OPTİMİZASYONU (brain.py Config için önerilen değerler)
+# VRAM VE MODEL BOYUTU OPTİMİZASYONU
 # ══════════════════════════════════════════════════════════════════════════════
 
-# RX 6500 XT 4 GB VRAM'e göre güvenli model boyutu:
-#   ~26M param @ fp32 = ~100 MB  ✅ Güvenli
-#   ~26M param @ fp16 = ~50  MB  ✅ Çok güvenli
-#   batch_size=32 @ seq=384      ✅ Sığar
-VRAM_GUVENLI_BATCH  = 32    # 4 GB için güvenli batch boyutu
+VRAM_GUVENLI_BATCH  = 32    # Standart güvenli batch boyutu
 VRAM_GUVENLI_SEQ    = 384   # Maksimum sequence length
 
 
 def vram_durumu() -> dict:
-    """GPU VRAM durumunu DirectML uyumlu olarak döndür."""
+    """GPU VRAM durumunu dinamik olarak döndür."""
     try:
-        import torch
-        import torch_directml
-        
-        # DirectML cihazını al
-        device_name = torch_directml.device_name(0)
-        
-        # NOT: DirectML üzerinden anlık VRAM miktarını çekmek CUDA kadar kolay değildir,
-        # ancak cihaz adını doğrulamak bağlantının kurulduğunu kanıtlar.
-        return {
-            "gpu": device_name,
-            "mod": "DirectML (AMD)",
-            "toplam_mb": "4096 (RX 6500 XT Standart)", # Kartın sabit bilgisi
-        }
+        gpu_info = hardware.get_gpu_info()
+        if gpu_info["is_gpu"]:
+            return {
+                "gpu": gpu_info["name"],
+                "mod": f"{gpu_info['backend']} ({gpu_info.get('vram_str', 'Aktif')})",
+                "toplam_mb": gpu_info["vram_mb"] if gpu_info["vram_mb"] > 0 else "Dinamik/Sistem",
+            }
     except Exception:
         pass
     return {"gpu": "Yok (CPU modu)", "toplam_mb": 0}
@@ -198,24 +193,18 @@ def vram_durumu() -> dict:
 
 KURULUM_REHBERI = """
 ╔══════════════════════════════════════════════════════════════════════╗
-║         RX 6500 XT İÇİN PYTORCH KURULUM REHBERİ                     ║
+║         NOVA GPU / PYTORCH KURULUM REHBERİ                           ║
 ╠══════════════════════════════════════════════════════════════════════╣
 ║                                                                      ║
-║  🐧 LINUX (ROCm — Önerilen):                                         ║
-║     pip install torch torchvision torchaudio \\                       ║
-║         --index-url https://download.pytorch.org/whl/rocm6.0         ║
+║  🐧 LINUX (ROCm / CUDA — Önerilen):                                  ║
+║     pip install torch torchvision torchaudio                         ║
 ║                                                                      ║
-║     Sürücü kurulumu (Ubuntu):                                        ║
-║     wget https://repo.radeon.com/amdgpu-install/6.0/ubuntu/...      ║
-║     sudo amdgpu-install --usecase=rocm                               ║
-║     sudo usermod -aG render,video $USER                              ║
-║                                                                      ║
-║  🪟 WINDOWS (DirectML):                                              ║
+║  🪟 WINDOWS (NVIDIA CUDA / AMD DirectML):                            ║
 ║     pip install torch torchvision torchaudio                         ║
 ║     pip install torch-directml                                       ║
 ║                                                                      ║
-║  ⚡ Ortak (her iki platform):                                        ║
-║     pip install datasets requests beautifulsoup4                     ║
+║  🍎 MACOS (Apple Silicon MPS):                                       ║
+║     pip install torch torchvision torchaudio                         ║
 ║                                                                      ║
 ║  ✅ Doğrulama:                                                       ║
 ║     python gpu_setup.py                                              ║
@@ -254,5 +243,8 @@ if __name__ == "__main__":
         print("PyTorch         : Kurulu değil!")
         print(KURULUM_REHBERI)
 
-    print(f"\nRyzen 5600X thread: {os.environ.get('OMP_NUM_THREADS', '?')}")
+    cpu_info = hardware.get_cpu_info()
+    print(f"\nİşlemci: {cpu_info['full_name']} ({os.environ.get('OMP_NUM_THREADS', '?')} thread)")
+    print("\n" + "=" * 50)
+
     print("\n" + "=" * 50)

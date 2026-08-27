@@ -542,21 +542,21 @@ class NovaGUI:
         self._sistem_bilgisi_guncelle()
 
     def _sistem_bilgisi_guncelle(self):
-        """Sabit sistem bilgisini doldur."""
+        """Dinamik sistem bilgisini doldur."""
         try:
-            import platform
-            os_str = f"{platform.system()} {platform.release()}"
-            py_str = platform.python_version()
-            self._sistem_etiket.configure(
-                text=(
-                    f"OS: {os_str}\n"
-                    f"Python: {py_str}\n"
-                    f"CPU: Ryzen 5600X (12T)\n"
-                    f"GPU: RX 6500 XT (4GB)"
-                )
-            )
+            import hardware
+            from config_manager import get_language
+            lang = get_language() or "en"
+            self._sistem_etiket.configure(text=hardware.get_system_summary(lang=lang))
         except Exception:
-            pass
+            try:
+                import platform
+                os_str = f"{platform.system()} {platform.release()}"
+                py_str = platform.python_version()
+                self._sistem_etiket.configure(text=f"OS: {os_str}\nPython: {py_str}")
+            except Exception:
+                pass
+
 
     def _loss_grafigi_ciz(self):
         """Son N loss değerini mini kanvasa çiz."""
@@ -882,9 +882,10 @@ class NovaGUI:
             pass
 
     def _vram_guncelle(self):
-        """GPU VRAM ve cihaz durumunu güncelle (CUDA + DirectML + CPU)."""
+        """GPU VRAM ve cihaz durumunu dinamik güncelle (CUDA + DirectML + MPS + CPU)."""
         try:
             import torch
+            import hardware
             dev = getattr(self.beyin, "device", None)
             dev_type = getattr(dev, "type", str(dev)) if dev else ""
 
@@ -897,7 +898,7 @@ class NovaGUI:
                     text=f"{kullanilan} / {toplam} MB  ({yuzde:.1f}%)"
                 )
                 renk = Palet.DURUM_GPU if yuzde < 80 else Palet.TEMIZLE_DUGME
-                gpu_name = torch.cuda.get_device_name(0)
+                gpu_name = torch.cuda.get_device_name(0).strip("\x00 \t\n\r")
                 self._gpu_etiket.configure(
                     text=f"🔥 {gpu_name}  {kullanilan}/{toplam} MB",
                     fg=renk
@@ -905,20 +906,31 @@ class NovaGUI:
             elif dev_type in ("privateuseone", "directml") or "privateuseone" in str(dev).lower():
                 try:
                     import torch_directml
-                    gpu_name = torch_directml.device_name(0)
+                    gpu_name = torch_directml.device_name(0).strip("\x00 \t\n\r")
                 except Exception:
-                    gpu_name = "AMD DirectML GPU"
+                    gpu_info = hardware.get_gpu_info()
+                    gpu_name = gpu_info.get("name", "DirectML GPU")
                 self._vram_cubuk["value"] = 100
-                self._vram_etiket.configure(text="DirectML (4096 MB RX 6500 XT)")
+                self._vram_etiket.configure(text=f"DirectML ({gpu_name})")
                 self._gpu_etiket.configure(
-                    text=f"⚡ {gpu_name.strip()} (DirectML)",
+                    text=f"⚡ {gpu_name} (DirectML)",
+                    fg=Palet.DURUM_GPU
+                )
+            elif hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
+                self._vram_cubuk["value"] = 100
+                self._vram_etiket.configure(text="Apple Silicon (MPS)")
+                self._gpu_etiket.configure(
+                    text="⚡ Apple Metal (MPS)",
                     fg=Palet.DURUM_GPU
                 )
             else:
+                cpu_info = hardware.get_cpu_info()
+                short_cpu = cpu_info["short_name"]
+                threads = cpu_info["threads"]
                 self._vram_cubuk["value"] = 0
                 self._vram_etiket.configure(text="GPU yok (CPU modu)")
                 self._gpu_etiket.configure(
-                    text="💻 CPU — Ryzen 5600X (12T)",
+                    text=f"💻 CPU — {short_cpu} ({threads}T)",
                     fg=Palet.DURUM_CPU
                 )
         except Exception:

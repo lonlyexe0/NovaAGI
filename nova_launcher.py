@@ -51,8 +51,11 @@ except Exception:
     pass
 
 import torch
-torch.set_num_threads(12)
-torch.set_num_interop_threads(4)
+import hardware
+_cpu_threads = hardware.get_optimal_cpu_threads()
+torch.set_num_threads(_cpu_threads)
+torch.set_num_interop_threads(max(1, min(4, _cpu_threads // 2)))
+
 
 
 # ═══════════════════════════════════════════════════════════════════════════════

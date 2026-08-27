@@ -1,0 +1,171 @@
+<Window x:Class="NovaApp.MemoryGraphWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d"
+        Title="Nova AGI — Görsel Bilgi &amp; Hafıza Grafiği (Knowledge Graph Explorer)" 
+        Height="780" Width="1180"
+        MinHeight="620" MinWidth="900"
+        WindowStartupLocation="CenterOwner"
+        Background="{StaticResource BgDarkBrush}">
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <!-- Header Bar -->
+            <RowDefinition Height="58" />
+            <!-- Main Content Area -->
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <!-- 1. Header -->
+        <Border Grid.Row="0" Background="{StaticResource PanelBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,0,0,1" Padding="20,0">
+            <Grid>
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <TextBlock Text="🧠" FontSize="20" Margin="0,0,10,0" VerticalAlignment="Center" />
+                    <TextBlock Text="Nova AGI Görsel Sinir &amp; Semantik Hafıza Haritası" FontWeight="Bold" FontSize="16" Foreground="{StaticResource TextPrimaryBrush}" VerticalAlignment="Center" />
+                    <Border Background="#1C283F" BorderBrush="{StaticResource AccentCyanBrush}" BorderThickness="1" CornerRadius="12" Margin="16,0,0,0" Padding="10,3">
+                        <TextBlock x:Name="TxtTotalNodesBadge" Text="Düğümler Taranıyor..." FontSize="11" Foreground="{StaticResource AccentCyanBrush}" FontWeight="SemiBold" />
+                    </Border>
+                </StackPanel>
+
+                <!-- Action buttons & Live Controls -->
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                    <!-- Live Auto-Refresh CheckBox -->
+                    <CheckBox x:Name="ChkLiveAutoRefresh" Content="⚡ Canlı Otomatik (4s)" IsChecked="True" Foreground="#A8D2FF" FontWeight="SemiBold" FontSize="11.5" VerticalAlignment="Center" Margin="0,0,14,0" Checked="ChkLiveAutoRefresh_Changed" Unchecked="ChkLiveAutoRefresh_Changed" />
+
+                    <!-- Node Limit Selector -->
+                    <TextBlock Text="Limit:" FontSize="11.5" Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center" Margin="0,0,6,0" />
+                    <ComboBox x:Name="CmbLimit" Width="115" Height="34" Margin="0,0,10,0" SelectionChanged="CmbLimit_SelectionChanged">
+                        <ComboBoxItem Content="60 Düğüm" Tag="60" />
+                        <ComboBoxItem Content="150 Düğüm" Tag="150" />
+                        <ComboBoxItem Content="300 Düğüm" Tag="300" IsSelected="True" />
+                        <ComboBoxItem Content="500 Düğüm" Tag="500" />
+                        <ComboBoxItem Content="1000 Düğüm" Tag="1000" />
+                    </ComboBox>
+
+                    <Button x:Name="BtnRefresh" Content="🔄 Yenile" Style="{StaticResource SecondaryButton}" Padding="12,6" Margin="0,0,10,0" Click="BtnRefresh_Click" />
+                    <Button x:Name="BtnExportJson" Content="💾 JSON Dışa Aktar" Style="{StaticResource PrimaryButton}" Padding="14,6" Click="BtnExportJson_Click" />
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- 2. Main Body (2 Columns: Visual Canvas + Right Inspector) -->
+        <Grid Grid.Row="1">
+            <Grid.ColumnDefinitions>
+                <!-- Visual Graph Canvas -->
+                <ColumnDefinition Width="*" />
+                <!-- Detail Inspector Sidebar -->
+                <ColumnDefinition Width="340" />
+            </Grid.ColumnDefinitions>
+
+            <!-- Left: Interactive Graph Canvas Container -->
+            <Border Grid.Column="0" Background="#0C0F17" Margin="14,14,7,14" CornerRadius="10" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" ClipToBounds="True">
+                <Grid>
+                    <!-- Background Grid Pattern -->
+                    <Canvas x:Name="GraphCanvas" Background="Transparent" MouseLeftButtonDown="GraphCanvas_MouseLeftButtonDown">
+                        <!-- Dynamic node clusters and connecting lines rendered in C# -->
+                    </Canvas>
+
+                    <!-- Legend Overlay (Bottom Left) -->
+                    <Border HorizontalAlignment="Left" VerticalAlignment="Bottom" Margin="16" Background="#141824CC" CornerRadius="8" Padding="12,8" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1">
+                        <StackPanel Orientation="Horizontal">
+                            <Ellipse Width="10" Height="10" Fill="{StaticResource AccentCyanBrush}" Margin="0,0,6,0" VerticalAlignment="Center" />
+                            <TextBlock Text="Epizodik Anı" FontSize="11" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,0,14,0" VerticalAlignment="Center" />
+
+                            <Ellipse Width="10" Height="10" Fill="#C084FC" Margin="0,0,6,0" VerticalAlignment="Center" />
+                            <TextBlock Text="Semantik Bilgi / Wiki" FontSize="11" Foreground="{StaticResource TextPrimaryBrush}" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Loading / Empty Overlay -->
+                    <Border x:Name="OverlayLoading" Background="#0C0F17E6" Visibility="Collapsed">
+                        <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                            <TextBlock Text="🧠" FontSize="40" HorizontalAlignment="Center" Margin="0,0,0,10" />
+                            <TextBlock Text="Hafıza ve İlişki Grafiği Yükleniyor..." FontWeight="Bold" FontSize="14" Foreground="{StaticResource TextPrimaryBrush}" HorizontalAlignment="Center" />
+                            <TextBlock Text="Sinir ağındaki anılar ve semantik kavramlar haritalandırılıyor..." FontSize="12" Foreground="{StaticResource TextSecondaryBrush}" HorizontalAlignment="Center" Margin="0,4,0,0" />
+                        </StackPanel>
+                    </Border>
+                </Grid>
+            </Border>
+
+            <!-- Right: Inspector & Wiki Importer Sidebar -->
+            <Border Grid.Column="1" Background="{StaticResource PanelBrush}" Margin="7,14,14,14" CornerRadius="10" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" Padding="16">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <!-- Section 1: Wikipedia Fetcher & Search -->
+                        <RowDefinition Height="Auto" />
+                        <!-- Section 2: Selected Node Info -->
+                        <RowDefinition Height="*" />
+                        <!-- Section 3: Graph Stats -->
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <!-- Section 1: Fetch & Search -->
+                    <StackPanel Grid.Row="0" Margin="0,0,0,12">
+                        <!-- Wikipedia Instant Ingest -->
+                        <TextBlock Text="🌐 Wikipedia'dan Madde Ekle" FontWeight="Bold" FontSize="12.5" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,0,0,6" />
+                        <Grid Margin="0,0,0,6">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBox x:Name="TxtWikiFetchQuery" Height="36" Padding="10,0" VerticalContentAlignment="Center" Background="{StaticResource CardBrush}" Foreground="{StaticResource TextPrimaryBrush}" BorderBrush="{StaticResource BorderBrush}" KeyDown="TxtWikiFetchQuery_KeyDown" />
+                            <Button x:Name="BtnFetchWiki" Grid.Column="1" Content="📥 İndir" Style="{StaticResource PrimaryButton}" Margin="6,0,0,0" Padding="12,0" Height="36" Click="BtnFetchWiki_Click" />
+                        </Grid>
+
+                        <!-- Quick Wiki Suggestion Chips -->
+                        <WrapPanel Margin="0,0,0,10">
+                            <Button Content="+ Kara Delik" Style="{StaticResource SecondaryButton}" FontSize="10.5" Padding="6,3" Margin="0,0,4,4" Click="QuickWikiChip_Click" Tag="Kara delik" />
+                            <Button Content="+ Kuantum" Style="{StaticResource SecondaryButton}" FontSize="10.5" Padding="6,3" Margin="0,0,4,4" Click="QuickWikiChip_Click" Tag="Kuantum mekaniği" />
+                            <Button Content="+ Sinir Ağı" Style="{StaticResource SecondaryButton}" FontSize="10.5" Padding="6,3" Margin="0,0,4,4" Click="QuickWikiChip_Click" Tag="Yapay sinir ağları" />
+                            <Button Content="+ DNA" Style="{StaticResource SecondaryButton}" FontSize="10.5" Padding="6,3" Margin="0,0,4,4" Click="QuickWikiChip_Click" Tag="DNA" />
+                            <Button Content="+ Evrim" Style="{StaticResource SecondaryButton}" FontSize="10.5" Padding="6,3" Margin="0,0,4,4" Click="QuickWikiChip_Click" Tag="Evrim" />
+                        </WrapPanel>
+
+                        <!-- Search Filter -->
+                        <TextBlock Text="🔍 Grafikte Filtrele &amp; Ara" FontWeight="Bold" FontSize="12.5" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,0,0,6" />
+                        <TextBox x:Name="TxtSearch" Height="36" Padding="10,0" VerticalContentAlignment="Center" Background="{StaticResource CardBrush}" Foreground="{StaticResource TextPrimaryBrush}" BorderBrush="{StaticResource BorderBrush}" TextChanged="TxtSearch_TextChanged" />
+                    </StackPanel>
+
+                    <!-- Section 2: Selected Node Details -->
+                    <Border Grid.Row="1" Background="{StaticResource CardBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="8" Padding="12">
+                        <ScrollViewer VerticalScrollBarVisibility="Auto">
+                            <StackPanel x:Name="PanelNodeDetails">
+                                <TextBlock Text="Düğüm Detayları" FontWeight="Bold" FontSize="13" Foreground="{StaticResource AccentCyanBrush}" Margin="0,0,0,8" />
+                                <TextBlock x:Name="TxtSelectedTitle" Text="(Grafikten bir düğüme tıklayın)" FontWeight="SemiBold" FontSize="12.5" Foreground="{StaticResource TextPrimaryBrush}" TextWrapping="Wrap" Margin="0,0,0,6" />
+                                
+                                <TextBlock x:Name="TxtSelectedType" Text="Tür: —" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,3" />
+                                <TextBlock x:Name="TxtSelectedDate" Text="Tarih: —" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,10" />
+
+                                <Separator Background="{StaticResource BorderBrush}" Margin="0,0,0,10" />
+
+                                <TextBlock Text="Tam İçerik:" FontWeight="SemiBold" FontSize="11.5" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,0,0,4" />
+                                <TextBox x:Name="TxtSelectedContent" Text="Grafikten incelemek istediğiniz hafıza veya Wikipedia düğümüne tıklayınız." TextWrapping="Wrap" IsReadOnly="True" Background="Transparent" Foreground="{StaticResource TextSecondaryBrush}" BorderThickness="0" FontSize="11.5" />
+
+                            </StackPanel>
+                        </ScrollViewer>
+                    </Border>
+
+                    <!-- Section 3: Bottom Summary Stats -->
+                    <Border Grid.Row="2" Margin="0,10,0,0" Background="{StaticResource CardBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="8" Padding="10">
+                        <StackPanel>
+                            <Grid Margin="0,0,0,3">
+                                <TextBlock Text="Toplam Düğüm:" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}" />
+                                <TextBlock x:Name="TxtStatNodes" Text="0" FontWeight="Bold" FontSize="11" Foreground="{StaticResource TextPrimaryBrush}" HorizontalAlignment="Right" />
+                            </Grid>
+                            <Grid Margin="0,0,0,3">
+                                <TextBlock Text="Semantik Bağlantılar:" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}" />
+                                <TextBlock x:Name="TxtStatLinks" Text="0" FontWeight="Bold" FontSize="11" Foreground="{StaticResource AccentCyanBrush}" HorizontalAlignment="Right" />
+                            </Grid>
+                            <Grid>
+                                <TextBlock Text="İncelenen Konular:" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}" />
+                                <TextBlock x:Name="TxtStatTopics" Text="0" FontWeight="Bold" FontSize="11" Foreground="{StaticResource TextPrimaryBrush}" HorizontalAlignment="Right" />
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+                </Grid>
+            </Border>
+        </Grid>
+    </Grid>
+</Window>

@@ -1,0 +1,14 @@
+{
+  "language": "en",
+  "device": "auto",
+  "multi_gpu_enabled": true,
+  "worker_threads": 16,
+  "learning_rate": 0.0005,
+  "batch_size": 32,
+  "growth_threshold": 0.003,
+  "hf_token": "",
+  "curiosity_enabled": true,
+  "curiosity_topics": "",
+  "curiosity_interval": 10,
+  "theme": "Dark"
+}
