@@ -1,0 +1,22 @@
+# Windows Desktop and OS files
+Thumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+*.tmp
+*.temp
+
+# Python / Environment
+__pycache__/
+*.py[cod]
+*$py.class
+*.env
+*.venv
+env/
+venv/
+nova_env/
+
+# Logs & Database runtime files
+*.log
+*.db
+*.sqlite
+*.sqlite3
