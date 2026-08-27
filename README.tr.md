@@ -20,6 +20,7 @@
 
 [![GitHub Repository](https://img.shields.io/badge/GitHub-NovaAGI%20Ana%20Depo-blue?logo=github)](https://github.com/lonlyexe0/NovaAGI)
 [![Platform](https://img.shields.io/badge/Platform-Windows%2010%20%2F%2011%20(64--bit)-0078D6?logo=windows)](https://github.com/lonlyexe0/NovaAGI)
+[![Lisans: GPL v3](https://img.shields.io/badge/Lisans-GPLv3-blue.svg)](LICENSE)
 [![Durum](https://img.shields.io/badge/Durum-Beta%20%2F%20Deneysel-orange)](#-önemli-uyumluluk-ve-bilgilendirme-notu)
 
 </div>
@@ -90,6 +91,12 @@
     - İşlemci (CPU) ve Ekran Kartı (GPU) modeliniz
     - RAM miktarınız
     - Hata mesajı veya ekran görüntüsü
+
+---
+
+## 📄 Lisans
+
+Bu proje **GNU Genel Kamu Lisansı v3.0 (GPL-3.0)** ile lisanslanmıştır. Ayrıntılar için [LICENSE](LICENSE) dosyasına göz atabilirsiniz.
 
 ---
 

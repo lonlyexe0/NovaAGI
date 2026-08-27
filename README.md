@@ -20,6 +20,7 @@
 
 [![GitHub Repository](https://img.shields.io/badge/GitHub-NovaAGI%20Main%20Repo-blue?logo=github)](https://github.com/lonlyexe0/NovaAGI)
 [![Platform](https://img.shields.io/badge/Platform-Windows%2010%20%2F%2011%20(64--bit)-0078D6?logo=windows)](https://github.com/lonlyexe0/NovaAGI)
+[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE)
 [![Status](https://img.shields.io/badge/Status-Beta%20%2F%20Experimental-orange)](#-important-compatibility-notice)
 
 </div>
@@ -90,6 +91,12 @@
     - CPU / GPU model
     - RAM size
     - Error message or screenshot
+
+---
+
+## 📄 License
+
+This project is licensed under the **GNU General Public License v3.0 (GPL-3.0)**. See the [LICENSE](LICENSE) file for complete details.
 
 ---
 
