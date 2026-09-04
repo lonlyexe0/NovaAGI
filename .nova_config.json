@@ -7,10 +7,11 @@
   "batch_size": 32,
   "growth_threshold": 0.003,
   "hf_token": "",
-  "curiosity_enabled": true,
+  "curiosity_enabled": false,
   "curiosity_topics": "",
-  "curiosity_interval": 10,
+  "curiosity_interval": 90,
   "web_server_enabled": true,
-  "web_server_port": 8080,
+  "web_server_port": 9090,
+  "continuous_training_enabled": false,
   "theme": "Dark"
 }

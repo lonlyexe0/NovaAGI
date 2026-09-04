@@ -65,8 +65,12 @@ class NovaBridgeServer:
         self._calisiyor = True
         self._lock = threading.Lock()
 
-        # Sürekli arka plan eğitimi başlat
-        self._egitim_thread = self.beyin.surekli_egitim_baslat()
+        # Sürekli arka plan eğitimi başlat (ayar kontrolü ile)
+        if config_manager.is_continuous_training_enabled():
+            self._egitim_thread = self.beyin.surekli_egitim_baslat()
+        else:
+            self._egitim_thread = None
+            logger.info("[Bridge] Sürekli arka plan eğitimi ayarlardan dolayı kapalı (başlatılmadı).")
 
         # Web & Mobil Sunucusu
         try:
@@ -224,6 +228,23 @@ class NovaBridgeServer:
             self.hafiza.ani_kaydet("nova", arac_res)
             return {"type": "chat_reply", "reply": arac_res, "role": "nova", "tool_used": True}
 
+        # 2.1 Geçmiş mesajları sesli okuma niyeti
+        girdi_lower = girdi.lower()
+        if any(w in girdi_lower for w in ["geçmişi oku", "geçmiş mesajları oku", "sohbeti oku", "sohbet geçmişini oku", "read history", "read the history", "read past messages"]):
+            anilar = self.hafiza.son_anilar_getir(limit=6)
+            metinler = []
+            for a in anilar:
+                kim = "Kullanıcı" if a.get('rol') in ('kullanici', 'user') else "Nova"
+                metinler.append(f"{kim}: {a.get('icerik', '')}")
+            okunacak = ". ".join(metinler)
+            if okunacak:
+                self.beden.ses.konuş(okunacak)
+            lang_now = config_manager.get_language() or "tr"
+            cevap = "Sohbet geçmişindeki son konuşmaları sesli olarak okuyorum." if lang_now == "tr" else "Reading recent conversation history aloud for you."
+            self.hafiza.ani_kaydet("kullanici", girdi)
+            self.hafiza.ani_kaydet("nova", cevap)
+            return {"type": "chat_reply", "reply": cevap, "role": "nova"}
+
         # 3. Hafıza, RAG ve Canlı İnternet / Wikipedia Zenginleştirme
         self.hafiza.ani_kaydet("kullanici", girdi)
         baglam = self.hafiza.rag_sorgula(girdi, k=3, max_karakter=300)
@@ -300,6 +321,20 @@ class NovaBridgeServer:
             for a in anilar:
                 satirlar.append(f"[{a['zaman']}] {a['rol']}: {a['icerik'][:70]}")
             return "\n".join(satirlar)
+        elif cmd in ("oku", "read", "gecmis_oku", "geçmiş_oku"):
+            n = int(arg) if arg.isdigit() else 3
+            anilar = self.hafiza.son_anilar_getir(limit=n * 2)
+            metinler = []
+            for a in anilar:
+                kim = "Kullanıcı" if a.get('rol') in ('kullanici', 'user') else "Nova"
+                metinler.append(f"{kim}: {a.get('icerik', '')}")
+            okunacak = ". ".join(metinler)
+            if okunacak:
+                self.beden.ses.konuş(okunacak)
+                return f"🔊 Son {len(anilar)} sohbet mesajı sesli okunuyor."
+            return "Okunacak geçmiş mesaj bulunamadı."
+        elif cmd in ("izle", "ekran", "gozlem", "gözlem", "watch"):
+            return self.beden.gozlemci.goruntule_ve_incele(arg or girdi)
         elif cmd == "kaydet":
             self.beyin.kaydet()
             return "✓ Model ve ağırlıklar başarıyla kaydedildi."
@@ -325,10 +360,24 @@ class NovaBridgeServer:
             elif arg.lower() in ("tr", "tur"):
                 config_manager.set_language("tr")
                 return "✓ Dil Türkçe (tr) olarak ayarlandı."
+        elif cmd in ("egitim", "eğitim", "train"):
+            sub = arg.lower().strip()
+            if sub in ("durdur", "stop", "pause", "kapat", "off"):
+                self.beyin.egitimi_durdur()
+                config_manager.set_continuous_training(False)
+                return "⏸️ Sürekli arka plan eğitimi durduruldu. (CPU/GPU eğitimi kapalı)"
+            elif sub in ("baslat", "başlat", "start", "resume", "ac", "aç", "on"):
+                self.beyin.surekli_egitim_baslat()
+                config_manager.set_continuous_training(True)
+                return "▶️ Sürekli arka plan eğitimi başlatıldı. (Model öğrenmeye devam ediyor)"
+            else:
+                durum = "Aktif (Öğreniyor 🔥)" if getattr(self.beyin, "is_training", False) else "Durduruldu (Beklemede ⏸️)"
+                return f"ℹ️ Sürekli Arka Plan Eğitimi: {durum}\nKullanım:\n  !egitim durdur  — Eğitimi duraklatır\n  !egitim baslat   — Eğitimi devam ettirir"
         elif cmd == "yardim":
             return (
                 "📖 Komutlar & Yetenekler:\n"
                 "  !istatistik    — Model ve hafıza metrikleri\n"
+                "  !egitim [durum|durdur|baslat] — Sürekli eğitimi yönet\n"
                 "  !wiki [konu]   — Wikipedia'da canlı araştır\n"
                 "  !ara [sorgu]   — Web ve bilgi araması\n"
                 "  !hesapla [mat] — Matematik hesabı (örn: 2^10 + sqrt(144))\n"
@@ -369,6 +418,31 @@ class NovaBridgeServer:
                     res = self._sohbet_uret(prompt)
                     res["id"] = req_id
                     self._cevap_yaz(res)
+                elif action == "speak":
+                    text = req.get("text", "")
+                    if text:
+                        self.beden.ses.konuş(text)
+                    self._cevap_yaz({"type": "speak_reply", "id": req_id, "status": "ok"})
+                elif action == "get_history":
+                    limit = int(req.get("limit", 40))
+                    anilar = self.hafiza.son_anilar_getir(limit=limit)
+                    self._cevap_yaz({"type": "history_reply", "id": req_id, "messages": anilar})
+                elif action == "read_history":
+                    count = int(req.get("count", 3))
+                    anilar = self.hafiza.son_anilar_getir(limit=count * 2)
+                    metinler = []
+                    for a in anilar:
+                        kim = "Kullanıcı" if a.get('rol') in ('kullanici', 'user') else "Nova"
+                        metinler.append(f"{kim}: {a.get('icerik', '')}")
+                    okunacak = ". ".join(metinler)
+                    if okunacak:
+                        self.beden.ses.konuş(okunacak)
+                    self._cevap_yaz({"type": "read_history_reply", "id": req_id, "status": "ok", "count": len(anilar)})
+                elif action == "observe_screen":
+                    prompt = req.get("prompt", "")
+                    speak = req.get("speak", True)
+                    res_text = self.beden.gozlemci.goruntule_ve_incele(prompt, seslendir=speak)
+                    self._cevap_yaz({"type": "observation_reply", "id": req_id, "text": res_text, "status": "ok"})
                 elif action == "command":
                     cmd = req.get("command", "")
                     res_str = self._komut_isle(cmd)
@@ -417,7 +491,33 @@ class NovaBridgeServer:
                         except Exception as e:
                             logger.error(f"[Bridge] Web sunucusu ayar hatası: {e}")
 
+                    # Canlı Sürekli Eğitim Kontrolü
+                    if "continuous_training_enabled" in new_cfg:
+                        try:
+                            c_train = bool(new_cfg.get("continuous_training_enabled", True))
+                            if c_train:
+                                if not getattr(self.beyin, "is_training", False):
+                                    self._egitim_thread = self.beyin.surekli_egitim_baslat()
+                                    logger.info("[Bridge] Sürekli eğitim ayarlardan ETKİNLEŞTİRİLDİ.")
+                            else:
+                                if getattr(self.beyin, "is_training", False):
+                                    self.beyin.egitimi_durdur()
+                                    logger.info("[Bridge] Sürekli eğitim ayarlardan DURDURULDU.")
+                        except Exception as e:
+                            logger.error(f"[Bridge] Sürekli eğitim ayar hatası: {e}")
+
                     self._cevap_yaz({"type": "save_settings_reply", "id": req_id, "status": "ok", "settings": new_cfg})
+
+                elif action == "pause_training":
+                    self.beyin.egitimi_durdur()
+                    config_manager.set_continuous_training(False)
+                    logger.info("[Bridge] pause_training eylemi ile eğitim durduruldu.")
+                    self._cevap_yaz({"type": "training_status_reply", "id": req_id, "status": "ok", "is_training": False})
+                elif action == "resume_training":
+                    self._egitim_thread = self.beyin.surekli_egitim_baslat()
+                    config_manager.set_continuous_training(True)
+                    logger.info("[Bridge] resume_training eylemi ile eğitim başlatıldı.")
+                    self._cevap_yaz({"type": "training_status_reply", "id": req_id, "status": "ok", "is_training": True})
 
                 elif action == "graph":
                     limit_ani = int(req.get("limit_ani", 100))

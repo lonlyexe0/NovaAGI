@@ -78,6 +78,16 @@ def set_setting(key: str, val: Any) -> bool:
     return _config_yaz(cfg)
 
 
+def is_continuous_training_enabled() -> bool:
+    """Sürekli arka plan eğitiminin etkin olup olmadığını döner (varsayılan True)."""
+    return bool(get_setting("continuous_training_enabled", True))
+
+
+def set_continuous_training(enabled: bool) -> bool:
+    """Sürekli arka plan eğitimini açar veya kapatır."""
+    return set_setting("continuous_training_enabled", bool(enabled))
+
+
 
 def get_language() -> Optional[str]:
     """Kayıtlı dili döner ('en' veya 'tr'), henüz ayarlanmamışsa None döner."""

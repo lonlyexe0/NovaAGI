@@ -177,9 +177,9 @@ public class ChatMessage
     public string Timestamp { get; set; } = DateTime.Now.ToString("HH:mm:ss");
     public string ActionText { get; set; } = string.Empty;
 
-    public bool IsUser => Role.Equals("user", StringComparison.OrdinalIgnoreCase);
+    public bool IsUser => Role.Equals("user", StringComparison.OrdinalIgnoreCase) || Role.Equals("kullanici", StringComparison.OrdinalIgnoreCase);
     public bool IsNova => Role.Equals("nova", StringComparison.OrdinalIgnoreCase);
-    public bool IsSystem => Role.Equals("system", StringComparison.OrdinalIgnoreCase);
+    public bool IsSystem => Role.Equals("system", StringComparison.OrdinalIgnoreCase) || Role.Equals("sistem", StringComparison.OrdinalIgnoreCase);
     public bool HasAction => !string.IsNullOrWhiteSpace(ActionText);
 }
 
@@ -223,6 +223,9 @@ public class NovaSettings
 
     [JsonPropertyName("web_server_port")]
     public int WebServerPort { get; set; } = 8080;
+
+    [JsonPropertyName("continuous_training_enabled")]
+    public bool ContinuousTrainingEnabled { get; set; } = true;
 
     [JsonPropertyName("theme")]
     public string Theme { get; set; } = "Dark";

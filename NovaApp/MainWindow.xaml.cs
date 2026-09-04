@@ -23,8 +23,10 @@ public partial class MainWindow : Window
 
     private SpeechSynthesizer? _synth;
     private SpeechRecognitionEngine? _recognizer;
-    private bool _voiceOutputEnabled = false;
+    private bool _voiceOutputEnabled = true;
     private bool _isListening = false;
+    private bool _isEn = false;
+    private bool _isTrainingActive = true;
 
     public MainWindow()
     {
@@ -37,6 +39,14 @@ public partial class MainWindow : Window
         {
             _synth = new SpeechSynthesizer();
             _synth.SetOutputToDefaultAudioDevice();
+            foreach (var voice in _synth.GetInstalledVoices())
+            {
+                if (voice.Enabled && voice.VoiceInfo.Name.Contains("Zira", StringComparison.OrdinalIgnoreCase))
+                {
+                    _synth.SelectVoice(voice.VoiceInfo.Name);
+                    break;
+                }
+            }
         }
         catch { }
 
@@ -106,6 +116,33 @@ public partial class MainWindow : Window
             StatusText.Text = $"Motor Hazır v{version} (Sürekli Öğrenme Aktif)";
             TxtBottomStatus.Text = "✓ Nova Motoru Bağlandı.";
             AddSystemMessage($"✓ Nova AGI Motoru v{version} başarıyla bağlandı.");
+
+            // 1. Load Chat History from SQLite
+            try
+            {
+                var history = await _backend.GetHistoryAsync(40);
+                if (history != null && history.Count > 0)
+                {
+                    AddSystemMessage(_isEn 
+                        ? "─── Restored Conversation History ───" 
+                        : "─── Kaydedilen Sohbet Geçmişi Yüklendi ───");
+                    foreach (var msg in history)
+                    {
+                        _messages.Add(msg);
+                    }
+                    ScrollChatToBottom();
+                }
+            }
+            catch { }
+
+            // 2. Initial voice greeting ("ilk açıldığında bişeyler söylesin")
+            if (_voiceOutputEnabled)
+            {
+                string greeting = _isEn
+                    ? "Nova AGI online. F.R.I.D.A.Y. voice systems functional, all parameters nominal."
+                    : "Nova AGI çevrimiçi. F.R.I.D.A.Y. ses sistemleri devrede, dinliyorum.";
+                SpeakText(greeting);
+            }
         });
     }
 
@@ -149,21 +186,10 @@ public partial class MainWindow : Window
             });
             ScrollChatToBottom();
 
-            // Speech Synthesis (TTS)
-            if (_voiceOutputEnabled && role.Equals("nova", StringComparison.OrdinalIgnoreCase) && _synth != null)
+            // Speech Synthesis (TTS - F.R.I.D.A.Y. via Neural Edge-TTS / SAPI)
+            if (_voiceOutputEnabled && role.Equals("nova", StringComparison.OrdinalIgnoreCase))
             {
-                try
-                {
-                    _synth.SpeakAsyncCancelAll();
-                    // Clean markdown asterisks and code blocks
-                    string speechText = Regex.Replace(text, @"[*#`_~\[\]\(\)]", " ");
-                    speechText = Regex.Replace(speechText, @"\s+", " ").Trim();
-                    if (!string.IsNullOrWhiteSpace(speechText))
-                    {
-                        _synth.SpeakAsync(speechText);
-                    }
-                }
-                catch { }
+                SpeakText(text);
             }
         });
     }
@@ -288,8 +314,20 @@ public partial class MainWindow : Window
             // System Summary Text
             TxtSystemSummary.Text = hw.SystemSummary;
 
-            // Bottom Status
-            TxtBottomStatus.Text = $"Adım: {packet.Step:N0} | Vocab: {packet.VocabSize} | Nodes: {packet.EpisodicNodes + packet.SemanticNodes} | {(packet.IsTraining ? "🔥 Eğitim Aktif" : "⏸ Beklemede")}";
+            // Training Status & Bottom Bar
+            _isTrainingActive = packet.IsTraining;
+            if (BtnChipToggleTraining != null)
+            {
+                BtnChipToggleTraining.Content = packet.IsTraining 
+                    ? (_isEn ? "⏸️ Pause Training" : "⏸️ Eğitimi Durdur") 
+                    : (_isEn ? "▶️ Resume Training" : "▶️ Eğitimi Başlat");
+            }
+
+            string trainStatus = packet.IsTraining 
+                ? (_isEn ? "🔥 Training Active" : "🔥 Eğitim Aktif") 
+                : (_isEn ? "⏸ Training Paused" : "⏸ Eğitim Duraklatıldı");
+
+            TxtBottomStatus.Text = $"{(_isEn ? "Step" : "Adım")}: {packet.Step:N0} | Vocab: {packet.VocabSize} | Nodes: {packet.EpisodicNodes + packet.SemanticNodes} | {trainStatus}";
         });
     }
 
@@ -405,6 +443,7 @@ public partial class MainWindow : Window
     public void ApplyLocalization(string lang)
     {
         bool isEn = lang.Equals("en", StringComparison.OrdinalIgnoreCase);
+        _isEn = isEn;
 
         // Header & Subtitles
         TxtSubtitle.Text = isEn 
@@ -417,6 +456,25 @@ public partial class MainWindow : Window
 
         // Quick Command Chips
         TxtQuickCmds.Text = isEn ? "Quick Commands:" : "Hızlı Komutlar:";
+        if (BtnChipReadHistory != null)
+        {
+            BtnChipReadHistory.Content = isEn ? "🔊 Read History" : "🔊 Geçmişi Oku";
+            BtnChipReadHistory.ToolTip = isEn ? "Read recent chat history aloud" : "Sohbet geçmişindeki son konuşmaları sesli oku";
+        }
+        if (BtnChipWatchScreen != null)
+        {
+            BtnChipWatchScreen.Content = isEn ? "👁️ Observe Screen" : "👁️ Ekranı İzle";
+            BtnChipWatchScreen.ToolTip = isEn ? "Autonomously observe screen or video motion" : "Nova ekranınızı veya hareketleri otonom olarak izleyip inceler";
+        }
+        if (BtnChipToggleTraining != null)
+        {
+            BtnChipToggleTraining.Content = _isTrainingActive 
+                ? (isEn ? "⏸️ Pause Training" : "⏸️ Eğitimi Durdur") 
+                : (isEn ? "▶️ Resume Training" : "▶️ Eğitimi Başlat");
+            BtnChipToggleTraining.ToolTip = isEn 
+                ? "Pause or resume continuous background training" 
+                : "Sürekli arka plan eğitimini anında duraklat veya devam ettir";
+        }
         BtnChipStats.Content = isEn ? "🧠 !stats" : "🧠 !istatistik";
         BtnChipMemories.Content = isEn ? "📜 !memories" : "📜 !anilar";
         BtnChipHelp.Content = isEn ? "❓ !help" : "❓ !yardim";
@@ -424,7 +482,9 @@ public partial class MainWindow : Window
 
         // Chat Input & Voice
         TxtBtnSend.Text = isEn ? "Send" : "Gönder";
-        BtnVoiceOutput.ToolTip = isEn ? "Voice Output (TTS)" : "Sesli Yanıtı Aç / Kapat (Metin Okuma TTS)";
+        BtnVoiceOutput.ToolTip = _voiceOutputEnabled 
+            ? (isEn ? "Voice Output: Enabled (F.R.I.D.A.Y.)" : "Sesli Okuma (TTS): Açık (F.R.I.D.A.Y.)") 
+            : (isEn ? "Voice Output: Disabled" : "Sesli Okuma (TTS): Kapalı");
         BtnMic.ToolTip = isEn ? "Dictate / Mic (STT)" : "Sesle Konuş / Yazdır (Mikrofon)";
 
         // Sidebars
@@ -502,7 +562,9 @@ public partial class MainWindow : Window
     {
         _voiceOutputEnabled = !_voiceOutputEnabled;
         TxtVoiceIcon.Text = _voiceOutputEnabled ? "🔊" : "🔇";
-        BtnVoiceOutput.ToolTip = _voiceOutputEnabled ? "Sesli Okuma (TTS): Açık" : "Sesli Okuma (TTS): Kapalı";
+        BtnVoiceOutput.ToolTip = _voiceOutputEnabled 
+            ? (_isEn ? "Voice Output: Enabled (F.R.I.D.A.Y.)" : "Sesli Okuma (TTS): Açık (F.R.I.D.A.Y.)")
+            : (_isEn ? "Voice Output: Disabled" : "Sesli Okuma (TTS): Kapalı");
 
         if (!_voiceOutputEnabled)
         {
@@ -510,11 +572,79 @@ public partial class MainWindow : Window
         }
         else
         {
-            try
+            string msg = _isEn ? "F.R.I.D.A.Y. voice output activated." : "F.R.I.D.A.Y. ses sistemi açıldı.";
+            SpeakText(msg);
+        }
+    }
+
+    public void SpeakText(string text)
+    {
+        if (!_voiceOutputEnabled || string.IsNullOrWhiteSpace(text)) return;
+        try
+        {
+            _synth?.SpeakAsyncCancelAll();
+            string clean = Regex.Replace(text, @"```[\s\S]*?```", " ");
+            clean = Regex.Replace(clean, @"[*#`_~\[\]\(\)>]", " ");
+            clean = Regex.Replace(clean, @"\s+", " ").Trim();
+            if (string.IsNullOrWhiteSpace(clean)) return;
+
+            if (_backend.IsRunning)
             {
-                _synth?.SpeakAsync("Sesli yanıt sistemi açıldı.");
+                _ = _backend.SpeakAsync(clean);
             }
-            catch { }
+            else if (_synth != null)
+            {
+                _synth.SpeakAsync(clean);
+            }
+        }
+        catch { }
+    }
+
+    private void BtnSpeakMessage_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is Button btn && btn.Tag is string text && !string.IsNullOrWhiteSpace(text))
+        {
+            SpeakText(text);
+        }
+    }
+
+    private async void BtnReadHistory_Click(object sender, RoutedEventArgs e)
+    {
+        if (!_backend.IsRunning)
+        {
+            var recent = _messages.Where(m => m.IsNova || m.IsUser).TakeLast(4).ToList();
+            if (recent.Count > 0)
+            {
+                string combined = string.Join(". ", recent.Select(m => $"{(m.IsUser ? (_isEn ? "User" : "Kullanıcı") : "Nova")}: {m.Text}"));
+                SpeakText(combined);
+            }
+            return;
+        }
+
+        AddSystemMessage(_isEn ? "🔊 Reading recent chat history..." : "🔊 Son sohbet geçmişi sesli okunuyor...");
+        await _backend.ReadHistoryAsync(3);
+    }
+
+    private async void BtnWatchScreen_Click(object sender, RoutedEventArgs e)
+    {
+        if (!_backend.IsRunning)
+        {
+            AddSystemMessage(_isEn ? "[Error]: Backend engine is not running." : "[Hata]: Nova motoru çalışmıyor.");
+            return;
+        }
+
+        AddSystemMessage(_isEn ? "👁️ Nova is observing your screen and motion..." : "👁️ Nova ekranınızı ve hareketleri gözlemliyor...");
+        string res = await _backend.ObserveScreenAsync("ekranımı izle ne oluyor", speak: _voiceOutputEnabled);
+        if (!string.IsNullOrWhiteSpace(res))
+        {
+            _messages.Add(new ChatMessage
+            {
+                Role = "nova",
+                Text = res,
+                ActionText = _isEn ? "Visual Observation" : "Görsel Gözlem",
+                Timestamp = DateTime.Now.ToString("HH:mm:ss")
+            });
+            ScrollChatToBottom();
         }
     }
 
@@ -657,6 +787,48 @@ public partial class MainWindow : Window
                 Margin = new Thickness(lastX - 3, lastY - 3, 0, 0)
             };
             LossCanvas.Children.Add(dot);
+        }
+    }
+
+    private async void BtnToggleTraining_Click(object sender, RoutedEventArgs e)
+    {
+        if (!_backend.IsRunning) return;
+
+        BtnChipToggleTraining.IsEnabled = false;
+        try
+        {
+            if (_isTrainingActive)
+            {
+                bool ok = await _backend.PauseTrainingAsync();
+                if (ok)
+                {
+                    _isTrainingActive = false;
+                    BtnChipToggleTraining.Content = _isEn ? "▶️ Resume Training" : "▶️ Eğitimi Başlat";
+                    AddSystemMessage(_isEn 
+                        ? "⏸️ Continuous background training paused. Hardware load reduced." 
+                        : "⏸️ Sürekli arka plan eğitimi duraklatıldı. Donanım kullanımı düşürüldü.");
+                }
+            }
+            else
+            {
+                bool ok = await _backend.ResumeTrainingAsync();
+                if (ok)
+                {
+                    _isTrainingActive = true;
+                    BtnChipToggleTraining.Content = _isEn ? "⏸️ Pause Training" : "⏸️ Eğitimi Durdur";
+                    AddSystemMessage(_isEn 
+                        ? "▶️ Continuous background training resumed. Nova is actively learning." 
+                        : "▶️ Sürekli arka plan eğitimi devam ettiriliyor. Nova öğrenmeye devam ediyor.");
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            AddSystemMessage($"Hata / Error: {ex.Message}");
+        }
+        finally
+        {
+            BtnChipToggleTraining.IsEnabled = true;
         }
     }
 }

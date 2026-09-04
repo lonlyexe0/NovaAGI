@@ -145,6 +145,9 @@
                         <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
                             <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                                 <TextBlock x:Name="TxtQuickCmds" Text="Hızlı Komutlar:" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource TextMutedBrush}" VerticalAlignment="Center" Margin="0,0,10,0" />
+                                <Button x:Name="BtnChipReadHistory" Content="🔊 Geçmişi Oku" Style="{StaticResource SecondaryButton}" Margin="0,0,6,0" Click="BtnReadHistory_Click" ToolTip="Sohbet geçmişindeki son konuşmaları sesli oku / Read recent history aloud" />
+                                <Button x:Name="BtnChipWatchScreen" Content="👁️ Ekranı İzle" Style="{StaticResource SecondaryButton}" Margin="0,0,6,0" Click="BtnWatchScreen_Click" ToolTip="Nova ekranınızı veya hareketleri otonom olarak izleyip inceler / Autonomously observe screen or video motion" />
+                                <Button x:Name="BtnChipToggleTraining" Content="⏸️ Eğitimi Durdur" Style="{StaticResource SecondaryButton}" Margin="0,0,6,0" Click="BtnToggleTraining_Click" ToolTip="Sürekli arka plan eğitimini anında duraklat veya devam ettir / Pause or resume continuous background training" />
                                 <Button x:Name="BtnChipStats" Content="🧠 !istatistik" Style="{StaticResource SecondaryButton}" Margin="0,0,6,0" Click="QuickCommand_Click" Tag="!istatistik" />
                                 <Button x:Name="BtnChipMemories" Content="📜 !anilar" Style="{StaticResource SecondaryButton}" Margin="0,0,6,0" Click="QuickCommand_Click" Tag="!anilar 5" />
                                 <Button Content="🔑 !hf" Style="{StaticResource SecondaryButton}" Margin="0,0,6,0" Click="QuickCommand_Click" Tag="!hf" />
@@ -170,6 +173,9 @@
                                                 <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
                                                     <TextBlock Text="👤 You" FontWeight="Bold" FontSize="11" Foreground="#99C0FF" />
                                                     <TextBlock Text="{Binding Timestamp}" FontSize="10" Foreground="#6C8BB8" Margin="10,0,0,0" VerticalAlignment="Center" />
+                                                    <Button Width="20" Height="20" Style="{StaticResource SecondaryButton}" Padding="0" Margin="10,0,0,0" ToolTip="Bu mesajı sesli oku" Click="BtnSpeakMessage_Click" Tag="{Binding Text}">
+                                                        <TextBlock Text="🔊" FontSize="9" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                                    </Button>
                                                 </StackPanel>
                                                 <TextBlock Text="{Binding Text}" TextWrapping="Wrap" FontSize="13.5" Foreground="#E2EEFF" LineHeight="20" />
                                             </StackPanel>
@@ -184,6 +190,9 @@
                                                 <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
                                                     <TextBlock Text="🌟 Nova AGI" FontWeight="Bold" FontSize="11" Foreground="{StaticResource AccentCyanBrush}" />
                                                     <TextBlock Text="{Binding Timestamp}" FontSize="10" Foreground="#5E9675" Margin="10,0,0,0" VerticalAlignment="Center" />
+                                                    <Button Width="20" Height="20" Style="{StaticResource SecondaryButton}" Padding="0" Margin="10,0,0,0" ToolTip="Bu yanıtı sesli oku" Click="BtnSpeakMessage_Click" Tag="{Binding Text}">
+                                                        <TextBlock Text="🔊" FontSize="9" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                                    </Button>
                                                 </StackPanel>
                                                 <TextBlock Text="{Binding Text}" TextWrapping="Wrap" FontSize="13.5" Foreground="#D6FDE0" LineHeight="21" FontFamily="Consolas, Segoe UI" />
 
@@ -228,11 +237,11 @@
                                      Margin="0,0,10,0" />
 
                             <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Bottom">
-                                <!-- Voice Output Toggle Button (TTS) -->
+                                <!-- Voice Output Toggle Button (TTS - F.R.I.D.A.Y.) -->
                                 <Button x:Name="BtnVoiceOutput" Style="{StaticResource SecondaryButton}" 
                                         Width="44" Height="42" Margin="0,0,6,0" 
-                                        ToolTip="Sesli Yanıtı Aç / Kapat (Metin Okuma TTS)" Click="BtnVoiceOutput_Click">
-                                    <TextBlock x:Name="TxtVoiceIcon" Text="🔇" FontSize="16" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                        ToolTip="Sesli Yanıt: Açık (F.R.I.D.A.Y. TTS)" Click="BtnVoiceOutput_Click">
+                                    <TextBlock x:Name="TxtVoiceIcon" Text="🔊" FontSize="16" HorizontalAlignment="Center" VerticalAlignment="Center" />
                                 </Button>
 
                                 <!-- Microphone Speech Input Button (STT) -->

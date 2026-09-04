@@ -172,6 +172,14 @@
                             <TextBlock Text="Sinir Ağı &amp; Büyüme Parametreleri" FontWeight="Bold" FontSize="16" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,0,0,6" />
                             <TextBlock Text="Dinamik büyüyen Transformer mimarisi hiperparametreleri." FontSize="12" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,18" />
 
+                            <!-- Sürekli Arka Plan Eğitimi Kartı -->
+                            <Border Background="{StaticResource CardBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="8" Padding="14" Margin="0,0,0,18">
+                                <StackPanel>
+                                    <CheckBox x:Name="ChkContinuousTraining" Content="⚡ Sürekli Arka Plan Eğitimini Aktif Tut" FontWeight="SemiBold" FontSize="13.5" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,0,0,6" IsChecked="True" />
+                                    <TextBlock x:Name="TxtContinuousTrainingDesc" Text="Hafızadaki yeni bilgi ve konuşmaları arka planda sürekli eğitir. Kapatıldığında CPU/GPU eğitimi tamamen durur ve kaynak kullanımı sıfırlanır." FontSize="11.5" Foreground="{StaticResource TextSecondaryBrush}" TextWrapping="Wrap" Margin="24,0,0,0" />
+                                </StackPanel>
+                            </Border>
+
                             <TextBlock Text="Öğrenme Hızı (Learning Rate):" FontWeight="SemiBold" FontSize="13" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,0,0,6" />
                             <TextBox x:Name="TxtLr" Text="0.0003" Margin="0,0,0,14" />
 

@@ -8,13 +8,17 @@
 
 import os
 import sys
+import re
 import json
 import socket
 import logging
 import threading
+from urllib.parse import urlparse, parse_qs
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from socketserver import ThreadingMixIn
 from typing import Optional, Dict, Any
+
+import config_manager
 
 logger = logging.getLogger("nova.web")
 
@@ -32,6 +36,59 @@ def get_local_ip() -> str:
             return socket.gethostbyname(socket.gethostname())
         except Exception:
             return "127.0.0.1"
+
+
+# ── Mobil Web TTS Ses Sentezi ve Önbellek ─────────────────────────────────────
+_tts_cache: Dict[str, bytes] = {}
+
+def clean_tts_text(text: str) -> str:
+    """TTS için metindeki kod bloklarını, linkleri ve markdown işaretlerini temizler."""
+    text = re.sub(r'```[\s\S]*?```', '', text)
+    text = re.sub(r'`[^`]*`', '', text)
+    text = re.sub(r'http\S+|www\.\S+', '', text)
+    text = re.sub(r'[*#_~\[\]\(\)>]', ' ', text)
+    text = re.sub(r'\s+', ' ', text).strip()
+    return text[:450]
+
+
+def get_tts_audio_bytes(text: str, lang: Optional[str] = None) -> Optional[bytes]:
+    """
+    Telefonlar ve web tarayıcısı için ultra-hızlı Neural MP3 ses dosyası üretir.
+    Türkçe için tr-TR-EmelNeural, İngilizce için en-IE-EmilyNeural (F.R.I.D.A.Y. stili).
+    """
+    clean = clean_tts_text(text)
+    if not clean:
+        return None
+
+    if not lang:
+        lang = "tr" if bool(re.search(r'[çğıöşüÇĞİÖŞÜ]', clean)) else (config_manager.get_language() or "tr")
+
+    cache_key = f"{lang}:{clean}"
+    if cache_key in _tts_cache:
+        return _tts_cache[cache_key]
+
+    voice = "en-IE-EmilyNeural" if lang == "en" else "tr-TR-EmelNeural"
+    try:
+        import edge_tts
+        import asyncio
+
+        async def _run():
+            comm = edge_tts.Communicate(clean, voice)
+            chunks = []
+            async for chunk in comm.stream():
+                if chunk["type"] == "audio":
+                    chunks.append(chunk["data"])
+            return b"".join(chunks)
+
+        audio_bytes = asyncio.run(_run())
+        if audio_bytes:
+            if len(_tts_cache) > 80:
+                _tts_cache.clear()
+            _tts_cache[cache_key] = audio_bytes
+            return audio_bytes
+    except Exception as e:
+        logger.debug(f"[WebTTS] Audio üretilemedi: {e}")
+    return None
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -164,6 +221,78 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
         .hud-badge span {
             color: var(--accent-cyan);
             font-weight: 600;
+        }
+
+        .header-actions {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .hud-btn {
+            background: rgba(255, 255, 255, 0.06);
+            border: 1px solid var(--border-glass);
+            border-radius: 20px;
+            padding: 5px 12px;
+            font-size: 11px;
+            font-family: inherit;
+            color: var(--text-main);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+            outline: none;
+        }
+
+        .hud-btn:hover, .hud-btn:active {
+            background: rgba(0, 229, 179, 0.18);
+            border-color: var(--accent-cyan);
+            color: #ffffff;
+        }
+
+        .hud-btn.active {
+            border-color: var(--accent-cyan);
+            background: rgba(0, 229, 179, 0.15);
+            box-shadow: 0 0 10px rgba(0, 229, 179, 0.25);
+        }
+
+        .hud-btn.muted {
+            opacity: 0.6;
+            border-color: rgba(255, 255, 255, 0.1);
+        }
+
+        .btn-msg-speak {
+            background: rgba(255, 255, 255, 0.06);
+            border: 1px solid var(--border-glass);
+            color: var(--accent-cyan);
+            border-radius: 12px;
+            padding: 3px 9px;
+            font-size: 11px;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            margin-left: auto;
+            transition: all 0.2s;
+            outline: none;
+        }
+
+        .btn-msg-speak:hover, .btn-msg-speak:active {
+            background: rgba(0, 229, 179, 0.2);
+            border-color: var(--accent-cyan);
+        }
+
+        .btn-msg-speak.playing {
+            background: rgba(239, 68, 68, 0.25);
+            border-color: #ef4444;
+            color: #fca5a5;
+            animation: pulse-red 1.2s infinite;
+        }
+
+        @keyframes pulse-red {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.75; transform: scale(0.96); }
         }
 
         /* ── Chat Container ─────────────────────────────────── */
@@ -384,15 +513,23 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
                 <p><span class="status-dot"></span> Bilgisayar Motoru Bağlı</p>
             </div>
         </div>
-        <div class="hud-badge" id="hud-stats">
-            <span>⚡ GPU</span> <span id="stat-params">—</span>
+        <div class="header-actions">
+            <button class="hud-btn active" id="btn-speaker-toggle" onclick="toggleAutoSpeak()" title="Sesli Okuma: Açık / Kapalı">
+                <span id="speaker-icon">🔊</span> <span id="speaker-text">Ses Açık</span>
+            </button>
+            <div class="hud-badge" id="hud-stats">
+                <span>⚡ GPU</span> <span id="stat-params">—</span>
+            </div>
         </div>
     </header>
 
     <!-- Chat Messages -->
     <div id="chat-container">
         <div class="msg-wrapper nova">
-            <div class="msg-header">🌟 Nova AGI • Sistem</div>
+            <div class="msg-header">
+                <span>🌟 Nova AGI • Sistem</span>
+                <button class="btn-msg-speak" onclick="speakMessage(this, 'Merhaba! Telefonunuzdan bilgisayarınızdaki Nova AGI motoruna bağlandınız. Buradan canlı sohbet edebilir, Wikipedia araştırması yaptırabilir veya komut gönderebilirsiniz.')">🔊 Dinle</button>
+            </div>
             <div class="msg-bubble">
                 Merhaba! Telefonunuzdan bilgisayarınızdaki Nova AGI motoruna bağlandınız. Buradan canlı sohbet edebilir, Wikipedia araştırması yaptırabilir veya komut gönderebilirsiniz.
             </div>
@@ -408,6 +545,7 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
 
     <!-- Suggestions Bar -->
     <div class="chips-bar">
+        <div class="chip" onclick="readRecentHistory()">🔊 Geçmişi Oku</div>
         <div class="chip" onclick="sendQuick('Merhaba Nova, nasılsın?')">👋 Merhaba</div>
         <div class="chip" onclick="sendQuick('!istatistik')">📊 İstatistik</div>
         <div class="chip" onclick="sendQuick('Kuantum dolanıklığı nedir?')">⚛️ Kuantum</div>
@@ -429,6 +567,165 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
         const userInput = document.getElementById('user-input');
         const typingBox = document.getElementById('typing-box');
         const statParams = document.getElementById('stat-params');
+
+        // Ses Yönetimi (TTS)
+        let autoSpeak = localStorage.getItem('nova_auto_speak') !== 'false';
+        let currentAudio = null;
+        let currentBtn = null;
+
+        function updateSpeakerUI() {
+            const btn = document.getElementById('btn-speaker-toggle');
+            const icon = document.getElementById('speaker-icon');
+            const text = document.getElementById('speaker-text');
+            if (!btn) return;
+            if (autoSpeak) {
+                btn.className = 'hud-btn active';
+                icon.innerText = '🔊';
+                text.innerText = 'Ses Açık';
+            } else {
+                btn.className = 'hud-btn muted';
+                icon.innerText = '🔇';
+                text.innerText = 'Ses Kapalı';
+            }
+        }
+        updateSpeakerUI();
+
+        function toggleAutoSpeak() {
+            autoSpeak = !autoSpeak;
+            localStorage.setItem('nova_auto_speak', autoSpeak ? 'true' : 'false');
+            updateSpeakerUI();
+            if (!autoSpeak) {
+                stopSpeech();
+            } else {
+                speakText('Sesli okuma açıldı.');
+            }
+        }
+
+        function stopSpeech() {
+            if (currentAudio) {
+                currentAudio.pause();
+                currentAudio.currentTime = 0;
+                currentAudio = null;
+            }
+            if ('speechSynthesis' in window) {
+                window.speechSynthesis.cancel();
+            }
+            if (currentBtn) {
+                currentBtn.innerHTML = '🔊 Dinle';
+                currentBtn.classList.remove('playing');
+                currentBtn = null;
+            }
+        }
+
+        function speakMessage(btn, text) {
+            if (btn && btn.classList.contains('playing')) {
+                stopSpeech();
+                return;
+            }
+            speakText(text, btn);
+        }
+
+        function speakText(text, btnElement = null) {
+            stopSpeech();
+            if (!text) return;
+
+            const clean = text.replace(/```[\s\S]*?```/g, ' ')
+                              .replace(/`[^`]*`/g, ' ')
+                              .replace(/http\S+|www\.\S+/g, '')
+                              .replace(/[*#_~\[\]\(\)>]/g, ' ')
+                              .replace(/\s+/g, ' ').trim();
+            if (!clean) return;
+
+            if (btnElement) {
+                currentBtn = btnElement;
+                btnElement.innerHTML = '⏹️ Durdur';
+                btnElement.classList.add('playing');
+            }
+
+            // 1. Sunucu Taraflı Neural Edge-TTS Endpoint'i
+            const url = '/api/tts?text=' + encodeURIComponent(clean.substring(0, 450));
+            const audio = new Audio(url);
+            currentAudio = audio;
+
+            audio.onended = () => {
+                if (currentBtn) {
+                    currentBtn.innerHTML = '🔊 Dinle';
+                    currentBtn.classList.remove('playing');
+                    currentBtn = null;
+                }
+                currentAudio = null;
+            };
+
+            audio.onerror = () => {
+                // Sunucu TTS yanıt vermezse tarayıcının yerel ses sentezine (SpeechSynthesis) geç
+                fallbackSpeech(clean, btnElement);
+            };
+
+            const playPromise = audio.play();
+            if (playPromise !== undefined) {
+                playPromise.catch(() => {
+                    // Otomatik oynatma kısıtlaması (iOS/Android) -> yerel senteze geç
+                    fallbackSpeech(clean, btnElement);
+                });
+            }
+        }
+
+        function fallbackSpeech(text, btnElement) {
+            if (!('speechSynthesis' in window)) {
+                if (btnElement) {
+                    btnElement.innerHTML = '🔊 Dinle';
+                    btnElement.classList.remove('playing');
+                    currentBtn = null;
+                }
+                return;
+            }
+
+            window.speechSynthesis.cancel();
+            const utter = new SpeechSynthesisUtterance(text);
+            const isTr = /[çğıöşüÇĞİÖŞÜ]/.test(text) || (document.documentElement.lang === 'tr');
+            utter.lang = isTr ? 'tr-TR' : 'en-US';
+            utter.rate = 1.05;
+
+            utter.onend = () => {
+                if (btnElement) {
+                    btnElement.innerHTML = '🔊 Dinle';
+                    btnElement.classList.remove('playing');
+                    currentBtn = null;
+                }
+            };
+
+            utter.onerror = () => {
+                if (btnElement) {
+                    btnElement.innerHTML = '🔊 Dinle';
+                    btnElement.classList.remove('playing');
+                    currentBtn = null;
+                }
+            };
+
+            window.speechSynthesis.speak(utter);
+        }
+
+        async function readRecentHistory() {
+            try {
+                const res = await fetch('/api/history?limit=6');
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data.messages && data.messages.length > 0) {
+                        const items = data.messages.slice(-4);
+                        const parts = [];
+                        items.forEach(m => {
+                            const who = (m.rol === 'kullanici' || m.rol === 'user') ? 'Sen' : 'Nova';
+                            parts.push(who + ': ' + m.icerik);
+                        });
+                        const full = parts.join('. ');
+                        speakText(full);
+                        appendMessage('nova', '🔊 Sohbet geçmişi sesli okunuyor:\n\n' + parts.join('\n'));
+                        return;
+                    }
+                }
+            } catch(e) {}
+            sendQuick('!oku 2');
+        }
 
         // Telemetry Poller
         async function fetchTelemetry() {
@@ -465,7 +762,10 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
                 typingBox.style.display = 'none';
 
                 if (data.reply) {
-                    appendMessage('nova', data.reply, data.action);
+                    const msgObj = appendMessage('nova', data.reply, data.action);
+                    if (autoSpeak && msgObj.speakBtn) {
+                        speakMessage(msgObj.speakBtn, data.reply);
+                    }
                 } else {
                     appendMessage('nova', 'Yanıt alınamadı.');
                 }
@@ -482,7 +782,20 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
             const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
             const header = document.createElement('div');
             header.className = 'msg-header';
-            header.innerText = (role === 'user' ? '👤 Sen • ' : '🌟 Nova • ') + time;
+            
+            const titleSpan = document.createElement('span');
+            titleSpan.innerText = (role === 'user' ? '👤 Sen • ' : '🌟 Nova • ') + time;
+            header.appendChild(titleSpan);
+
+            let speakBtn = null;
+            if (role === 'nova') {
+                speakBtn = document.createElement('button');
+                speakBtn.className = 'btn-msg-speak';
+                speakBtn.innerHTML = '🔊 Dinle';
+                speakBtn.title = 'Sesli oku';
+                speakBtn.onclick = () => speakMessage(speakBtn, text);
+                header.appendChild(speakBtn);
+            }
             
             const bubble = document.createElement('div');
             bubble.className = 'msg-bubble';
@@ -499,6 +812,8 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
             wrap.appendChild(bubble);
             chatBox.appendChild(wrap);
             chatBox.scrollTop = chatBox.scrollHeight;
+
+            return { wrap, bubble, speakBtn };
         }
 
         function sendQuick(txt) {
@@ -510,7 +825,7 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
             if (e.key === 'Enter') sendMessage();
         });
 
-        // Web Speech STT
+        // Web Speech STT (Mikrofon)
         let recognizing = false;
         let recognition = null;
         if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
@@ -611,7 +926,39 @@ class NovaHttpHandler(BaseHTTPRequestHandler):
                 pass
             return
 
-        # 2. Telemetri & Donanım Durumu
+        # 2. Mobil / Web TTS Ses Akışı (/api/tts)
+        if url == '/api/tts':
+            parsed = urlparse(self.path)
+            query = parse_qs(parsed.query)
+            text = query.get("text", [""])[0].strip()
+            lang = query.get("lang", [""])[0].strip() or None
+
+            audio = get_tts_audio_bytes(text, lang=lang)
+            if audio:
+                self.send_response(200)
+                self.send_header('Content-Type', 'audio/mpeg')
+                self.send_header('Access-Control-Allow-Origin', '*')
+                self.send_header('Cache-Control', 'public, max-age=3600')
+                self.send_header('Content-Length', str(len(audio)))
+                self.end_headers()
+                self.wfile.write(audio)
+            else:
+                self._send_json(500, {"error": "TTS audio üretilemedi"})
+            return
+
+        # 3. Geçmiş Mesajlar (/api/history)
+        if url == '/api/history':
+            parsed = urlparse(self.path)
+            query = parse_qs(parsed.query)
+            limit = int(query.get("limit", [20])[0])
+            if NovaHttpHandler.server_bridge:
+                anilar = NovaHttpHandler.server_bridge.hafiza.son_anilar_getir(limit=limit)
+                self._send_json(200, {"status": "ok", "messages": anilar})
+            else:
+                self._send_json(200, {"status": "ok", "messages": []})
+            return
+
+        # 4. Telemetri & Donanım Durumu
         if url == '/api/telemetry':
             if NovaHttpHandler.server_bridge:
                 data = NovaHttpHandler.server_bridge._telemetri_paketi()
@@ -620,7 +967,7 @@ class NovaHttpHandler(BaseHTTPRequestHandler):
                 self._send_json(200, {"status": "running", "engine": "Nova AGI v3.5"})
             return
 
-        # 3. Basit Durum Kontrolü
+        # 5. Basit Durum Kontrolü
         if url == '/api/status':
             self._send_json(200, {
                 "online": True,
@@ -704,6 +1051,30 @@ class NovaHttpHandler(BaseHTTPRequestHandler):
             self._send_json(400, {"success": False, "message": "Konu bulunamadı"})
             return
 
+        # 3. Mobil / Web TTS POST Endpoint'i (/api/tts)
+        if url == '/api/tts':
+            content_length = int(self.headers.get('Content-Length', 0))
+            raw_body = self.rfile.read(content_length).decode('utf-8')
+            try:
+                payload = json.loads(raw_body)
+                text = payload.get("text", "").strip()
+                lang = payload.get("lang", "") or None
+            except Exception:
+                self._send_json(400, {"error": "Geçersiz JSON formatı"})
+                return
+
+            audio = get_tts_audio_bytes(text, lang=lang)
+            if audio:
+                self.send_response(200)
+                self.send_header('Content-Type', 'audio/mpeg')
+                self.send_header('Access-Control-Allow-Origin', '*')
+                self.send_header('Cache-Control', 'public, max-age=3600')
+                self.send_header('Content-Length', str(len(audio)))
+                self.end_headers()
+                self.wfile.write(audio)
+            else:
+                self._send_json(500, {"error": "TTS audio üretilemedi"})
+            return
 
         self.send_error(404, "Endpoint Bulunamadı")
 

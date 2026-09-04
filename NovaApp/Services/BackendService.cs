@@ -276,6 +276,54 @@ public class BackendService : IDisposable
         await _writer.WriteLineAsync(json);
     }
 
+    public async Task<List<ChatMessage>> GetHistoryAsync(int limit = 40)
+    {
+        var res = await SendRawRequestAsync(new { action = "get_history", limit }, timeoutMs: 8000);
+        var list = new List<ChatMessage>();
+        if (res.HasValue && res.Value.TryGetProperty("messages", out var mProp) && mProp.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var item in mProp.EnumerateArray())
+            {
+                var role = item.TryGetProperty("rol", out var r) ? r.GetString() ?? "nova" : "nova";
+                var content = item.TryGetProperty("icerik", out var c) ? c.GetString() ?? "" : "";
+                var zaman = item.TryGetProperty("zaman", out var z) ? z.GetString() ?? "" : "";
+
+                bool isUser = role.Equals("kullanici", StringComparison.OrdinalIgnoreCase) || role.Equals("user", StringComparison.OrdinalIgnoreCase);
+                bool isNova = role.Equals("nova", StringComparison.OrdinalIgnoreCase);
+                bool isSystem = role.Equals("sistem", StringComparison.OrdinalIgnoreCase) || role.Equals("system", StringComparison.OrdinalIgnoreCase);
+
+                list.Add(new ChatMessage
+                {
+                    Role = role,
+                    Text = content,
+                    Timestamp = zaman
+                });
+            }
+        }
+        return list;
+    }
+
+    public async Task ReadHistoryAsync(int count = 3)
+    {
+        await SendRawRequestAsync(new { action = "read_history", count });
+    }
+
+    public async Task SpeakAsync(string text)
+    {
+        if (string.IsNullOrWhiteSpace(text)) return;
+        await SendRawRequestAsync(new { action = "speak", text });
+    }
+
+    public async Task<string> ObserveScreenAsync(string prompt = "", bool speak = true)
+    {
+        var res = await SendRawRequestAsync(new { action = "observe_screen", prompt, speak }, timeoutMs: 15000);
+        if (res.HasValue && res.Value.TryGetProperty("text", out var tProp))
+        {
+            return tProp.GetString() ?? "";
+        }
+        return string.Empty;
+    }
+
     public async Task<NovaSettings> GetSettingsAsync()
     {
         var res = await SendRawRequestAsync(new { action = "get_settings" });
@@ -289,6 +337,18 @@ public class BackendService : IDisposable
     public async Task SaveSettingsAsync(NovaSettings settings)
     {
         await SendRawRequestAsync(new { action = "save_settings", settings });
+    }
+
+    public async Task<bool> PauseTrainingAsync()
+    {
+        var res = await SendRawRequestAsync(new { action = "pause_training" });
+        return res.HasValue;
+    }
+
+    public async Task<bool> ResumeTrainingAsync()
+    {
+        var res = await SendRawRequestAsync(new { action = "resume_training" });
+        return res.HasValue;
     }
 
     public async Task TriggerGrowthAsync()

@@ -818,17 +818,24 @@ class BeynYoneticisi:
 
     # ── Sürekli Eğitim ────────────────────────────────────────────────────────
     def surekli_egitim_baslat(self) -> threading.Thread:
+        if getattr(self, "is_training", False):
+            logger.info("[Eğitim] Sürekli eğitim zaten aktif durumda.")
+            return getattr(self, "_egitim_thread_ref", threading.current_thread())
+
+        self.is_training = True
+
         def _dongu():
-            self.is_training = True
             logger.info("[Eğitim] Sürekli eğitim başladı.")
             burst = getattr(self, "_burst_steps", 4)
             pacing = getattr(self, "_pacing_sleep", 0.01)
-            while self.is_training:
+            while getattr(self, "is_training", False):
                 try:
                     kayitlar = self.hafiza.egitilmemis_bilgi_getir(limit=40)
                     if kayitlar:
                         texts = [r["icerik"] for r in kayitlar]
                         for _ in range(burst):
+                            if not getattr(self, "is_training", False):
+                                break
                             self.egitim_adimi(texts)
                         for r in kayitlar: self.hafiza.bilgiyi_isle(r["id"])
                         time.sleep(pacing)
@@ -838,6 +845,8 @@ class BeynYoneticisi:
                                     if len(a["icerik"]) >= self.cfg.min_text_len]
                         if metinler:
                             for _ in range(burst):
+                                if not getattr(self, "is_training", False):
+                                    break
                                 self.egitim_adimi(metinler)
                             time.sleep(pacing)
                         else:
@@ -845,14 +854,19 @@ class BeynYoneticisi:
                 except Exception as e:
                     logger.error(f"[Eğitim] {e}", exc_info=True)
                     time.sleep(1)
+            logger.info("[Eğitim] Sürekli eğitim döngüsü durduruldu.")
+
         t = threading.Thread(target=_dongu, daemon=True, name="NovaEgitim")
+        self._egitim_thread_ref = t
         t.start()
         return t
 
 
 
 
-    def egitimi_durdur(self): self.is_training = False
+    def egitimi_durdur(self):
+        logger.info("[Eğitim] Sürekli eğitim durduruluyor...")
+        self.is_training = False
 
     def son_loss(self) -> float:
         if self._son_loss_sayisi == 0: return float("inf")

@@ -46,7 +46,8 @@ public partial class SettingsWindow : Window
             ChkMultiGpu.IsChecked = _settings.MultiGpuEnabled;
             SliderWorkers.Value = Math.Max(1, Math.Min(16, _settings.WorkerThreads));
 
-            // Neural engine
+            // Neural engine & Continuous training
+            ChkContinuousTraining.IsChecked = _settings.ContinuousTrainingEnabled;
             TxtLr.Text = _settings.LearningRate.ToString(CultureInfo.InvariantCulture);
             TxtBatchSize.Text = _settings.BatchSize.ToString();
             TxtGrowthThreshold.Text = _settings.GrowthThreshold.ToString(CultureInfo.InvariantCulture);
@@ -191,6 +192,8 @@ public partial class SettingsWindow : Window
 
             _settings.MultiGpuEnabled = ChkMultiGpu.IsChecked ?? true;
             _settings.WorkerThreads = (int)SliderWorkers.Value;
+
+            _settings.ContinuousTrainingEnabled = ChkContinuousTraining.IsChecked ?? true;
 
             if (double.TryParse(TxtLr.Text, NumberStyles.Float, CultureInfo.InvariantCulture, out var lr))
                 _settings.LearningRate = lr;
