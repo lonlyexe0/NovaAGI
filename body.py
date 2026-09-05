@@ -24,7 +24,9 @@ import requests
 from bs4 import BeautifulSoup
 
 import yetenekler
+import config_manager
 logger = logging.getLogger("nova.body")
+
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -46,11 +48,8 @@ class BilgisayarKontrol:
             self._gui.PAUSE    = 0.05   # Her eylem arası 50ms — güvenli
             self._aktif = True
             logger.info("[Bilgisayar] pyautogui hazır.")
-        except ImportError:
-            logger.warning("[Bilgisayar] pyautogui bulunamadı → pip install pyautogui pillow")
         except Exception as e:
-            self._aktif = False
-            logger.warning(f"[Bilgisayar] pyautogui başlatılamadı: {e}")
+            logger.warning(f"[Bilgisayar] Ekran kontrolü kullanılamıyor → {e}")
 
     @property
     def aktif(self) -> bool:
@@ -83,7 +82,8 @@ class BilgisayarKontrol:
     def surukle(self, x1: int, y1: int, x2: int, y2: int, sure: float = 0.5):
         """(x1,y1)'den (x2,y2)'ye sürükle."""
         if not self._aktif: return "Bilgisayar kontrolü aktif değil."
-        self._gui.drag(x1, y1, x2-x1, y2-y1, duration=sure, button="left")
+        self._gui.moveTo(x1, y1)
+        self._gui.dragTo(x2, y2, duration=sure, button="left")
         return f"Sürüklendi ({x1},{y1}) → ({x2},{y2})"
 
     def kayan_teker(self, miktar: int, x: Optional[int] = None, y: Optional[int] = None):
@@ -173,114 +173,243 @@ class SesMotoru:
     """
     Nova'nın kulakları ve sesi.
     Dinleme: speech_recognition + pyaudio
-    Konuşma: pyttsx3 (offline TTS)
+    Konuşma: Hızlı Neural TTS (edge-tts / F.R.I.D.A.Y. - Kerry Condon Irish Neural) + pyttsx3 fallback
     """
 
     def __init__(self):
         self._sr_aktif  = False
         self._tts_aktif = False
-        self._tts_motor = None
         self._tts_kuyruk: queue.Queue = queue.Queue()
         self._tts_thread = None
+        self._stop_event = threading.Event()
 
-        # Speech Recognition
+        # F.R.I.D.A.Y. ses yolu ve önbellek dosyaları
+        self._base_dir = os.path.dirname(os.path.abspath(__file__))
+        self._speaker_wav = os.path.join(self._base_dir, "kerry_condon_friday.wav")
+        self._friday_tr_wav = os.path.join(self._base_dir, "nova_friday_test.wav")
+        self._friday_en_wav = os.path.join(self._base_dir, "nova_friday_en_test.wav")
+
+        # Speech Recognition (PyAudio + SpeechRecognition)
         try:
             import speech_recognition as sr
             self._sr = sr
             self._taniyici = sr.Recognizer()
             self._taniyici.energy_threshold = 300
             self._taniyici.dynamic_energy_threshold = True
+            self._taniyici.pause_threshold = 0.8
             self._sr_aktif = True
-            logger.info("[Ses] speech_recognition hazır.")
+            logger.info("[Ses] speech_recognition + pyaudio hazır.")
         except ImportError:
-            logger.warning("[Ses] speech_recognition bulunamadı → pip install speechrecognition pyaudio")
-        except Exception as e:
-            self._sr_aktif = False
-            logger.warning(f"[Ses] speech_recognition başlatılamadı: {e}")
+            logger.warning("[Ses] speech_recognition veya pyaudio bulunamadı → pip install speechrecognition pyaudio")
 
-        # TTS
+        # TTS Servisini Başlat
+        self._tts_aktif = True
+        self._tts_thread = threading.Thread(
+            target=self._tts_dongusu, daemon=True, name="NovaTTS"
+        )
+        self._tts_thread.start()
+        logger.info("[Ses] Nova Ses Servisi başlatıldı (F.R.I.D.A.Y. Neural Voice).")
+
+    def _metin_temizle(self, metin: str) -> str:
+        """Metindeki kod bloklarını, linkleri ve markdown işaretlerini temizler."""
+        metin = re.sub(r'```[\s\S]*?```', '', metin)
+        metin = re.sub(r'`[^`]*`', '', metin)
+        metin = re.sub(r'http\S+|www\.\S+', '', metin)
+        metin = re.sub(r'[*#_~\[\]\(\)>]', ' ', metin)
+        metin = re.sub(r'\s+', ' ', metin).strip()
+        return metin
+
+    def _cal_ses_dosyasi(self, dosya_yolu: str) -> bool:
+        """Windows üzerinde WAV veya MP3 ses dosyasını sorunsuz çalar."""
+        import os
         try:
-            import pyttsx3
-            from config_manager import get_language
-            lang = get_language() or "en"
-            self._tts_motor = pyttsx3.init()
-            self._tts_motor.setProperty("rate", 175)
-            self._tts_motor.setProperty("volume", 0.9)
-            # Dil sesini seç (en veya tr)
-            target_code = "en" if lang == "en" else "tr"
-            for ses in self._tts_motor.getProperty("voices"):
-                s_id = ses.id.lower()
-                s_name = getattr(ses, "name", "").lower()
-                if (target_code == "en" and ("en" in s_id or "english" in s_name)) or \
-                   (target_code == "tr" and ("tr" in s_id or "turkish" in s_name)):
-                    self._tts_motor.setProperty("voice", ses.id)
-                    break
-            self._tts_aktif = True
-            self._tts_thread = threading.Thread(
-                target=self._tts_dongusu, daemon=True, name="NovaTTS"
-            )
-            self._tts_thread.start()
-            logger.info(f"[Ses] pyttsx3 TTS hazır ({'English' if lang=='en' else 'Türkçe'}).")
-        except ImportError:
-            logger.warning("[Ses] pyttsx3 bulunamadı → pip install pyttsx3")
+            abs_path = os.path.abspath(dosya_yolu)
+            if not os.path.exists(abs_path):
+                return False
+            if abs_path.lower().endswith(".wav"):
+                try:
+                    import winsound
+                    winsound.PlaySound(abs_path, winsound.SND_FILENAME)
+                    return True
+                except Exception:
+                    pass
+            import ctypes
+            winmm = ctypes.windll.winmm
+            alias = f"novatts_{int(time.time()*1000)}"
+            winmm.mciSendStringW(f'open "{abs_path}" type mpegvideo alias {alias}', None, 0, None)
+            winmm.mciSendStringW(f'play {alias} wait', None, 0, None)
+            winmm.mciSendStringW(f'close {alias}', None, 0, None)
+            return True
         except Exception as e:
-            self._tts_motor = None
-            self._tts_aktif = False
-            logger.warning(f"[Ses] pyttsx3 TTS başlatılamadı ({e}) → Sisteminizde eSpeak/eSpeak-ng eksik olabilir.")
-
+            logger.debug(f"[Ses] Ses çalma hatası: {e}")
+            return False
 
     def _tts_dongusu(self):
-        """TTS kuyruğunu işleyen thread (pyttsx3 thread-safe değil)."""
+        """TTS kuyruğunu işleyen arka plan thread'i.
+        Öncelik Sırası:
+        1. Hazır F.R.I.D.A.Y. karşılama replikleri (Sıfır gecikme)
+        2. Hızlı Neural edge-tts (F.R.I.D.A.Y. Kerry Condon İrlanda sesi / Emel Neural)
+        3. COM korumalı pyttsx3 Windows SAPI Fallback
+        """
+        import tempfile
+        import asyncio
+
+        # Thread içinde COM başlat (Windows SAPI için zorunlu)
+        has_com = False
+        try:
+            import pythoncom
+            pythoncom.CoInitialize()
+            has_com = True
+        except Exception:
+            pass
+
+        # Yedek pyttsx3 motoru (thread-safe yerel kurulum)
+        pyttsx_eng = None
+        try:
+            import pyttsx3
+            pyttsx_eng = pyttsx3.init()
+            pyttsx_eng.setProperty("rate", 175)
+            pyttsx_eng.setProperty("volume", 0.95)
+            for ses in pyttsx_eng.getProperty("voices"):
+                s_name = getattr(ses, "name", "").lower()
+                s_id = getattr(ses, "id", "").lower()
+                if "zira" in s_name or "zira" in s_id or "female" in s_name:
+                    pyttsx_eng.setProperty("voice", ses.id)
+                    break
+        except Exception as e:
+            logger.debug(f"[TTS] pyttsx3 thread motoru başlatılamadı: {e}")
+
         while True:
             try:
                 metin = self._tts_kuyruk.get(timeout=1)
                 if metin is None:
                     break
-                if self._tts_motor:
-                    self._tts_motor.say(metin)
-                    self._tts_motor.runAndWait()
+
+                temiz = self._metin_temizle(metin)
+                if not temiz:
+                    self._tts_kuyruk.task_done()
+                    continue
+
+                temiz = temiz[:450]
+                lang = config_manager.get_language() or "tr"
+                konusuldu = False
+
+                # 0. Aşama: F.R.I.D.A.Y. Hazır Karşılama Sesleri (Sıfır Gecikme)
+                temiz_lower = temiz.lower()
+                if "tüm sistemler aktif" in temiz_lower or "patron" in temiz_lower or "devrede" in temiz_lower:
+                    if os.path.exists(self._friday_tr_wav):
+                        konusuldu = self._cal_ses_dosyasi(self._friday_tr_wav)
+                elif "all systems" in temiz_lower or "online" in temiz_lower or "functional" in temiz_lower:
+                    if os.path.exists(self._friday_en_wav):
+                        konusuldu = self._cal_ses_dosyasi(self._friday_en_wav)
+
+                # 1. Aşama: Neural edge-tts (Kerry Condon İrlanda kadın sesi / Emel Neural)
+                if not konusuldu:
+                    try:
+                        import edge_tts
+                        voice_name = "en-IE-EmilyNeural" if lang == "en" else "tr-TR-EmelNeural"
+                        mp3_path = os.path.join(tempfile.gettempdir(), f"nova_speech_{int(time.time()*1000)}.mp3")
+
+                        async def _uret():
+                            communicate = edge_tts.Communicate(temiz, voice_name)
+                            await communicate.save(mp3_path)
+
+                        asyncio.run(_uret())
+
+                        if os.path.exists(mp3_path) and os.path.getsize(mp3_path) > 0:
+                            konusuldu = self._cal_ses_dosyasi(mp3_path)
+                            try:
+                                os.remove(mp3_path)
+                            except Exception:
+                                pass
+                    except Exception as e:
+                        logger.debug(f"[TTS] edge-tts atlandı ({e}), SAPI'ye geçiliyor...")
+
+                # 2. Aşama: Çevrimdışı SAPI (pyttsx3) Fallback
+                if not konusuldu and pyttsx_eng:
+                    try:
+                        pyttsx_eng.say(temiz)
+                        pyttsx_eng.runAndWait()
+                        konusuldu = True
+                    except Exception as e:
+                        logger.debug(f"[TTS pyttsx3] Hata: {e}")
+
+                self._tts_kuyruk.task_done()
             except queue.Empty:
                 continue
             except Exception as e:
-                logger.debug(f"[TTS] Hata: {e}")
+                logger.debug(f"[TTS Döngü] Hata: {e}")
+
+        if has_com:
+            try:
+                pythoncom.CoUninitialize()
+            except Exception:
+                pass
 
     def konuş(self, metin: str, bloke: bool = False):
         """Nova'nın sesi: metni sesli oku."""
         if not self._tts_aktif:
-            return "TTS aktif değil (pip install pyttsx3)"
-        # Çok uzun metni kısalt
+            return "TTS aktif değil"
         metin_kisa = metin[:500]
         self._tts_kuyruk.put(metin_kisa)
         if bloke:
             self._tts_kuyruk.join()
         return f"Sesli okunuyor: {metin_kisa[:60]}..."
 
-    def dinle(self, zaman_asimi: int = 5, dil: Optional[str] = None) -> str:
+    def dinle(self, zaman_asimi: int = 6, dil: Optional[str] = None) -> str:
         """
         Mikrofondan ses dinle ve metne çevir.
-        Döner: tanınan metin veya hata mesajı
+        Akıllı Çift Dilli (Dual-Language Fallback): Hem Türkçe hem İngilizce konuşulduğunda
+        kullanıcının dilini otomatik tespit ederek metne çevirir.
+        Döner: tanınan metin veya boş string.
         """
         if not self._sr_aktif:
             return "Ses tanıma aktif değil (pip install speechrecognition pyaudio)"
-        if dil is None:
-            from config_manager import get_language
-            lang = get_language() or "en"
-            dil = "en-US" if lang == "en" else "tr-TR"
+
+        from config_manager import get_language
+        lang = get_language() or "tr"
+
+        if dil:
+            diller = [dil]
+            if dil.startswith("tr"):
+                diller.append("en-US")
+            elif dil.startswith("en"):
+                diller.append("tr-TR")
+        else:
+            if lang == "en":
+                diller = ["en-US", "tr-TR"]
+            else:
+                diller = ["tr-TR", "en-US"]
+
         sr = self._sr
         try:
             with sr.Microphone() as kaynak:
-                logger.info("[Ses] Dinleniyor...")
-                self._taniyici.adjust_for_ambient_noise(kaynak, duration=0.5)
-                ses = self._taniyici.listen(kaynak, timeout=zaman_asimi,
-                                             phrase_time_limit=15)
-            metin = self._taniyici.recognize_google(ses, language=dil)
-            logger.info(f"[Ses] Tanındı: {metin}")
-            return metin
-        except sr.WaitTimeoutError:
+                logger.info(f"[Ses] 🎙️ Dinleniyor... ({diller[0]} / {diller[1]})")
+                try:
+                    self._taniyici.adjust_for_ambient_noise(kaynak, duration=0.25)
+                except Exception:
+                    pass
+                ses = self._taniyici.listen(kaynak, timeout=zaman_asimi, phrase_time_limit=15)
+
+            # Kaydedilen ses verisinde dilleri sırayla dene (TR ve EN)
+            for hedef_dil in diller:
+                try:
+                    metin = self._taniyici.recognize_google(ses, language=hedef_dil)
+                    if metin and metin.strip():
+                        logger.info(f"[Ses] Başarıyla algılandı ({hedef_dil}): {metin}")
+                        return metin.strip()
+                except sr.UnknownValueError:
+                    continue
+                except Exception as ex:
+                    logger.debug(f"[Ses] recognize_google ({hedef_dil}) hatası: {ex}")
+                    continue
+
             return ""
-        except sr.UnknownValueError:
+        except sr.WaitTimeoutError:
+            logger.info("[Ses] Dinleme zaman aşımı (ses gelmedi).")
             return ""
         except Exception as e:
+            logger.error(f"[Ses] Mikrofon hatası: {e}")
             return f"Ses hatası: {e}"
 
     def ses_aktif_mi(self) -> bool:
@@ -324,9 +453,6 @@ class GoruntMotoru:
             logger.info("[Görüntü] Pillow hazır.")
         except ImportError:
             logger.warning("[Görüntü] Pillow bulunamadı → pip install pillow")
-        except Exception as e:
-            self._pil_aktif = False
-            logger.warning(f"[Görüntü] Pillow başlatılamadı: {e}")
 
         try:
             import cv2
@@ -335,9 +461,6 @@ class GoruntMotoru:
             logger.info("[Görüntü] OpenCV hazır.")
         except ImportError:
             logger.warning("[Görüntü] OpenCV bulunamadı → pip install opencv-python")
-        except Exception as e:
-            self._cv_aktif = False
-            logger.warning(f"[Görüntü] OpenCV başlatılamadı: {e}")
 
     # ── Ekran ─────────────────────────────────────────────────────────────────
     def ekran_yakala(self, bolge: Optional[Tuple] = None) -> Optional[Any]:
@@ -462,6 +585,311 @@ class GoruntMotoru:
             "opencv":  self._cv_aktif,
             "kamera":  bool(self._kamera and self._kamera.isOpened()),
         }
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# 3.1 OTONOM GÖRSEL GÖZLEMCİ & EKRAN/VİDEO ANALİZİ
+# ═══════════════════════════════════════════════════════════════════════════════
+class GorselGozlemci:
+    """
+    Nova'nın görsel dünyayı gözlemleme ve anlama yeteneği:
+    - İsteğe göre otonom olarak tek kare fotoğraf mı yoksa kısa video/hareket analizi mi yapacağına karar verir.
+    - OpenCV ile hareket alanı, yoğunluğu, sahne geçişlerini ve dominant renkleri hesaplar.
+    - Windows yerel OCR ile ekrandaki başlıkları ve arayüzü çıkarır.
+    - Nova için doğal dilde görsel durum raporu hazırlar ve F.R.I.D.A.Y. ile seslendirir.
+    """
+
+    def __init__(self, goruntu_motoru: GoruntMotoru, ses_motoru: SesMotoru, hafiza=None):
+        self.goruntu = goruntu_motoru
+        self.ses = ses_motoru
+        self.hafiza = hafiza
+        self._cv2 = getattr(goruntu_motoru, "_cv2", None)
+
+    def karar_ver(self, istek: str) -> str:
+        """Kullanıcı isteğine göre otonom olarak 'video' mu yoksa 'snapshot' mı olacağını belirler."""
+        if not istek:
+            return "snapshot"
+        il = istek.lower()
+        dinamik_anahtarlar = [
+            "izle", "video", "hareket", "ne oluyor", "oyun", "animasyon",
+            "kaydet", "akış", "takip", "izler misin", "izleyin", "neler dönüyor",
+            "watch", "motion", "clip", "dynamic", "happening", "moving", "stream"
+        ]
+        if any(w in il for w in dinamik_anahtarlar):
+            return "video"
+        return "snapshot"
+
+    def _ekran_yakala_pil(self):
+        """Masaüstünden ekran görüntüsü alır (Windows GDI ve PIL desteğiyle kesintisiz)."""
+        import ctypes
+        from PIL import Image
+        try:
+            user32 = ctypes.windll.user32
+            gdi32 = ctypes.windll.gdi32
+            w = user32.GetSystemMetrics(0)
+            h = user32.GetSystemMetrics(1)
+            hdc_screen = user32.GetDC(0)
+            hdc_mem = gdi32.CreateCompatibleDC(hdc_screen)
+            hbm = gdi32.CreateCompatibleBitmap(hdc_screen, w, h)
+            gdi32.SelectObject(hdc_mem, hbm)
+            gdi32.BitBlt(hdc_mem, 0, 0, w, h, hdc_screen, 0, 0, 0x00CC0020)
+
+            bmi = ctypes.create_string_buffer(40)
+            ctypes.memmove(bmi, (40).to_bytes(4, 'little'), 4)
+            ctypes.memmove(ctypes.addressof(bmi)+4, w.to_bytes(4, 'little', signed=True), 4)
+            ctypes.memmove(ctypes.addressof(bmi)+8, (-h).to_bytes(4, 'little', signed=True), 4)
+            ctypes.memmove(ctypes.addressof(bmi)+12, (1).to_bytes(2, 'little'), 2)
+            ctypes.memmove(ctypes.addressof(bmi)+14, (32).to_bytes(2, 'little'), 2)
+
+            buf = ctypes.create_string_buffer(w * h * 4)
+            gdi32.GetDIBits(hdc_mem, hbm, 0, h, buf, bmi, 0)
+
+            gdi32.DeleteObject(hbm)
+            gdi32.DeleteDC(hdc_mem)
+            user32.ReleaseDC(0, hdc_screen)
+
+            return Image.frombuffer('RGBA', (w, h), buf, 'raw', 'BGRA', 0, 1).convert('RGB')
+        except Exception:
+            try:
+                from PIL import ImageGrab
+                return ImageGrab.grab().convert('RGB')
+            except Exception as e:
+                logger.debug(f"[Gözlemci] Ekran yakalanamadı: {e}")
+                return None
+
+    def _ocr_metin_cikar(self, img) -> str:
+        """Görüntüden metinleri hızlıca çıkarır (Windows yerel OCR veya pytesseract)."""
+        if img is None:
+            return ""
+        # 1. Windows 10/11 yerel OCR
+        try:
+            import io, asyncio
+            import winsdk.windows.media.ocr as ocr
+            import winsdk.windows.graphics.imaging as imaging
+            import winsdk.windows.storage.streams as streams
+
+            buf = io.BytesIO()
+            img.convert("RGB").save(buf, format="PNG")
+            png_bytes = buf.getvalue()
+
+            async def _win_ocr():
+                writer = streams.DataWriter()
+                writer.write_bytes(png_bytes)
+                ibuf = writer.detach_buffer()
+                stream = streams.InMemoryRandomAccessStream()
+                await stream.write_async(ibuf)
+                stream.seek(0)
+                decoder = await imaging.BitmapDecoder.create_async(stream)
+                bitmap = await decoder.get_software_bitmap_async()
+                engine = ocr.OcrEngine.try_create_from_user_profile_languages()
+                if not engine and ocr.OcrEngine.available_recognizer_languages:
+                    engine = ocr.OcrEngine.try_create_from_language(ocr.OcrEngine.available_recognizer_languages[0])
+                if engine:
+                    res = await engine.recognize_async(bitmap)
+                    return [line.text for line in res.lines]
+                return []
+
+            lines = asyncio.run(_win_ocr())
+            if lines:
+                return "\n".join(lines[:20])
+        except Exception as e:
+            logger.debug(f"[Gözlemci] Windows OCR atlandı: {e}")
+
+        # 2. pytesseract fallback
+        try:
+            import pytesseract
+            return pytesseract.image_to_string(img, lang="tur+eng")[:1000]
+        except Exception:
+            pass
+
+        return ""
+
+    def _statik_analiz(self, img) -> Dict[str, Any]:
+        """Tek kare görüntüyü analiz eder: çözünürlük, parlaklık, renk paleti, OCR metinleri."""
+        if img is None:
+            return {"hata": "Görüntü yakalanamadı"}
+
+        w, h = img.size
+        img_small = img.convert("RGB").resize((100, 100))
+        pixels = list(img_small.getdata())
+        avg_r = sum(p[0] for p in pixels) / len(pixels)
+        avg_g = sum(p[1] for p in pixels) / len(pixels)
+        avg_b = sum(p[2] for p in pixels) / len(pixels)
+        parlaklik = (avg_r * 299 + avg_g * 587 + avg_b * 114) / 1000
+        tema = "Karanlık Mod (Dark Mode)" if parlaklik < 120 else "Aydınlık Mod (Light Mode)"
+
+        metin = self._ocr_metin_cikar(img)
+
+        return {
+            "mod": "snapshot",
+            "boyut": f"{w}x{h}",
+            "tema": tema,
+            "parlaklik": round(parlaklik, 1),
+            "metin": metin.strip()
+        }
+
+    def _video_analiz(self, sure_sn: float = 2.4, fps: int = 4) -> Dict[str, Any]:
+        """2-3 saniye boyunca ekran kareleri yakalayarak hareket, değişim ve video akışını inceler."""
+        import numpy as np
+
+        kare_sayisi = int(sure_sn * fps)
+        aralik = 1.0 / fps
+        kareler_pil = []
+
+        for _ in range(kare_sayisi):
+            f = self._ekran_yakala_pil()
+            if f:
+                kareler_pil.append(f)
+            time.sleep(aralik)
+
+        if not kareler_pil:
+            return {"hata": "Ekran video kaydı alınamadı."}
+
+        toplam_hareket_orani = 0.0
+        hareketli_bolgeler = []
+        cv = self._cv2
+
+        if cv and len(kareler_pil) >= 2:
+            prev_gray = cv.cvtColor(np.array(kareler_pil[0].convert("RGB").resize((320, 180))), cv.COLOR_RGB2GRAY)
+            for k in kareler_pil[1:]:
+                curr_gray = cv.cvtColor(np.array(k.convert("RGB").resize((320, 180))), cv.COLOR_RGB2GRAY)
+                diff = cv.absdiff(prev_gray, curr_gray)
+                _, thresh = cv.threshold(diff, 20, 255, cv.THRESH_BINARY)
+                hareket_px = cv.countNonZero(thresh)
+                oran = (hareket_px / (320 * 180)) * 100
+                toplam_hareket_orani += oran
+
+                contours, _ = cv.findContours(thresh, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE)
+                for cnt in contours:
+                    if cv.contourArea(cnt) > 250:
+                        x, y, w, h = cv.boundingRect(cnt)
+                        konum = "Merkez"
+                        if x < 100: konum = "Sol Bölge"
+                        elif x > 200: konum = "Sağ Bölge"
+                        if y < 60: konum += " / Üst"
+                        elif y > 120: konum += " / Alt"
+                        hareketli_bolgeler.append(konum)
+
+                prev_gray = curr_gray
+
+            ort_hareket = toplam_hareket_orani / (len(kareler_pil) - 1)
+        else:
+            ort_hareket = 0.0
+
+        son_kare_metin = self._ocr_metin_cikar(kareler_pil[-1])
+
+        from collections import Counter
+        bolge_ozeti = ", ".join([b for b, _ in Counter(hareketli_bolgeler).most_common(3)]) if hareketli_bolgeler else "Genel durağan"
+
+        hareket_seviyesi = "Yüksek (Video oynuyor / Hızlı hareket)" if ort_hareket > 8.0 else \
+                           "Orta (Sayfa kaydırma / Arayüz etkileşimi)" if ort_hareket > 1.5 else \
+                           "Düşük / Sabit (Statik görüntü veya minimal imleç hareketi)"
+
+        return {
+            "mod": "video",
+            "sure": f"{sure_sn:.1f} saniye ({len(kareler_pil)} kare)",
+            "hareket_seviyesi": hareket_seviyesi,
+            "hareket_yuzdesi": f"%{ort_hareket:.1f}",
+            "hareket_odaklari": bolge_ozeti,
+            "metin": son_kare_metin.strip()
+        }
+
+    def goruntule_ve_incele(self, istek: str = "", seslendir: bool = True) -> str:
+        """Kullanıcının isteğini anlayıp otonom karar vererek ekranı/videoyu inceler ve açıklar."""
+        mod = self.karar_ver(istek)
+        lang = config_manager.get_language() or "tr"
+
+        if mod == "video":
+            analiz = self._video_analiz(sure_sn=2.4, fps=4)
+            if "hata" in analiz:
+                return f"⚠️ {analiz['hata']}"
+
+            if lang == "en":
+                rapor = (
+                    f"📹 **Screen Activity Observation ({analiz['sure']}):**\n"
+                    f"• **Motion Intensity:** {analiz['hareket_seviyesi']} ({analiz['hareket_yuzdesi']})\n"
+                    f"• **Active Focus Zones:** {analiz['hareket_odaklari']}\n"
+                )
+                if analiz.get("metin"):
+                    rapor += f"• **Visible Text / UI Elements:**\n```\n{analiz['metin'][:400]}\n```"
+                ses_ozeti = f"I observed your screen for {analiz['sure']}. Motion level is {analiz['hareket_seviyesi']}. Primary movement detected at {analiz['hareket_odaklari']}."
+            else:
+                rapor = (
+                    f"📹 **Ekran Canlı Hareket Analizi ({analiz['sure']}):**\n"
+                    f"• **Hareket / Değişim Düzeyi:** {analiz['hareket_seviyesi']} ({analiz['hareket_yuzdesi']})\n"
+                    f"• **Odak Bölgeleri:** {analiz['hareket_odaklari']}\n"
+                )
+                if analiz.get("metin"):
+                    rapor += f"• **Ekranda Tespit Edilen Başlıklar / Yazılar:**\n```\n{analiz['metin'][:400]}\n```"
+                ses_ozeti = f"Ekranınızı {analiz['sure']} boyunca izledim. Hareket düzeyi {analiz['hareket_seviyesi']}. Başlıca hareket {analiz['hareket_odaklari']} üzerinde gerçekleşti."
+        else:
+            img = self._ekran_yakala_pil()
+            analiz = self._statik_analiz(img)
+            if "hata" in analiz:
+                return f"⚠️ {analiz['hata']}"
+
+            if lang == "en":
+                rapor = (
+                    f"🖼️ **Screen Snapshot Visual Analysis ({analiz['boyut']}):**\n"
+                    f"• **Appearance:** {analiz['tema']} (Brightness: {analiz['parlaklik']}/255)\n"
+                )
+                if analiz.get("metin"):
+                    rapor += f"• **Detected Content & Text:**\n```\n{analiz['metin'][:400]}\n```"
+                ses_ozeti = f"I captured and inspected your screen. Display is {analiz['tema']} at {analiz['boyut']} resolution."
+            else:
+                rapor = (
+                    f"🖼️ **Ekran Görüntüsü Analizi ({analiz['boyut']}):**\n"
+                    f"• **Görünüm:** {analiz['tema']} (Parlaklık: {analiz['parlaklik']}/255)\n"
+                )
+                if analiz.get("metin"):
+                    rapor += f"• **Ekranda Görülen Metin & Başlıklar:**\n```\n{analiz['metin'][:400]}\n```"
+                ses_ozeti = f"Ekranınızın görselini inceledim. {analiz['boyut']} çözünürlüğünde, {analiz['tema']} açık görünüyor."
+
+        if self.hafiza:
+            try:
+                self.hafiza.ani_kaydet("gozlem", rapor[:500])
+            except Exception:
+                pass
+
+        if seslendir and self.ses:
+            self.ses.konuş(ses_ozeti)
+
+        return rapor
+
+    def foto_analiz(self, img_veya_yol, istek: str = "") -> str:
+        """Kullanıcının telefondan veya dosya olarak gönderdiği fotoğrafı analiz eder."""
+        from PIL import Image
+        try:
+            if isinstance(img_veya_yol, str):
+                img = Image.open(img_veya_yol)
+            else:
+                img = img_veya_yol
+
+            analiz = self._statik_analiz(img)
+            if "hata" in analiz:
+                return f"⚠️ Fotoğraf incelenemedi: {analiz['hata']}"
+
+            rapor = (
+                f"📸 **Görsel Analiz Raporu ({analiz['boyut']}):**\n"
+                f"• **Görsel Teması:** {analiz['tema']} (Parlaklık: {analiz['parlaklik']}/255)\n"
+            )
+            if analiz.get("metin"):
+                rapor += f"• **Tespit Edilen Metin / İçerik:**\n```\n{analiz['metin'][:400]}\n```\n"
+            else:
+                rapor += "• **Metin Tespiti:** Görselde okunabilir belirgin bir metin saptanmadı.\n"
+
+            if istek:
+                rapor += f"• **Kullanıcı Notu:** *{istek}*\n"
+
+            if self.hafiza:
+                try:
+                    self.hafiza.ani_kaydet("foto_analiz", rapor[:500])
+                except Exception:
+                    pass
+
+            return rapor
+        except Exception as e:
+            return f"⚠️ Görsel işleme hatası: {e}"
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -617,13 +1045,15 @@ class AjanBeden:
         self.ses        = SesMotoru()
         self.goruntu    = GoruntMotoru()
         self.merak      = MerakMotoru(hafiza, self._session)
+        self.gozlemci   = GorselGozlemci(self.goruntu, self.ses, hafiza)
 
         logger.info(
             f"[Beden] Hazır | "
             f"Bilgisayar: {'✅' if self.bilgisayar.aktif else '❌'} | "
             f"Ses: {'✅' if self.ses.ses_aktif_mi() else '❌'} | "
             f"TTS: {'✅' if self.ses.tts_aktif_mi() else '❌'} | "
-            f"Görüntü: {'✅' if self.goruntu._pil_aktif else '❌'}"
+            f"Görüntü: {'✅' if self.goruntu._pil_aktif else '❌'} | "
+            f"Gözlemci: ✅"
         )
 
     # ══ WEB CRAWLER ══════════════════════════════════════════════════════════
@@ -895,6 +1325,137 @@ class AjanBeden:
         except subprocess.TimeoutExpired: return f"⏱ Zaman aşımı ({zaman_asimi}s)"
         except Exception as e: return f"Hata: {e}"
 
+    # ══ AKILLI ARAÇ VE YETENEK YÖNETİCİSİ ═════════════════════════════════════
+    def akilli_arac_isleyici(self, prompt: str) -> Optional[str]:
+        """
+        Kullanıcı mesajındaki araç niyetlerini (hesaplama, arama, dosya okuma, kod çalıştırma)
+        otonom olarak algılar ve uygun yetenek fonksiyonunu çalıştırır.
+        """
+        p = prompt.strip()
+        pl = p.lower()
+        lang = config_manager.get_language() or "tr"
+
+        # 1. Doğrudan Komutlar
+        if pl.startswith("!izle") or pl.startswith("!ekran") or pl.startswith("!gozlem") or pl.startswith("!watch"):
+            arg = p.split(" ", 1)[1] if " " in p else ""
+            return self.gozlemci.goruntule_ve_incele(arg or p)
+
+        if pl.startswith("!hesapla ") or pl.startswith("!calc "):
+            ifade = p.split(" ", 1)[1]
+            return f"🧮 **Hesaplama Sonucu**: `{yetenekler.hesapla(ifade)}`"
+
+        if pl.startswith("!wiki ") or pl.startswith("!vikipedi "):
+            konu = p.split(" ", 1)[1]
+            res = yetenekler.wiki_ara(konu, lang=lang)
+            try:
+                self.hafiza.bilgi_kaydet(konu, res[:2000], lang)
+            except Exception: pass
+            return res
+
+        if pl.startswith("!ara ") or pl.startswith("!search "):
+            sorgu = p.split(" ", 1)[1]
+            res = yetenekler.web_ara(sorgu)
+            try:
+                self.hafiza.bilgi_kaydet(sorgu, res[:2000], lang)
+            except Exception: pass
+            return res
+
+        if pl.startswith("!oku ") or pl.startswith("!read "):
+            dosya = p.split(" ", 1)[1]
+            return yetenekler.dosya_oku(dosya)
+
+        if pl.startswith("!python ") or pl.startswith("!kod "):
+            kod = p.split(" ", 1)[1]
+            return yetenekler.python_calistir(kod)
+
+        if pl.startswith("!zaman") or pl.startswith("!saat") or pl.startswith("!time"):
+            return f"⏰ **Tarih & Saat**: {yetenekler.tarih_saat()} ({yetenekler.bugun_gun()})"
+
+        if pl.startswith("!nova") or pl.startswith("!durum") or pl.startswith("!teshis") or pl.startswith("!magi") or any(w in pl for w in ["nova durumu", "sistem durumu", "magi durumu", "sağlık raporu"]):
+            return yetenekler.nova_sistem_durum()
+
+        if pl.startswith("!guvenlik") or pl.startswith("!atfield") or any(w in pl for w in ["güvenlik durumu", "erişim durumu", "kalkan durumu"]):
+            return yetenekler.nova_guvenlik_durum()
+
+        if pl.startswith("!senkron") or pl.startswith("!sync") or any(w in pl for w in ["senkronizasyon", "senkron oranı", "sync ratio", "nöral bağ"]):
+            return yetenekler.nova_senkron()
+
+        if pl.startswith("!brifing") or pl.startswith("!briefing") or any(w in pl for w in ["günlük brifing", "sabah brifingi", "durum brifingi", "sistem brifingi", "brifing ver"]):
+            return yetenekler.gunluk_brifing()
+
+        if pl.startswith("!eylem ") or pl.startswith("!action "):
+            eylem_adi = p.split(" ", 1)[1]
+            return yetenekler.sistem_eylemi(eylem_adi)
+
+
+        # 2. Matematik Hesabı Niyet Tespiti (örn: 154 * 28 + 19 kaç eder)
+        math_match = re.search(r"(\d+\s*[\+\-\*\/\^%]\s*\d+[\s\d\+\-\*\/\^%]*)", p)
+        if math_match and any(w in pl for w in ["hesapla", "kaç eder", "sonucu", "eşittir", "=", "calculate", "what is"]):
+            expr = math_match.group(1).replace("^", "**")
+            res = yetenekler.hesapla(expr)
+            if "Hata" not in res:
+                return f"🧮 `{expr.strip()}` = **{res}**"
+
+        # 3. Saat / Tarih Niyeti (Türkçe & İngilizce)
+        if any(w in pl for w in ["saat kaç", "bugün ayın kaçı", "hangi gündeyiz", "tarih ne", "what time is it", "current time", "what day is it"]):
+            return f"⏰ Şu an: **{yetenekler.tarih_saat()}**, **{yetenekler.bugun_gun()}**."
+
+        # 3.1 Görsel Gözlem ve Ekran/Video İzleme Niyeti (Otonom Karar)
+        gorsel_tetikleyiciler = [
+            "ekranımı izle", "ekranıma bak", "ekranda ne var", "ekranda ne oluyor",
+            "ekranımı gör", "ekranı incele", "fotoğrafı incele", "resme bak", "görsele bak",
+            "videoyu izle", "burada ne oluyor", "ne değişti", "ekranı gözlemle", "ekranı izle",
+            "watch my screen", "look at my screen", "what is on my screen",
+            "observe screen", "what is happening", "inspect screen"
+        ]
+        if any(t in pl for t in gorsel_tetikleyiciler):
+            return self.gozlemci.goruntule_ve_incele(p)
+
+        # 4. İnternet / Wikipedia Canlı Araştırma Tespiti (Genişletilmiş Doğal Dil)
+        search_triggers_tr = [
+            r"(.+?)\s+(nedir\??|kimdir\??|nerededir\??|nelerdir\??)",
+            r"(.+?)\s+hakkında\s+(bilgi\s+ver|bilgi|ne\s+biliyorsun|anlat)",
+            r"(.+?)\s+(nasıl\s+çalışır|tarihçesi|açıkla|özetle)",
+            r"(araştır|ara|bilgi\s+ver)\s+[:\s]*(.+)",
+        ]
+        search_triggers_en = [
+            r"(what is|who is|where is|tell me about|explain|describe)\s+([a-zA-Z0-9\s_\-]+)",
+            r"([a-zA-Z0-9\s_\-]+)\s+(definition|history|overview|explained)",
+            r"(search for|search|lookup)\s+([a-zA-Z0-9\s_\-]+)",
+        ]
+
+        query = None
+        for pat in search_triggers_tr + search_triggers_en:
+            m = re.search(pat, p, re.IGNORECASE)
+            if m:
+                groups = [g for g in m.groups() if g and len(g) > 2]
+                for g in groups:
+                    clean_g = re.sub(r"(nedir\??|kimdir\??|nerededir\??|hakkında|bilgi\s+ver|anlat|açıkla|what is|who is|tell me about|search for)", "", g, flags=re.IGNORECASE).strip()
+                    if len(clean_g) > 2 and not any(w == clean_g.lower() for w in ["sen", "ben", "bu", "o", "biz", "siz", "you", "me", "it", "adın", "your name"]):
+                        query = clean_g
+                        break
+                if query:
+                    break
+
+        if query:
+            wiki_res = yetenekler.wiki_ara(query, lang=lang)
+            if "hata" not in wiki_res.lower() and len(wiki_res) > 50:
+                try:
+                    self.hafiza.bilgi_kaydet(query, wiki_res[:2000], lang)
+                except Exception: pass
+                return wiki_res
+            
+            # Wikipedia yetersizse DuckDuckGo / Web araması yap
+            web_res = yetenekler.web_ara(query)
+            if "hata" not in web_res.lower() and len(web_res) > 50:
+                try:
+                    self.hafiza.bilgi_kaydet(query, web_res[:2000], lang)
+                except Exception: pass
+                return web_res
+
+        return None
+
+
     def __repr__(self) -> str:
         return (f"AjanBeden("
                 f"bilgisayar={'✅' if self.bilgisayar.aktif else '❌'}, "
@@ -902,3 +1463,4 @@ class AjanBeden:
                 f"tts={'✅' if self.ses.tts_aktif_mi() else '❌'}, "
                 f"goruntu={'✅' if self.goruntu._pil_aktif else '❌'}, "
                 f"merak_kuyruk={self.merak.kuyruk_boyutu()})")
+

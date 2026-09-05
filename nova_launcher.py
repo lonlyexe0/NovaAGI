@@ -52,16 +52,10 @@ except Exception:
 
 import torch
 import hardware
-
 _cpu_threads = hardware.get_optimal_cpu_threads()
-for setter, value in [
-    (torch.set_num_threads, _cpu_threads),
-    (torch.set_num_interop_threads, max(1, min(4, _cpu_threads // 2))),
-]:
-    try:
-        setter(value)
-    except Exception:
-        pass
+torch.set_num_threads(_cpu_threads)
+torch.set_num_interop_threads(max(1, min(4, _cpu_threads // 2)))
+
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -114,10 +108,6 @@ def arguman_isle() -> argparse.Namespace:
     p.add_argument("--db",       default="nova.db")
     p.add_argument("--hf-limit", type=int, default=0,
                    help="HF makale limiti (0=sonsuz)")
-    p.add_argument("--web", action="store_true",
-                   help="Yerel mobil/web arayüzünü başlat")
-    p.add_argument("--web-port", type=int, default=8080,
-                   help="Web arayüzü portu (varsayılan: 8080)")
     p.add_argument("--hf-token", type=str, default=None,
                    help="Hugging Face Access Token (hf_...)")
     p.add_argument("--lang",     type=str, default=None, choices=["en", "tr"],
@@ -646,18 +636,6 @@ def main():
     )
     t_bilincalti.start()
 
-    web_sunucu = None
-    if args.web:
-        try:
-            from web_server import NovaWebServer, get_local_ip
-            web_sunucu = NovaWebServer(hafiza, beyin, beden, port=args.web_port)
-            if web_sunucu.start():
-                print(f"{R.CYAN}🌐 Web: http://127.0.0.1:{args.web_port} | "
-                      f"Ağ: http://{get_local_ip()}:{args.web_port}{R.SIFIR}",
-                      flush=True)
-        except Exception as e:
-            logger.error(f"[Web] Başlatılamadı: {e}")
-
     def sinyal_isle(sig, frame):
         print(f"\n{R.SARI}[Launcher] Kapatılıyor...{R.SIFIR}", flush=True)
         dur.set()
@@ -695,8 +673,6 @@ def main():
         print(f"\n{R.SARI}Ctrl+C{R.SIFIR}")
     finally:
         dur.set()
-        if web_sunucu:
-            web_sunucu.stop()
         print(f"{R.GRI}Kaydediliyor...{R.SIFIR}")
         try: beyin.kaydet()
         except Exception: pass

@@ -7,10 +7,11 @@ import sys
 import stat
 import logging
 from typing import Optional, Tuple
+from config_manager import get_data_path
 
 logger = logging.getLogger("nova.hf_auth")
 
-TOKEN_DOSYASI = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".hf_token")
+TOKEN_DOSYASI = get_data_path(".hf_token")
 
 
 def _maskeli_token(token: str) -> str:
@@ -126,8 +127,8 @@ def hf_giris_sor(arg_token: Optional[str] = None) -> Optional[str]:
 
     mevcut_token = hf_token_al()
 
-    # 2. Terminal etkileşimli değilse (pipe, background, vs.) mevcut token'ı ayarla ve devam et
-    if not sys.stdin.isatty():
+    # 2. Terminal etkileşimli değilse (pipe, background, windowed GUI exe, vs.) mevcut token'ı ayarla ve devam et
+    if sys.stdin is None or not hasattr(sys.stdin, "isatty") or not sys.stdin.isatty():
         if mevcut_token:
             os.environ["HF_TOKEN"] = mevcut_token
             try:

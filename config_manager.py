@@ -10,37 +10,41 @@ from typing import Optional, Dict, Any
 
 logger = logging.getLogger("nova.config")
 
-CONFIG_DOSYASI = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".nova_config.json")
-
 
 def get_data_dir() -> str:
-    """Kullanıcı verisi için yazılabilir dizin döner."""
+    r"""
+    Kullanici veri dizinini doner.
+    Mevcut dizin yazilabilirse orayi (tasinabilir mod), degilse
+    APPDATA/NovaAGI dizinini kullanir.
+    """
     if getattr(sys, "frozen", False):
         base_dir = os.path.dirname(sys.executable)
     else:
         base_dir = os.path.dirname(os.path.abspath(__file__))
 
-    if os.access(base_dir, os.W_OK):
+    test_file = os.path.join(base_dir, ".perm_test")
+    try:
+        with open(test_file, "w") as f:
+            f.write("1")
+        os.remove(test_file)
         return base_dir
-
-    if sys.platform == "win32":
-        user_data = os.environ.get("APPDATA") or os.path.expanduser("~")
-    else:
-        user_data = os.environ.get("XDG_DATA_HOME") or os.path.join(
-            os.path.expanduser("~"), ".local", "share"
-        )
-    fallback = os.path.join(user_data, "NovaAGI")
-    os.makedirs(fallback, exist_ok=True)
-    return fallback
+    except (PermissionError, OSError):
+        appdata = os.environ.get("APPDATA") or os.path.expanduser("~")
+        nova_dir = os.path.join(appdata, "NovaAGI")
+        os.makedirs(nova_dir, exist_ok=True)
+        return nova_dir
 
 
-def get_data_path(filename: str) -> str:
-    """Veri dosyası için tam yol döner."""
-    return os.path.join(get_data_dir(), filename)
+def get_data_path(dosya_adi: str) -> str:
+    """Belirtilen dosya adı için yazılabilir veri yolu döner."""
+    return os.path.join(get_data_dir(), dosya_adi)
+
+
+CONFIG_DOSYASI = get_data_path(".nova_config.json")
 
 
 def _config_oku() -> Dict[str, Any]:
-    """Konfigürasyon dosyasını okur."""
+    """Konfigürasyon dosyasını okur (.nova_config.json)."""
     if os.path.exists(CONFIG_DOSYASI):
         try:
             with open(CONFIG_DOSYASI, "r", encoding="utf-8") as f:
@@ -51,14 +55,61 @@ def _config_oku() -> Dict[str, Any]:
 
 
 def _config_yaz(cfg: Dict[str, Any]) -> bool:
-    """Konfigürasyon dosyasını kaydeder."""
+    """Konfigürasyon dosyasını kaydeder (.nova_config.json)."""
     try:
         with open(CONFIG_DOSYASI, "w", encoding="utf-8") as f:
             json.dump(cfg, f, indent=2, ensure_ascii=False)
         return True
     except Exception as e:
-        logger.error(f"[Config] Dosya yazılamadı: {e}")
+        logger.error(f"[Config] Dosya yazılamadı ({CONFIG_DOSYASI}): {e}")
         return False
+
+
+def get_setting(key: str, default: Any = None) -> Any:
+    """Genel bir ayar değerini okur."""
+    cfg = _config_oku()
+    return cfg.get(key, default)
+
+
+def set_setting(key: str, val: Any) -> bool:
+    """Genel bir ayar değerini kaydeder."""
+    cfg = _config_oku()
+    cfg[key] = val
+    return _config_yaz(cfg)
+
+
+def is_continuous_training_enabled() -> bool:
+    """Sürekli arka plan eğitiminin etkin olup olmadığını döner (varsayılan True)."""
+    return bool(get_setting("continuous_training_enabled", True))
+
+
+def set_continuous_training(enabled: bool) -> bool:
+    """Sürekli arka plan eğitimini açar veya kapatır."""
+    return set_setting("continuous_training_enabled", bool(enabled))
+
+
+def get_weights_file() -> str:
+    """Kullanılacak ağırlık dosyasının yolunu döner (nova_weights_400m.pth öncelikli)."""
+    cfg_val = get_setting("weights_file")
+    if cfg_val:
+        p = get_data_path(cfg_val) if not os.path.isabs(cfg_val) else cfg_val
+        if os.path.exists(p) and os.path.getsize(p) > 0:
+            return p
+
+    # Otomatik tespit sırası (400M öncelikli)
+    base_dir = get_data_dir()
+    for candidate in ("nova_weights_400m.pth", "nova_weights.pth"):
+        cp = os.path.join(base_dir, candidate)
+        if os.path.exists(cp) and os.path.getsize(cp) > 0:
+            return cp
+    return os.path.join(base_dir, "nova_weights_400m.pth")
+
+
+def set_weights_file(filename_or_path: str) -> bool:
+    """Kullanılacak ağırlık dosyasını kaydeder."""
+    return set_setting("weights_file", filename_or_path)
+
+
 
 
 def get_language() -> Optional[str]:
@@ -92,9 +143,11 @@ def is_english() -> bool:
 
 
 def ask_language_on_first_launch(arg_lang: Optional[str] = None) -> str:
-    """
-    İlk açılışta kullanıcıya İngilizce mi Türkçe mi kullanmak istediğini sorar (İngilizce olarak sorulur).
-    Sonraki girişlerde tekrar sormaz, kayıtlı seçimi kullanır.
+    r"""
+    İlk açılışta kullanıcıya dil seçtirir.
+    - exe (windowed) modda: Tkinter popup ile sorar.
+    - terminal modda: konsol menüsü ile sorar.
+    Sonraki açılışlarda kayıtlı seçimi kullanır.
     """
     # 1. CLI argümanı verildiyse kaydet ve dön
     if arg_lang and arg_lang.strip().lower() in ("en", "tr"):
@@ -107,12 +160,92 @@ def ask_language_on_first_launch(arg_lang: Optional[str] = None) -> str:
     if kayitli_dil is not None:
         return kayitli_dil
 
-    # 3. Terminal etkileşimli değilse varsayılan 'en' ata
-    if not sys.stdin.isatty():
+    # 3. stdin yoksa (windowed exe modu) → Tkinter GUI diyaloğu
+    if sys.stdin is None or not hasattr(sys.stdin, "isatty") or not sys.stdin.isatty():
+        return _ask_language_gui()
+
+    # 4. Terminal modu: konsol menüsü
+    return _ask_language_terminal()
+
+
+def _ask_language_gui() -> str:
+    """Tkinter ile dil seçim penceresi açar (windowed exe için)."""
+    try:
+        import tkinter as tk
+
+        secim = ["en"]  # mutable container
+
+        root = tk.Tk()
+        root.title("Nova AGI — Language / Dil Seçimi")
+        root.resizable(False, False)
+        root.configure(bg="#1a1a2e")
+
+        # Pencereyi ekran ortasına al
+        root.update_idletasks()
+        w, h = 480, 290
+        sw = root.winfo_screenwidth()
+        sh = root.winfo_screenheight()
+        root.geometry(f"{w}x{h}+{(sw - w) // 2}+{(sh - h) // 2}")
+
+        # Başlık
+        tk.Label(
+            root, text="🌐  Language / Dil Seçimi",
+            bg="#1a1a2e", fg="#e0e0ff",
+            font=("Segoe UI", 14, "bold")
+        ).pack(pady=(24, 6))
+
+        tk.Label(
+            root,
+            text="Select the operating language for Nova AGI\nNova AGI için çalışma dilini seçin",
+            bg="#1a1a2e", fg="#9090b0",
+            font=("Segoe UI", 10), justify="center"
+        ).pack(pady=(0, 20))
+
+        btn_frame = tk.Frame(root, bg="#1a1a2e")
+        btn_frame.pack()
+
+        def secen(dil: str):
+            secim[0] = dil
+            root.destroy()
+
+        tk.Button(
+            btn_frame, text="🇬🇧  English",
+            bg="#16213e", fg="#64b5f6",
+            activebackground="#0f3460", activeforeground="white",
+            relief="flat", font=("Segoe UI", 12, "bold"),
+            width=14, height=2, cursor="hand2",
+            command=lambda: secen("en")
+        ).grid(row=0, column=0, padx=14, pady=6)
+
+        tk.Button(
+            btn_frame, text="🇹🇷  Türkçe",
+            bg="#16213e", fg="#81c784",
+            activebackground="#0f3460", activeforeground="white",
+            relief="flat", font=("Segoe UI", 12, "bold"),
+            width=14, height=2, cursor="hand2",
+            command=lambda: secen("tr")
+        ).grid(row=0, column=1, padx=14, pady=6)
+
+        tk.Label(
+            root,
+            text="(This selection is saved for future launches / Bu seçim kaydedilir)",
+            bg="#1a1a2e", fg="#505070",
+            font=("Segoe UI", 8)
+        ).pack(pady=(16, 0))
+
+        root.mainloop()
+
+        set_language(secim[0])
+        return secim[0]
+
+    except Exception as e:
+        logger.warning(f"[Config] GUI dil seçimi başarısız, varsayılan 'en': {e}")
         set_language("en")
         return "en"
 
-    # 4. İlk açılış: Kullanıcıya İngilizce olarak sor
+
+def _ask_language_terminal() -> str:
+    """Konsol üzerinden dil seçim menüsü."""
     cyan  = "\033[96m"
     yesil = "\033[92m"
     sari  = "\033[93m"
@@ -125,8 +258,8 @@ def ask_language_on_first_launch(arg_lang: Optional[str] = None) -> str:
     print(f"{cyan}╠══════════════════════════════════════════════════════════════╣{sifir}")
     print(f"{cyan}║{sifir}  Please select the operating language for Nova AGI:          {cyan}║{sifir}")
     print(f"{cyan}║                                                              {cyan}║{sifir}")
-    print(f"{cyan}║{yesil}  [1] English (en){sifir} → Global knowledge & English Wikipedia  {cyan}║{sifir}")
-    print(f"{cyan}║{sari}  [2] Türkçe  (tr){sifir} → Türkçe bilgi akışı & Türkçe Wikipedia  {cyan}║{sifir}")
+    print(f"{cyan}║{yesil}  [1] English (en){sifir} -> Global knowledge & English Wikipedia  {cyan}║{sifir}")
+    print(f"{cyan}║{sari}  [2] Türkçe  (tr){sifir} -> Türkçe bilgi akisi & Türkçe Wikipedia {cyan}║{sifir}")
     print(f"{cyan}║                                                              {cyan}║{sifir}")
     print(f"{cyan}║{gri}  (This selection will be saved for future launches)          {sifir}{cyan}║{sifir}")
     print(f"{cyan}╚══════════════════════════════════════════════════════════════╝{sifir}")
@@ -135,12 +268,12 @@ def ask_language_on_first_launch(arg_lang: Optional[str] = None) -> str:
         istek = f"  Select language / Dil seçin [{kalin}1=English{sifir} / {kalin}2=Türkçe{sifir}] (Default: 1): "
         secim = input(istek).strip().lower()
 
-        if secim in ("2", "tr", "tur", "turkce", "türkçe", "turkish"):
+        if secim in ("2", "tr", "tur", "turkce", "turkish"):
             secilen_dil = "tr"
-            print(f"  {yesil}✅ Türkçe modu seçildi! Bilgi akışı Türkçe Wikipedia (20231101.tr) olarak ayarlandı.{sifir}\n")
+            print(f"  {yesil}Türkçe modu secildi!{sifir}\n")
         else:
             secilen_dil = "en"
-            print(f"  {yesil}✅ English mode selected! Knowledge stream set to English Wikipedia (20231101.en).{sifir}\n")
+            print(f"  {yesil}English mode selected!{sifir}\n")
 
         set_language(secilen_dil)
         return secilen_dil

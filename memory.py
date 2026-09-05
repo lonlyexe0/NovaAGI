@@ -11,23 +11,29 @@
 # Thread-safe: threading.Lock + thread-local SQLite bağlantıları
 # ═══════════════════════════════════════════════════════════════════════════════
 import re
+import time
 import sqlite3
 import threading
 import logging
+
 from datetime import datetime
 from typing import Optional
+from config_manager import get_data_path
 
 logger = logging.getLogger("nova.memory")
 
 
 class HafizaYoneticisi:
     """Nova'nın merkezi hafıza yöneticisi."""
-    def __init__(self, db_yolu: str = "nova.db"):
-        self.db_yolu = db_yolu
+    def __init__(self, db_yolu: Optional[str] = None):
+        if db_yolu is None or db_yolu == "nova.db":
+            self.db_yolu = get_data_path("nova.db")
+        else:
+            self.db_yolu = db_yolu
         self._local  = threading.local()   # Her thread'e özel bağlantı
         self._lock   = threading.Lock()    # Yazma işlemleri için kilit
         self.tablolari_kur()
-        logger.info(f"[Hafıza] Veritabanı hazır: {db_yolu}")
+        logger.info(f"[Hafıza] Veritabanı hazır: {self.db_yolu}")
 
     # ── Bağlantı Yönetimi ─────────────────────────────────────────────────────
     def _baglanti(self) -> sqlite3.Connection:
@@ -83,6 +89,8 @@ class HafizaYoneticisi:
                     ON anilar(zaman DESC);
                 CREATE INDEX IF NOT EXISTS idx_bilgi_islendi
                     ON bilgi_agaci(islendi, zaman ASC);
+                CREATE INDEX IF NOT EXISTS idx_bilgi_islendi_desc
+                    ON bilgi_agaci(islendi, id DESC);
                 CREATE INDEX IF NOT EXISTS idx_gorev_durum
                     ON gorevler(durum, oncelik ASC, id ASC);
 
@@ -175,11 +183,43 @@ class HafizaYoneticisi:
     # BİLGİ AĞACI  (Semantik Hafıza)
     # ══════════════════════════════════════════════════════════════════════════
 
-    def bilgi_kaydet(self, url: str, konu: str, icerik: str) -> int:
+    def bilgi_kaydet(self, *args, **kwargs) -> int:
         """
-        Aynı URL'den tekrar kayıt yapılmaz (idempotent).
-        İçerik maksimum 60.000 karakter ile sınırlıdır.
+        Semantik hafızaya bilgi kaydeder.
+        Desteklenen çağrılar:
+          - bilgi_kaydet(url, konu, icerik)
+          - bilgi_kaydet(konu, icerik, lang="tr")
+          - bilgi_kaydet(url=..., konu=..., icerik=...)
         """
+        url = kwargs.get("url", "")
+        konu = kwargs.get("konu", "")
+        icerik = kwargs.get("icerik", "")
+
+        if args:
+            if len(args) == 1:
+                icerik = args[0]
+                konu = "Genel"
+                url = f"local://{int(time.time()*1000)}"
+            elif len(args) == 2:
+                konu = args[0]
+                icerik = args[1]
+                url = f"https://wiki/{konu.replace(' ', '_')}"
+            elif len(args) >= 3:
+                # 3 args: if first looks like url
+                if str(args[0]).startswith("http") or str(args[0]).startswith("local"):
+                    url = args[0]
+                    konu = args[1]
+                    icerik = args[2]
+                else:
+                    konu = args[0]
+                    icerik = args[1]
+                    url = f"https://wiki/{str(konu).replace(' ', '_')}"
+
+        if not konu:
+            konu = "Genel Bilgi"
+        if not url:
+            url = f"https://wiki/{konu.replace(' ', '_')}"
+
         with self._lock:
             conn = self._baglanti()
             # Mevcut kayıt kontrolü
@@ -193,17 +233,19 @@ class HafizaYoneticisi:
             with conn:
                 cur = conn.execute(
                     "INSERT INTO bilgi_agaci (kaynak_url, konu, icerik) VALUES (?,?,?)",
-                    (url, konu[:200], icerik[:60_000])
+                    (url, str(konu)[:200], str(icerik)[:60_000])
                 )
-                logger.info(f"[Hafıza] Bilgi eklendi ({len(icerik):,} kar.): {konu[:60]}")
+                logger.info(f"[Hafıza] Bilgi eklendi ({len(str(icerik)):,} kar.): {str(konu)[:60]}")
                 return cur.lastrowid
 
-    def egitilmemis_bilgi_getir(self, limit: int = 16) -> list[dict]:
-        """Henüz eğitimde kullanılmamış bilgileri getir."""
+
+    def egitilmemis_bilgi_getir(self, limit: int = 16, ters: bool = True) -> list[dict]:
+        """Henüz eğitimde kullanılmamış bilgileri geriye/ileriye doğru tarayarak getir (ters=True: geriden öne / scan backwards)."""
         conn = self._baglanti()
+        siralama = "DESC" if ters else "ASC"
         rows = conn.execute(
-            "SELECT * FROM bilgi_agaci WHERE islendi = 0 "
-            "ORDER BY zaman ASC LIMIT ?",
+            f"SELECT * FROM bilgi_agaci WHERE islendi = 0 "
+            f"ORDER BY id {siralama} LIMIT ?",
             (limit,)
         ).fetchall()
         return [dict(r) for r in rows]
@@ -281,6 +323,83 @@ class HafizaYoneticisi:
             "gorev_bekleyen":    conn.execute("SELECT COUNT(*) FROM gorevler WHERE durum='bekliyor'").fetchone()[0],
             "gorev_tamamlandi":  conn.execute("SELECT COUNT(*) FROM gorevler WHERE durum='tamamlandi'").fetchone()[0],
         }
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # GRAF VE BİLGİ HARİTASI
+    # ══════════════════════════════════════════════════════════════════════════
+
+    def graf_verisi_getir(self, limit_ani: int = 50, limit_bilgi: int = 50) -> dict:
+        """
+        Görselleştirme için Epizodik ve Semantik hafıza düğümlerini ve ilişkilerini üretir.
+        """
+        conn = self._baglanti()
+        anilar = conn.execute(
+            "SELECT id, rol, icerik, zaman, onem_skoru FROM anilar ORDER BY id DESC LIMIT ?",
+            (limit_ani,)
+        ).fetchall()
+
+        bilgiler = conn.execute(
+            "SELECT id, kaynak_url, konu, icerik, zaman FROM bilgi_agaci ORDER BY id DESC LIMIT ?",
+            (limit_bilgi,)
+        ).fetchall()
+
+        nodes = []
+        links = []
+        node_keywords = {}
+
+        # 1. Epizodik Düğümler
+        for a in reversed(anilar):
+            nid = f"ani_{a['id']}"
+            label = (a["icerik"][:25] + "...") if len(a["icerik"]) > 25 else a["icerik"]
+            kws = set([w.lower() for w in re.findall(r"\w{4,}", a["icerik"])])
+            node_keywords[nid] = kws
+            nodes.append({
+                "id": nid,
+                "label": f"[{a['rol']}] {label}",
+                "type": "episodic",
+                "role": a["rol"],
+                "text": a["icerik"],
+                "date": a["zaman"],
+                "score": a["onem_skoru"] or 0.5
+            })
+
+        # 2. Semantik Düğümler
+        for b in reversed(bilgiler):
+            nid = f"bilgi_{b['id']}"
+            konu = b["konu"] or "Genel Bilgi"
+            kws = set([w.lower() for w in re.findall(r"\w{4,}", f"{konu} {b['icerik']}")])
+            node_keywords[nid] = kws
+            nodes.append({
+                "id": nid,
+                "label": f"📚 {konu}",
+                "type": "semantic",
+                "role": "knowledge",
+                "text": b["icerik"],
+                "date": b["zaman"],
+                "score": 0.85
+            })
+
+        # 3. Ortak anahtar kelimelere göre bağlantılar (links) kur
+        node_ids = list(node_keywords.keys())
+        for i in range(len(node_ids)):
+            for j in range(i + 1, min(i + 8, len(node_ids))):
+                id1, id2 = node_ids[i], node_ids[j]
+                ortak = node_keywords[id1] & node_keywords[id2]
+                if len(ortak) >= 1:
+                    links.append({
+                        "source": id1,
+                        "target": id2,
+                        "weight": len(ortak),
+                        "label": list(ortak)[0]
+                    })
+
+        return {
+            "total_nodes": len(nodes),
+            "total_links": len(links),
+            "nodes": nodes,
+            "links": links
+        }
+
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
