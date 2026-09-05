@@ -1371,12 +1371,22 @@ class AjanBeden:
         if pl.startswith("!zaman") or pl.startswith("!saat") or pl.startswith("!time"):
             return f"⏰ **Tarih & Saat**: {yetenekler.tarih_saat()} ({yetenekler.bugun_gun()})"
 
-        if pl.startswith("!brifing") or pl.startswith("!briefing") or any(w in pl for w in ["günlük brifing", "sabah brifingi", "durum brifingi", "sistem brifingi", "friday brifing", "brifing ver"]):
+        if pl.startswith("!nova") or pl.startswith("!durum") or pl.startswith("!teshis") or pl.startswith("!magi") or any(w in pl for w in ["nova durumu", "sistem durumu", "magi durumu", "sağlık raporu"]):
+            return yetenekler.nova_sistem_durum()
+
+        if pl.startswith("!guvenlik") or pl.startswith("!atfield") or any(w in pl for w in ["güvenlik durumu", "erişim durumu", "kalkan durumu"]):
+            return yetenekler.nova_guvenlik_durum()
+
+        if pl.startswith("!senkron") or pl.startswith("!sync") or any(w in pl for w in ["senkronizasyon", "senkron oranı", "sync ratio", "nöral bağ"]):
+            return yetenekler.nova_senkron()
+
+        if pl.startswith("!brifing") or pl.startswith("!briefing") or any(w in pl for w in ["günlük brifing", "sabah brifingi", "durum brifingi", "sistem brifingi", "brifing ver"]):
             return yetenekler.gunluk_brifing()
 
         if pl.startswith("!eylem ") or pl.startswith("!action "):
             eylem_adi = p.split(" ", 1)[1]
             return yetenekler.sistem_eylemi(eylem_adi)
+
 
         # 2. Matematik Hesabı Niyet Tespiti (örn: 154 * 28 + 19 kaç eder)
         math_match = re.search(r"(\d+\s*[\+\-\*\/\^%]\s*\d+[\s\d\+\-\*\/\^%]*)", p)

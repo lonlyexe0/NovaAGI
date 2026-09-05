@@ -29,6 +29,13 @@
 
 </div>
 
+> [!NOTE]
+> ### 📌 Project Status: Final Version (Archived / Shelved)
+> **"Yapay zeka eğitilebilir, sadece elimde yeterince kaynak yok. Bu yüzden bu projeyi rafa kaldırıyorum."**
+> *(The AI can be trained; I just don't have enough resources at hand. Therefore, I am archiving / shelving this project.)*
+> 
+> *Nova AGI is completed as a fully functional and technically validated prototype featuring autonomous growth (Network Morphism), two-way IPC bridge, F.R.I.D.A.Y. neural voice system, and a modern C# .NET 9 WPF desktop interface. However, training a language model from scratch requires massive supercomputing resources; thus, the project is preserved in this final state.*
+
 ---
 
 ## 🚀 Key Flagship Features

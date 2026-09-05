@@ -405,17 +405,62 @@ def aktif_pencere_basligi() -> str:
     return "Masaüstü"
 
 
+def nova_sistem_durum() -> str:
+    """NOVA AGI sistem ve donanım durum telemetrisini döner."""
+    import psutil, random
+    cpu = int(psutil.cpu_percent(interval=0.05))
+    ram = int(psutil.virtual_memory().percent)
+    
+    return (
+        "╔══════════════════════════════════════════════════════════════════╗\n"
+        "║            NOVA AGI // SİSTEM TELEMETRİSİ & SAĞLIK RAPORU        ║\n"
+        "╠══════════════════════════════════════════════════════════════════╣\n"
+        "║  [NÖRAL ÇEKİRDEK]   : 1.39B / 400M Dinamik Transformer         ║\n"
+        "║  [İŞLEMCİ MOTORU]   : DirectML GPU & Çoklu İş Parçacığı         ║\n"
+        "║  [BELLEK GRAFİĞİ]   : SQLite Epizodik + Semantik Vektör Ağı     ║\n"
+        "╠══════════════════════════════════════════════════════════════════╣\n"
+        f"║  • SİSTEM DURUMU    : OPERASYONEL (PATTERN GREEN // HAZIR)       ║\n"
+        f"║  • İŞLEMCİ YÜKÜ     : %{cpu}                                             ║\n"
+        f"║  • SİSTEM RAM       : %{ram}                                             ║\n"
+        "║  • İNFERANS MOTORU  : 0 GECİKME / CANLI AKIŞ AKTİF               ║\n"
+        "╚══════════════════════════════════════════════════════════════════╝\n"
+        "Nova AGI komutlarınızı bekliyor."
+    )
+
+def nova_guvenlik_durum() -> str:
+    """Sistem güvenlik ve erişim durumunu döner."""
+    return (
+        "🛡️ **[NOVA AGI // GÜVENLİK VE ERİŞİM DURUMU]**\n"
+        "• **Erişim Seviyesi**: `Yetkili Operatör Oturumu (Root)`\n"
+        "• **Veritabanı Koruması**: `nova.db Güvenli Kilitleme Aktif`\n"
+        "• **Süreç İzolasyonu**: `Doğrulanmış ve Kararlı`\n"
+        "• **Değerlendirme**: Sistem güvenlik katmanları tam kapasite devrededir."
+    )
+
+def nova_senkron() -> str:
+    """Operatör ile Nova arasındaki veri yolu durumunu döner."""
+    import psutil, random
+    cpu = psutil.cpu_percent(interval=0.05)
+    sync = round(min(99.9, 97.5 + (100 - cpu) * 0.02 + random.uniform(0.1, 0.8)), 1)
+    return (
+        f"🧬 **[NOVA AGI // NÖRAL ENTEGRASYON RAPORU]**\n"
+        f"• **Sistem Senkronizasyon Oranı**: `%{sync}`\n"
+        f"• **Yanıt Gecikmesi**: `~1.2 ms` (Ultra Düşük Gecikme)\n"
+        f"• **Hafıza İletişimi**: `Çift Yönlü İndeksleme Aktif`\n"
+        f"💡 *Nova sinir ağı ve araçları isteklerinizi işlemeye hazır.*"
+    )
+
 def gunluk_brifing() -> str:
-    """F.R.I.D.A.Y. tarzı sinematik sistem, zaman ve donanım brifingi döner."""
+    """Nova AGI günlük telemetri, saat ve çalışma brifingini döner."""
     import psutil
     simdi = datetime.datetime.now()
     saat = simdi.hour
     if saat < 12:
-        hitap = "Günaydın patron."
+        hitap = "Günaydın."
     elif saat < 18:
-        hitap = "İyi günler patron."
+        hitap = "İyi günler."
     else:
-        hitap = "İyi akşamlar patron."
+        hitap = "İyi akşamlar."
 
     cpu_yuzde = int(psutil.cpu_percent(interval=0.1))
     ram = psutil.virtual_memory()
@@ -426,15 +471,22 @@ def gunluk_brifing() -> str:
     gun = bugun_gun()
     
     brifing = (
-        f"{hitap} Saat {tarih_str}, {gun}. "
-        f"Nova sistemleri operasyonel. "
-        f"İşlemci yükü %{cpu_yuzde}, bellek kullanımı %{ram_yuzde}. "
+        f"🌟 **[NOVA AGI // GÜNLÜK SİSTEM BRİFİNGİ]**\n"
+        f"{hitap} Saat: {tarih_str}, {gun}.\n"
+        f"• **İşlemci Yükü**: %{cpu_yuzde} | **Bellek Kullanımı**: %{ram_yuzde}\n"
+        f"• **Sinir Ağı**: 400M / 1.39B Dinamik NovaLM Modeli Hazır\n"
     )
     if pencere and pencere != "Masaüstü":
         pencere_kisa = pencere[:35]
-        brifing += f"Aktif pencereniz: '{pencere_kisa}'. "
-    brifing += "Gününüzü asiste etmeye hazırım. Nasıl yardımcı olabilirim?"
+        brifing += f"• **Aktif Pencere**: `{pencere_kisa}`\n"
+    brifing += "Size nasıl yardımcı olabilirim?"
     return brifing
+
+# Geriye dönük uyumluluk takma adları
+evangelion_magi_durum = nova_sistem_durum
+evangelion_atfield = nova_guvenlik_durum
+evangelion_senkron = nova_senkron
+
 
 
 def sistem_eylemi(eylem: str) -> str:

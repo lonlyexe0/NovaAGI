@@ -65,12 +65,15 @@ def build():
         "gui",
         "hybrid_engine",
         "hardware",
+        "web_server",
+        "nova_bridge",
+        "nova_app",
+        "webview",
     ]
 
     # Ek veri dosyaları (data files)
     data_files = [
         ("nova_vocab.json", "."),
-        ("nova_weights.pth", "."),
         ("yetenekler.py", "."),
         ("config_manager.py", "."),
         ("hf_auth.py", "."),
@@ -81,6 +84,11 @@ def build():
         ("body.py", "."),
         ("gui.py", "."),
         ("hybrid_engine.py", "."),
+        ("web_server.py", "."),
+        ("nova_bridge.py", "."),
+        ("nova_app.py", "."),
+        ("nova_hud.html", "."),
+        (".nova_config.json", "."),
     ]
     if os.path.exists(os.path.join(ROOT_DIR, "nova.db")):
         data_files.append(("nova.db", "."))
@@ -88,8 +96,6 @@ def build():
         data_files.append(("nova_icon.ico", "."))
     if os.path.exists(os.path.join(ROOT_DIR, "nova_icon.png")):
         data_files.append(("nova_icon.png", "."))
-    if os.path.exists(os.path.join(ROOT_DIR, "nova_icon.svg")):
-        data_files.append(("nova_icon.svg", "."))
 
     # PyInstaller komut parametreleri
     cmd = [

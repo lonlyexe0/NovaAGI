@@ -58,7 +58,7 @@ logger = logging.getLogger("nova.bridge")
 
 
 class NovaBridgeServer:
-    def __init__(self):
+    def __init__(self, start_web: bool = True):
         self.hafiza = HafizaYoneticisi()
         self.beyin = BeynYoneticisi(self.hafiza)
         self.beden = AjanBeden(self.hafiza, self.beyin)
@@ -73,14 +73,16 @@ class NovaBridgeServer:
             logger.info("[Bridge] Sürekli arka plan eğitimi ayarlardan dolayı kapalı (başlatılmadı).")
 
         # Web & Mobil Sunucusu
-        try:
-            w_port = int(config_manager.get_setting("web_server_port", 8080))
-            self.web_sunucu = NovaWebServer(bridge_instance=self, port=w_port)
-            if config_manager.get_setting("web_server_enabled", False):
-                self.web_sunucu.start(port=w_port)
-        except Exception as e:
-            logger.warning(f"[Bridge] Web sunucusu başlatılamadı: {e}")
-            self.web_sunucu = None
+        self.web_sunucu = None
+        if start_web:
+            try:
+                w_port = int(config_manager.get_setting("web_server_port", 8080))
+                self.web_sunucu = NovaWebServer(bridge_instance=self, port=w_port)
+                if config_manager.get_setting("web_server_enabled", False):
+                    self.web_sunucu.start(port=w_port)
+            except Exception as e:
+                logger.warning(f"[Bridge] Web sunucusu başlatılamadı: {e}")
+                self.web_sunucu = None
 
         # Otonom Merak Motoru (Arka plan Wikipedia araştırmacısı)
         try:
@@ -205,39 +207,49 @@ class NovaBridgeServer:
 
 
     def _sohbet_uret(self, girdi: str, chunk_cb: Optional[Any] = None) -> Dict[str, Any]:
-        """Kullanıcı mesajını işler, araç niyetlerini kontrol eder ve yanıt üretir."""
+        """Kullanıcı mesajını işler, araç niyetlerini kontrol eder, RAG ve 400M sinir ağı ile gerçek yanıt üretir."""
         girdi = girdi.strip()
         if not girdi:
             return {"type": "chat_reply", "reply": "", "role": "nova"}
 
-        # 1. Komut mu?
+        lang = config_manager.get_language() or "tr"
+        girdi_lower = girdi.lower()
+
+        # 1. Doğrudan Sistem Komutları (! ile başlayanlar)
         if girdi.startswith("!"):
-            # Akıllı araç kontrolü (!hesapla, !wiki, !ara, !oku, !python, !zaman)
+            cmd = girdi.split()[0].lower()
+            if cmd in ("!istatistik", "!stats"):
+                cevap = self._komut_isle(girdi)
+                if chunk_cb: chunk_cb(cevap)
+                return {"type": "chat_reply", "reply": cevap, "role": "system", "tool_used": True}
+            
             arac_res = self.beden.akilli_arac_isleyici(girdi)
             if arac_res:
                 self.hafiza.ani_kaydet("kullanici", girdi)
                 self.hafiza.ani_kaydet("nova", arac_res)
-                if chunk_cb:
-                    chunk_cb(arac_res)
+                if chunk_cb: chunk_cb(arac_res)
                 return {"type": "chat_reply", "reply": arac_res, "role": "nova", "tool_used": True}
 
             cevap = self._komut_isle(girdi)
-            if chunk_cb:
-                chunk_cb(cevap)
+            if chunk_cb: chunk_cb(cevap)
             return {"type": "chat_reply", "reply": cevap, "role": "system"}
 
-        # 2. Doğal Dil Akıllı Araç / Niyet Tespiti (hesaplama, nedir, kimdir, saat vb.)
-        arac_res = self.beden.akilli_arac_isleyici(girdi)
-        if arac_res:
-            self.hafiza.ani_kaydet("kullanici", girdi)
-            self.hafiza.ani_kaydet("nova", arac_res)
-            if chunk_cb:
-                chunk_cb(arac_res)
-            return {"type": "chat_reply", "reply": arac_res, "role": "nova", "tool_used": True}
+        # 2. Doğrudan Matematik Hesaplama (örn: 145 * 24 + 10)
+        math_clean = girdi.replace("x", "*").replace("^", "**").strip()
+        if re.match(r"^[\d\s\+\-\*\/\(\)\.\%]+$", math_clean) and any(op in math_clean for op in "+-*/%"):
+            try:
+                calc_res = yetenekler.hesapla(math_clean)
+                if "hata" not in str(calc_res).lower():
+                    cevap = f"🧮 **Hesaplama Sonucu:** `{girdi}` = **{calc_res}**"
+                    self.hafiza.ani_kaydet("kullanici", girdi)
+                    self.hafiza.ani_kaydet("nova", cevap)
+                    if chunk_cb: chunk_cb(cevap)
+                    return {"type": "chat_reply", "reply": cevap, "role": "nova", "tool_used": True, "action": "Hesaplama"}
+            except Exception:
+                pass
 
-        # 2.1 Geçmiş mesajları sesli okuma niyeti
-        girdi_lower = girdi.lower()
-        if any(w in girdi_lower for w in ["geçmişi oku", "geçmiş mesajları oku", "sohbeti oku", "sohbet geçmişini oku", "read history", "read the history", "read past messages"]):
+        # 3. Sesli Geçmiş Okuma Niyeti
+        if any(w in girdi_lower for w in ["geçmişi oku", "geçmiş mesajları oku", "sohbeti oku", "sohbet geçmişini oku", "read history", "read the history"]):
             anilar = self.hafiza.son_anilar_getir(limit=6)
             metinler = []
             for a in anilar:
@@ -246,75 +258,92 @@ class NovaBridgeServer:
             okunacak = ". ".join(metinler)
             if okunacak:
                 self.beden.ses.konuş(okunacak)
-            lang_now = config_manager.get_language() or "tr"
-            cevap = "Sohbet geçmişindeki son konuşmaları sesli olarak okuyorum." if lang_now == "tr" else "Reading recent conversation history aloud for you."
+            cevap = "Sohbet geçmişindeki son konuşmaları sesli olarak okuyorum." if lang == "tr" else "Reading recent conversation history aloud."
             self.hafiza.ani_kaydet("kullanici", girdi)
             self.hafiza.ani_kaydet("nova", cevap)
-            if chunk_cb:
-                chunk_cb(cevap)
+            if chunk_cb: chunk_cb(cevap)
             return {"type": "chat_reply", "reply": cevap, "role": "nova"}
 
-        # 3. Hafıza, RAG ve Canlı İnternet / Wikipedia Zenginleştirme
+        # 4. Hafıza, RAG ve Canlı İnternet / Wikipedia Zenginleştirme
         self.hafiza.ani_kaydet("kullanici", girdi)
-        baglam = self.hafiza.rag_sorgula(girdi, k=3, max_karakter=300)
-        lang = config_manager.get_language() or "tr"
+        baglam = ""
+        source_label = None
 
-        # Eğer yerel hafızada bilgi yoksa, internetten canlı araştır ve hafızayı besle
-        if not baglam or len(baglam.strip()) < 20:
+        # Soru veya bilgi sorgusu mu?
+        soru_mu = girdi.endswith("?") or any(w in girdi_lower for w in ["nedir", "kimdir", "nasıl", "nerede", "bilgi", "anlat", "açıkla", "what is", "who is"])
+        if soru_mu:
             try:
-                # Soru kalıplarını temizleyip anahtar kelimeleri çıkar
+                baglam = self.hafiza.rag_sorgula(girdi, k=2, max_karakter=350)
+            except Exception:
+                pass
+
+            if not baglam or len(baglam.strip()) < 30:
                 temiz_sorgu = re.sub(r"(nedir\??|kimdir\??|nerededir\??|hakkında|bilgi\s+ver|anlat|açıkla|what is|who is|tell me about|how to)", "", girdi, flags=re.IGNORECASE).strip()
-                if len(temiz_sorgu) > 2:
+                if len(temiz_sorgu) > 2 and temiz_sorgu.lower() not in ("sen", "ben", "o", "biz", "bu", "şu"):
                     wiki_res = yetenekler.wiki_ara(temiz_sorgu, lang=lang)
                     if "hata" not in wiki_res.lower() and len(wiki_res) > 50:
-                        baglam = wiki_res[:300]
-                        self.hafiza.bilgi_kaydet(temiz_sorgu, wiki_res[:2000], lang)
-                        # Kullanıcıya doğrudan kaynaklı bilgiyi sun
-                        self.hafiza.ani_kaydet("nova", wiki_res)
-                        if chunk_cb:
-                            chunk_cb(wiki_res)
-                        return {"type": "chat_reply", "reply": wiki_res, "role": "nova", "source": "Wikipedia"}
-            except Exception as e:
-                logger.debug(f"[Canlı Araştırma] Hata: {e}")
+                        baglam = wiki_res[:400]
+                        source_label = "Wikipedia"
+                        try:
+                            self.hafiza.bilgi_kaydet(temiz_sorgu, wiki_res[:2000], lang)
+                        except Exception:
+                            pass
 
+        # 5. Sohbet Geçmişi ve Dinamik Nöral Prompt Oluşturma
         son_anilar = self.hafiza.son_anilar_getir(limit=6)
         gecmis = ""
         for ani in son_anilar[-4:]:
-            pref = "Kullanıcı" if ani["rol"] == "kullanici" else "Nova"
+            if ani.get("icerik") == girdi:
+                continue
+            pref = "Kullanıcı" if ani.get("rol") in ("kullanici", "user") else "Nova"
             gecmis += f"{pref}: {ani['icerik']}\n"
 
-        parcalar = []
+        prompt_parcalar = []
         if baglam:
-            parcalar.append(f"[Bağlam: {baglam[:250]}]")
-        if gecmis:
-            parcalar.append(gecmis.strip())
-        parcalar.append(f"Kullanıcı: {girdi}\nNova:")
-        tohum = "\n".join(parcalar)
+            prompt_parcalar.append(f"[Bilgi: {baglam.strip()[:300]}]")
+        if gecmis.strip():
+            prompt_parcalar.append(gecmis.strip())
+        prompt_parcalar.append(f"Kullanıcı: {girdi}\nNova:")
+        tohum = "\n".join(prompt_parcalar)
 
+        # 6. Gerçek 400M / 1.39B Sinir Ağı Üretimi
         cevap_ham = ""
-        stop_tags = ["Nova:", "Kullanıcı:", "[Bağlam:", "<EOS>"]
-        for ch in self.beyin.uret_stream(tohum, uzunluk=140, sicaklik=0.85, top_k=50, top_p=0.92):
-            cevap_ham += ch
-            dur = False
-            for tag in stop_tags:
-                if tag in cevap_ham:
-                    dur = True
+        stop_tags = ["Kullanıcı:", "Nova:", "[Bilgi:", "<EOS>", "<BOS>"]
+
+        try:
+            for ch in self.beyin.uret_stream(tohum, uzunluk=140, sicaklik=0.70, top_k=8, top_p=0.88, rep_ceza=1.25):
+                cevap_ham += ch
+                if any(tag in cevap_ham for tag in stop_tags):
+                    for tag in stop_tags:
+                        if tag in cevap_ham:
+                            cevap_ham = cevap_ham.split(tag)[0]
                     break
-            if dur:
-                break
+                if chunk_cb:
+                    chunk_cb(ch)
+        except Exception as gen_err:
+            logger.warning(f"[NovaBridge] Sinir ağı üretim hatası: {gen_err}")
+
+        clean_reply = cevap_ham.strip()
+        # Eğer model çıktısı boş veya yetersizse, bağlamla zenginleştirilmiş akıllı yanıt sun
+        if not clean_reply or len(clean_reply) < 6:
+            if baglam:
+                clean_reply = baglam.strip()
+            elif lang == "tr":
+                clean_reply = f"Girdinizi aldım: \"{girdi}\". Sistem öğrenmeye ve sinir ağını genişletmeye devam ediyor."
+            else:
+                clean_reply = f"Acknowledged: \"{girdi}\". Neural network is online and synchronizing."
             if chunk_cb:
-                chunk_cb(ch)
+                chunk_cb(clean_reply)
 
-        for tag in stop_tags:
-            idx = cevap_ham.find(tag)
-            if idx != -1:
-                cevap_ham = cevap_ham[:idx]
+        self.hafiza.ani_kaydet("nova", clean_reply)
 
-        default_fallback = "I understand. As I learn more from Wikipedia and your conversations, my answers will become richer." if lang == "en" else "Anlıyorum. Wikipedia ve sohbetlerimizden öğrendikçe yanıtlarım daha da zenginleşecektir."
-        cevap = re.sub(r"\n{3,}", "\n\n", cevap_ham).strip() or default_fallback
-
-        self.hafiza.ani_kaydet("nova", cevap)
-        return {"type": "chat_reply", "reply": cevap, "role": "nova"}
+        return {
+            "type": "chat_reply",
+            "reply": clean_reply,
+            "role": "nova",
+            "source": source_label,
+            "action": f"Kaynak: {source_label}" if source_label else None
+        }
 
     def _komut_isle(self, girdi: str) -> str:
         """! komutlarını doğrudan işler."""

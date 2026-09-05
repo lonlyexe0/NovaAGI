@@ -2,7 +2,7 @@
 ; Bu dosya ile dist\NovaAGI klasörünü tek bir "NovaAGI_Setup.exe" kurulum dosyasına dönüştürebilirsiniz.
 
 #define MyAppName "Nova AGI"
-#define MyAppVersion "3.0"
+#define MyAppVersion "4.0"
 #define MyAppPublisher "Nova AGI Open Source Project"
 #define MyAppURL "https://github.com/lonlyexe0/NovaAGI"
 #define MyAppExeName "NovaAGI.exe"
@@ -19,7 +19,7 @@ DefaultDirName={autopf}\{#MyAppName}
 DefaultGroupName={#MyAppName}
 AllowNoIcons=yes
 OutputDir=dist_installer
-OutputBaseFilename=NovaAGI_v3_Setup
+OutputBaseFilename=NovaAGI_v4_Setup
 SetupIconFile=nova_icon.ico
 Compression=lzma2/normal
 SolidCompression=yes

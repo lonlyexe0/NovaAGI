@@ -44,7 +44,7 @@ CONFIG_DOSYASI = get_data_path(".nova_config.json")
 
 
 def _config_oku() -> Dict[str, Any]:
-    """Konfigürasyon dosyasını okur."""
+    """Konfigürasyon dosyasını okur (.nova_config.json)."""
     if os.path.exists(CONFIG_DOSYASI):
         try:
             with open(CONFIG_DOSYASI, "r", encoding="utf-8") as f:
@@ -55,13 +55,13 @@ def _config_oku() -> Dict[str, Any]:
 
 
 def _config_yaz(cfg: Dict[str, Any]) -> bool:
-    """Konfigürasyon dosyasını kaydeder."""
+    """Konfigürasyon dosyasını kaydeder (.nova_config.json)."""
     try:
         with open(CONFIG_DOSYASI, "w", encoding="utf-8") as f:
             json.dump(cfg, f, indent=2, ensure_ascii=False)
         return True
     except Exception as e:
-        logger.error(f"[Config] Dosya yazılamadı: {e}")
+        logger.error(f"[Config] Dosya yazılamadı ({CONFIG_DOSYASI}): {e}")
         return False
 
 
@@ -86,6 +86,29 @@ def is_continuous_training_enabled() -> bool:
 def set_continuous_training(enabled: bool) -> bool:
     """Sürekli arka plan eğitimini açar veya kapatır."""
     return set_setting("continuous_training_enabled", bool(enabled))
+
+
+def get_weights_file() -> str:
+    """Kullanılacak ağırlık dosyasının yolunu döner (nova_weights_400m.pth öncelikli)."""
+    cfg_val = get_setting("weights_file")
+    if cfg_val:
+        p = get_data_path(cfg_val) if not os.path.isabs(cfg_val) else cfg_val
+        if os.path.exists(p) and os.path.getsize(p) > 0:
+            return p
+
+    # Otomatik tespit sırası (400M öncelikli)
+    base_dir = get_data_dir()
+    for candidate in ("nova_weights_400m.pth", "nova_weights.pth"):
+        cp = os.path.join(base_dir, candidate)
+        if os.path.exists(cp) and os.path.getsize(cp) > 0:
+            return cp
+    return os.path.join(base_dir, "nova_weights_400m.pth")
+
+
+def set_weights_file(filename_or_path: str) -> bool:
+    """Kullanılacak ağırlık dosyasını kaydeder."""
+    return set_setting("weights_file", filename_or_path)
+
 
 
 

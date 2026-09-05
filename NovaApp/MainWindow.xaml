@@ -6,8 +6,8 @@
         xmlns:models="clr-namespace:NovaApp.Models"
         mc:Ignorable="d"
         Title="Nova AGI — Autonomous Neural Intelligence System" 
-        Height="820" Width="1360"
-        MinHeight="680" MinWidth="1050"
+        Height="900" Width="1600"
+        MinHeight="630" MinWidth="1120"
         WindowStartupLocation="CenterScreen"
         Background="{StaticResource BgDarkBrush}">
 

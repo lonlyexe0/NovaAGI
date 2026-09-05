@@ -1,6 +1,7 @@
 {
-  "language": "en",
+  "language": "tr",
   "device": "auto",
+  "weights_file": "nova_weights.pth",
   "multi_gpu_enabled": true,
   "worker_threads": 16,
   "learning_rate": 0.0005,
@@ -11,7 +12,7 @@
   "curiosity_topics": "",
   "curiosity_interval": 90,
   "web_server_enabled": true,
-  "web_server_port": 9090,
+  "web_server_port": 8080,
   "continuous_training_enabled": false,
   "theme": "Dark"
 }

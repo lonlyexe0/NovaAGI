@@ -281,8 +281,9 @@ class HeadlessTrainer:
         self._son_loss_sayisi += 1
 
         # Plato kontrolü & Otomatik büyüme
-        if self.plato.guncelle(lv):
-            self.buyut()
+        if not getattr(self.args, "no_growth", False):
+            if self.plato.guncelle(lv):
+                self.buyut()
 
         # Periyodik Loglama & Checkpoint
         if self.adim % self.cfg.save_every == 0:
@@ -402,7 +403,11 @@ class HeadlessTrainer:
                         time.sleep(0.05)
                     else:
                         if self.continuous or self.web_stream:
-                            time.sleep(1.0)
+                            # Sürekli mod: Tüm kayıtlar işlendiyse yeni epoch başlat
+                            with self.db._baglanti() as conn:
+                                conn.execute("UPDATE bilgi_agaci SET islendi = 0")
+                            logger.info("🔄 Bir epoch tamamlandı! Tüm veriler yeni epoch için sıfırlandı, eğitime devam ediliyor...")
+                            time.sleep(0.5)
                         else:
                             logger.info("🎉 Tebrikler! Veritabanındaki tüm kayıtlar eğitildi (islendi=1).")
                             self.kaydet()
@@ -427,6 +432,7 @@ def main():
     parser.add_argument("--web_stream", action="store_true", help="Eğitim sürerken internetten sürekli yeni bilgi indir ve eğit")
     parser.add_argument("--lang", type=str, default="tr", choices=["tr", "en"], help="İnternet arama dili")
     parser.add_argument("--web_interval", type=float, default=2.0, help="Web indirme aralığı (saniye)")
+    parser.add_argument("--no_growth", action="store_true", help="Otomatik mimari büyümeyi (Network Morphism) kapat ve sadece eğitime odaklan")
 
     args = parser.parse_args()
     trainer = HeadlessTrainer(args)

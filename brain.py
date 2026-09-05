@@ -98,8 +98,8 @@ class Config:
     min_text_len  : int   = 20
 
     # ── Dosyalar ──────────────────────────────────────────────────────────────
-    from config_manager import get_data_path
-    weights_path  : str   = get_data_path("nova_weights.pth")
+    from config_manager import get_data_path, get_weights_file
+    weights_path  : str   = get_weights_file()
     vocab_path    : str   = get_data_path("nova_vocab.json")
     config_path   : str   = get_data_path(".nova_config.json")
     device        : str   = varsayilan_cihaz()
@@ -305,9 +305,9 @@ class DinamikNovaLM(nn.Module):
         return logits, loss
 
     @torch.no_grad()
-    def uret(self, idx: torch.Tensor, max_new: int = 250,
-             sicaklik: float = 0.85, top_k: int = 50,
-             top_p: float = 0.92, rep_ceza: float = 1.3) -> torch.Tensor:
+    def uret(self, idx: torch.Tensor, max_new: int = 150,
+             sicaklik: float = 0.65, top_k: int = 8,
+             top_p: float = 0.88, rep_ceza: float = 1.25) -> torch.Tensor:
         self.eval()
         gen = idx.clone()
         for _ in range(max_new):
@@ -318,7 +318,10 @@ class DinamikNovaLM(nn.Module):
             for b in range(gen.shape[0]):
                 for t in set(gen[b].tolist()):
                     if t < next_logits.shape[-1]:
-                        next_logits[b, t] /= rep_ceza
+                        if next_logits[b, t] > 0:
+                            next_logits[b, t] /= rep_ceza
+                        else:
+                            next_logits[b, t] *= rep_ceza
             next_logits /= max(sicaklik, 1e-8)
             if top_k > 0:
                 v, _ = torch.topk(next_logits, min(top_k, next_logits.size(-1)))
@@ -335,9 +338,9 @@ class DinamikNovaLM(nn.Module):
         return gen
 
     @torch.no_grad()
-    def uret_stream(self, idx: torch.Tensor, max_new: int = 250,
-                    sicaklik: float = 0.85, top_k: int = 50,
-                    top_p: float = 0.92, rep_ceza: float = 1.3):
+    def uret_stream(self, idx: torch.Tensor, max_new: int = 150,
+                    sicaklik: float = 0.65, top_k: int = 8,
+                    top_p: float = 0.88, rep_ceza: float = 1.25):
         self.eval()
         gen = idx.clone()
         for _ in range(max_new):
@@ -347,7 +350,10 @@ class DinamikNovaLM(nn.Module):
             for b in range(gen.shape[0]):
                 for t in set(gen[b].tolist()):
                     if t < next_logits.shape[-1]:
-                        next_logits[b, t] /= rep_ceza
+                        if next_logits[b, t] > 0:
+                            next_logits[b, t] /= rep_ceza
+                        else:
+                            next_logits[b, t] *= rep_ceza
             next_logits /= max(sicaklik, 1e-8)
             if top_k > 0:
                 v, _ = torch.topk(next_logits, min(top_k, next_logits.size(-1)))
@@ -642,8 +648,8 @@ class BeynYoneticisi:
 
 
         # Model
-        self.raw_model = DinamikNovaLM(self.cfg).to(self.device)
-        if self.is_multi_gpu:
+        self.raw_model = self._cihaza_aktar(DinamikNovaLM(self.cfg))
+        if self.is_multi_gpu and str(self.device) != "cpu":
             self.model = nn.DataParallel(self.raw_model)
             logger.info(f"[Beyin] 🔥 Multi-GPU DataParallel aktif ({self.gpu_count}x CUDA GPU)")
         else:
@@ -660,6 +666,26 @@ class BeynYoneticisi:
 
         self.yukle()
         logger.info(f"[Beyin] {self.raw_model.mimari_ozet()}")
+
+    def _cihaza_aktar(self, modul: nn.Module) -> nn.Module:
+        """Modülü self.device'a taşır. GPU VRAM yetersiz kalırsa otomatik CPU moduna geçer."""
+        if str(self.device) == "cpu":
+            return modul.to("cpu")
+        try:
+            return modul.to(self.device)
+        except (RuntimeError, Exception) as e:
+            err_str = str(e).lower()
+            if "memory" in err_str or "allocate" in err_str or "vram" in err_str or "cuda" in err_str:
+                logger.warning(
+                    f"[Beyin] ⚠️ GPU VRAM yetersiz ({e})! "
+                    f"Model güvenli şekilde CPU moduna geçiriliyor (Daha yavaş ama takılmadan kararlı çalışacak)..."
+                )
+                self.device = torch.device("cpu")
+                self.cfg.device = "cpu"
+                Config.device = "cpu"
+                self.is_multi_gpu = False
+                return modul.to("cpu")
+            raise e
 
     # ── Optimizer ─────────────────────────────────────────────────────────────
     def _optimizer_olustur(self):
@@ -762,34 +788,71 @@ class BeynYoneticisi:
             return "Tüm boyutlar maksimuma ulaştı"
 
     # ── Üretim ────────────────────────────────────────────────────────────────
-    def uret(self, tohum: str, uzunluk: int = 250, sicaklik: float = 0.85,
-             top_k: int = 50, top_p: float = 0.92, rep_ceza: float = 1.3, **kwargs) -> str:
+    def uret(self, tohum: str, uzunluk: int = 120, sicaklik: float = 0.65,
+             top_k: int = 8, top_p: float = 0.88, rep_ceza: float = 1.25, **kwargs) -> str:
         with self._lock:
             self._vocab_guncelle(tohum)
             ids = self.encode(tohum) or [self.char2id.get("<BOS>", 0)]
             ids = ids[-self.cfg.max_seq_len:]
-            idx = torch.tensor([ids], dtype=torch.long, device=self.device)
-            out = self.raw_model.uret(idx, max_new=uzunluk,
-                                      sicaklik=sicaklik, top_k=top_k, top_p=top_p,
-                                      rep_ceza=rep_ceza)
-            return self.decode(out[0, len(ids):].tolist())
+            try:
+                idx = torch.tensor([ids], dtype=torch.long, device=self.device)
+                out = self.raw_model.uret(idx, max_new=uzunluk,
+                                          sicaklik=sicaklik, top_k=top_k, top_p=top_p,
+                                          rep_ceza=rep_ceza)
+                return self.decode(out[0, len(ids):].tolist())
+            except (RuntimeError, Exception) as e:
+                err_str = str(e).lower()
+                if "memory" in err_str or "allocate" in err_str or "vram" in err_str:
+                    logger.warning(f"[Beyin] ⚠️ İnferans GPU VRAM yetersiz ({e})! CPU moduna aktarılıyor...")
+                    self.device = torch.device("cpu")
+                    self.cfg.device = "cpu"
+                    Config.device = "cpu"
+                    self.raw_model = self.raw_model.to("cpu")
+                    self.model = self.raw_model
+                    idx = torch.tensor([ids], dtype=torch.long, device="cpu")
+                    out = self.raw_model.uret(idx, max_new=uzunluk,
+                                              sicaklik=sicaklik, top_k=top_k, top_p=top_p,
+                                              rep_ceza=rep_ceza)
+                    return self.decode(out[0, len(ids):].tolist())
+                raise e
 
-    def uret_stream(self, tohum: str, uzunluk: int = 180, sicaklik: float = 0.85,
-                    top_k: int = 50, top_p: float = 0.92, rep_ceza: float = 1.3):
+    def uret_stream(self, tohum: str, uzunluk: int = 120, sicaklik: float = 0.65,
+                    top_k: int = 8, top_p: float = 0.88, rep_ceza: float = 1.25):
         with self._lock:
             self._vocab_guncelle(tohum)
             ids = self.encode(tohum) or [self.char2id.get("<BOS>", 0)]
             ids = ids[-self.cfg.max_seq_len:]
-            idx = torch.tensor([ids], dtype=torch.long, device=self.device)
             eos_id = self.char2id.get("<EOS>", 3)
-            for tok_id in self.raw_model.uret_stream(idx, max_new=uzunluk,
-                                                     sicaklik=sicaklik, top_k=top_k,
-                                                     top_p=top_p, rep_ceza=rep_ceza):
-                if tok_id == eos_id:
-                    break
-                ch = self.id2char.get(tok_id, "")
-                if ch:
-                    yield ch
+            try:
+                idx = torch.tensor([ids], dtype=torch.long, device=self.device)
+                for tok_id in self.raw_model.uret_stream(idx, max_new=uzunluk,
+                                                         sicaklik=sicaklik, top_k=top_k,
+                                                         top_p=top_p, rep_ceza=rep_ceza):
+                    if tok_id == eos_id:
+                        break
+                    ch = self.id2char.get(tok_id, "")
+                    if ch:
+                        yield ch
+            except (RuntimeError, Exception) as e:
+                err_str = str(e).lower()
+                if "memory" in err_str or "allocate" in err_str or "vram" in err_str:
+                    logger.warning(f"[Beyin] ⚠️ Akış GPU VRAM yetersiz ({e})! CPU moduna aktarılıyor...")
+                    self.device = torch.device("cpu")
+                    self.cfg.device = "cpu"
+                    Config.device = "cpu"
+                    self.raw_model = self.raw_model.to("cpu")
+                    self.model = self.raw_model
+                    idx = torch.tensor([ids], dtype=torch.long, device="cpu")
+                    for tok_id in self.raw_model.uret_stream(idx, max_new=uzunluk,
+                                                             sicaklik=sicaklik, top_k=top_k,
+                                                             top_p=top_p, rep_ceza=rep_ceza):
+                        if tok_id == eos_id:
+                            break
+                        ch = self.id2char.get(tok_id, "")
+                        if ch:
+                            yield ch
+                else:
+                    raise e
 
 
     # ── Eğitim ────────────────────────────────────────────────────────────────
@@ -950,52 +1013,62 @@ class BeynYoneticisi:
             logger.error(f"[Beyin] Kaydetme hatası: {e}")
 
     def yukle(self):
-        target_weights = self.cfg.weights_path
+        from config_manager import get_weights_file
+        target_weights = get_weights_file()
         if not os.path.exists(target_weights) or os.path.getsize(target_weights) == 0:
-            bundled = os.path.join(os.path.dirname(os.path.abspath(__file__)), "nova_weights.pth")
-            if os.path.exists(bundled) and os.path.getsize(bundled) > 0:
-                target_weights = bundled
+            target_weights = self.cfg.weights_path
+        if not os.path.exists(target_weights) or os.path.getsize(target_weights) == 0:
+            for alt in ("nova_weights_400m.pth", "nova_weights.pth"):
+                alt_p = os.path.join(os.path.dirname(os.path.abspath(__file__)), alt)
+                if os.path.exists(alt_p) and os.path.getsize(alt_p) > 0:
+                    target_weights = alt_p
+                    break
 
         if not os.path.exists(target_weights) or os.path.getsize(target_weights) == 0:
             logger.info("[Beyin] Sıfırdan başlıyor."); return
         try:
+            logger.info(f"[Beyin] Ağırlıklar yükleniyor: {os.path.basename(target_weights)}...")
             ck = torch.load(target_weights,
-                            map_location="cpu", weights_only=False)
+                            map_location="cpu", weights_only=False, mmap=True)
             # Mimariyi geri yükle
             if "embed_dim" in ck:
                 self.cfg.embed_dim = ck["embed_dim"]
                 self.cfg.n_heads   = ck["n_heads"]
                 self.cfg.ff_dim    = ck["ff_dim"]
                 self.cfg.n_layers  = ck.get("n_layers", self.cfg.n_layers)
-                self.raw_model = DinamikNovaLM(self.cfg).to(self.device)
+
             if "char2id" in ck:
                 self.char2id = ck["char2id"]
                 self.id2char = {int(k) if isinstance(k,str) else k: v
                                 for k,v in ck["id2char"].items()}
-            self.raw_model.load_state_dict(ck["model_state"])
-            self.raw_model.tok_emb.weight = self.raw_model.head.weight
-            self.raw_model.to(self.device)
-            if self.is_multi_gpu:
+
+            new_model = DinamikNovaLM(self.cfg)
+            new_model.load_state_dict(ck["model_state"], strict=False)
+            new_model.tok_emb.weight = new_model.head.weight
+            self.raw_model = self._cihaza_aktar(new_model)
+
+            if self.is_multi_gpu and str(self.device) != "cpu":
                 self.model = nn.DataParallel(self.raw_model)
             else:
                 self.model = self.raw_model
 
-
             self.optimizer, self.scheduler = self._optimizer_olustur()
-            try: self.optimizer.load_state_dict(ck["opt_state"])
-            except Exception: pass
+            if "opt_state" in ck:
+                try: self.optimizer.load_state_dict(ck["opt_state"])
+                except Exception: pass
             self.adim = ck.get("adim", 0)
             self._buyume_seviyesi = ck.get("buyume_seviyesi", 0)
             self.raw_model.buyume_gecmisi = ck.get("buyume_gecmisi", [])
             self.raw_model._toplam_buyume = ck.get("toplam_buyume", 0)
-            logger.info(f"[Beyin] Yüklendi: {self.raw_model.mimari_ozet()}")
+            logger.info(f"[Beyin] Yüklendi ({self.device}): {self.raw_model.mimari_ozet()}")
         except Exception as e:
-            logger.warning(f"[Beyin] Yükleme başarısız ({e}), sıfırdan.")
-            self.raw_model = DinamikNovaLM(self.cfg).to(self.device)
-            if self.is_multi_gpu:
-                self.model = nn.DataParallel(self.raw_model)
-            else:
-                self.model = self.raw_model
+            logger.warning(f"[Beyin] Yükleme uyarısı ({e}), güvenli CPU modunda başlatılıyor.")
+            self.device = torch.device("cpu")
+            self.cfg.device = "cpu"
+            Config.device = "cpu"
+            self.is_multi_gpu = False
+            self.raw_model = DinamikNovaLM(self.cfg).to("cpu")
+            self.model = self.raw_model
             self.optimizer, self.scheduler = self._optimizer_olustur()
 
 

@@ -29,6 +29,12 @@
 
 </div>
 
+> [!NOTE]
+> ### 📌 Proje Durumu: Final Versiyon (Rafa Kaldırıldı)
+> **Yapay zeka eğitilebilir, sadece elimde yeterince kaynak yok. Bu yüzden bu projeyi rafa kaldırıyorum.**
+> 
+> *Nova AGI mimarisi; otonom büyüme (Network Morphism), çift yönlü IPC köprüsü, F.R.I.D.A.Y. nöral ses sistemi ve modern C# .NET 9 WPF masaüstü arayüzü ile teknik olarak eksiksiz ve çalışan bir prototip olarak tamamlanmıştır. Ancak sıfırdan bir dil modelini insan düzeyinde eğitmek devasa süper bilgisayar kaynakları gerektirdiğinden, proje bu nihai haliyle arşivlenmiştir.*
+
 ---
 
 ## 🚀 Öne Çıkan Özellikler

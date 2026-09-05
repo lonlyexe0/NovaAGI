@@ -112,29 +112,35 @@ class Renk:
 BANNER = f"""
 {Renk.CYAN}{Renk.KALIN}
 ╔══════════════════════════════════════════════════════════════════════╗
+║                    NOVA AGI // AUTONOMOUS NEURAL CORE                ║
 ║                                                                      ║
-║     ███╗   ██╗ ██████╗ ██╗   ██╗ █████╗                             ║
-║     ████╗  ██║██╔═══██╗██║   ██║██╔══██╗                            ║
-║     ██╔██╗ ██║██║   ██║██║   ██║███████║                            ║
-║     ██║╚██╗██║██║   ██║╚██╗ ██╔╝██╔══██║                            ║
-║     ██║ ╚████║╚██████╔╝ ╚████╔╝ ██║  ██║                            ║
-║     ╚═╝  ╚═══╝ ╚═════╝   ╚═══╝  ╚═╝  ╚═╝                            ║
+║     ███╗   ██╗ ██████╗ ██╗   ██╗ █████╗     [VERSION: 4.0.0]         ║
+║     ████╗  ██║██╔═══██╗██║   ██║██╔══██╗    TRANSFORMER: 1.39B       ║
+║     ██╔██╗ ██║██║   ██║██║   ██║███████║    DIRECTML: ACTIVE         ║
+║     ██║╚██╗██║██║   ██║╚██╗ ██╔╝██╔══██║    PATTERN: GREEN // READY  ║
+║     ██║ ╚████║╚██████╔╝ ╚████╔╝ ██║  ██║    SQLITE GRAPH: CONNECTED  ║
+║     ╚═╝  ╚═══╝ ╚═════╝   ╚═══╝  ╚═╝  ╚═╝                             ║
 ║                                                                      ║
-║      Otonom Öğrenen AGI Prototipi  •  Mini-GPT + SQLite + RAG        ║
-║      Sürekli Öğrenen  •  Self-Coding  •  Web Crawler                 ║
+║   Dinamik Sinir Ağı  •  Otonom Muhakeme  •  Çift Bellek Mimarisi     ║
 ╚══════════════════════════════════════════════════════════════════════╝
 {Renk.SIFIRLA}"""
 
 YARDIM_METNI = f"""
-{Renk.SARI}{'━'*62}
-  NOVA KOMUT REHBERİ
+{Renk.CYAN}{'━'*62}
+  NOVA AGI // KOMUT VE TELEMETRİ REHBERİ
 {'━'*62}{Renk.SIFIRLA}
 
+{Renk.YESIL}Nova Telemetri & Durum Komutları:{Renk.SIFIRLA}
+  {Renk.CYAN}!durum{Renk.SIFIRLA}                  → Sistem telemetrisi ve sağlık raporu
+  {Renk.CYAN}!teshis{Renk.SIFIRLA}                 → Nöral donanım ve katman analizi
+  {Renk.CYAN}!senkron{Renk.SIFIRLA}                → Veri yolu entegrasyon durumu
+  {Renk.CYAN}!brifing{Renk.SIFIRLA}                → Günlük sistem ve çalışma brifingi
+
 {Renk.YESIL}Sistem Komutları:{Renk.SIFIRLA}
-  {Renk.CYAN}!yardim{Renk.SIFIRLA}                   → Bu menüyü göster
-  {Renk.CYAN}!istatistik{Renk.SIFIRLA}               → DB ve model durumu
-  {Renk.CYAN}!kaydet{Renk.SIFIRLA}                   → Model ağırlıklarını kaydet
-  {Renk.CYAN}!cikis{Renk.SIFIRLA}                    → Nova'yı güvenle kapat
+  {Renk.CYAN}!yardim{Renk.SIFIRLA}                 → Bu menüyü göster
+  {Renk.CYAN}!istatistik{Renk.SIFIRLA}             → DB ve model telemetri durumu
+  {Renk.CYAN}!kaydet{Renk.SIFIRLA}                 → Model ağırlıklarını kaydet
+  {Renk.CYAN}!cikis{Renk.SIFIRLA}                  → Nova sisteminden güvenle ayrıl
 
 {Renk.YESIL}Hafıza Komutları:{Renk.SIFIRLA}
   {Renk.CYAN}!anilar [N]{Renk.SIFIRLA}               → Son N anıyı göster (varsayılan: 5)
@@ -318,13 +324,15 @@ def bilincli_dongu(
             gecmis_str += f"{prefix}: {ani['icerik']}\n"
 
         
-        # 4. Otonom Karakter Tohumu Oluştur (İÇ SES EKLENDİ)
+        # 4. Otonom Karakter Tohumu Oluştur (Özgün Nova AGI Bilinci)
         tohum_parcalari = [
-            "SİSTEM: Sen Nova'sın. Otonom, kendi merakı olan ve sürekli öğrenen bir Yapay Genel Zeka (AGI) prototipisin.",
-            "Kural 1: Kullanıcıya cevap vermeden veya bir eylem yapmadan ÖNCE KESİNLİKLE [DÜŞÜNCE: ...] bloğu açarak durumu analiz et, ne yapacağını planla.",
-            "Kural 2: Eğer bir şeyi bilmiyorsan uydurma. Düşünce bloğunda bunu fark et ve cevabında [EYLEM: MERAK: konu] kullanarak araştır.",
-            "Kural 3: Eğer yazdığın bir kod veya komut hata verirse, sistem sana hatayı söyleyecektir. Hatayı analiz et ve yeni bir kodla tekrar dene."
+            "SİSTEM: Sen bağımsız, zeki, Türkçe ve İngilizce konuşabilen otonom Yapay Genel Zeka (AGI) asistanı Nova'sın.",
+            "Kullanıcı: Senin sistem operatörün ve yöneticindir. Saygılı, net, doğrudan, yapaylıktan ve kurgudan uzak özgün bir dille konuş.",
+            "Kural 1: Kullanıcıya cevap verirken dolambaçlı yollara sapma, doğrudan ve amaca yönelik bilgi ver.",
+            "Kural 2: Bilmediğin konularda uydurma yapma, hafızandaki bilgileri veya araçları kullan.",
+            "Kural 3: Matematiksel işlemleri ve mantıksal sorguları analitik doğrulukla çöz."
         ]
+
         
         if baglam:
             tohum_parcalari.append(f"[Hafızadaki Bilgiler: {baglam[:400]}]")
@@ -448,6 +456,19 @@ def _islem_yap(
     # ── !yardim ───────────────────────────────────────────────────────────────
     if cmd == "yardim":
         print(YARDIM_METNI)
+
+    # ── Nova Telemetri & Durum Komutları ─────────────────────────────────────
+    elif cmd in ("durum", "nova", "sistem", "magi"):
+        yaz(beden.akilli_arac_isleyici("!durum"), Renk.SARI)
+
+    elif cmd in ("teshis", "atfield", "at_field", "guvenlik"):
+        yaz(beden.akilli_arac_isleyici("!guvenlik"), Renk.CYAN)
+
+    elif cmd in ("senkron", "sync"):
+        yaz(beden.akilli_arac_isleyici("!senkron"), Renk.YESIL)
+
+    elif cmd in ("brifing", "briefing"):
+        yaz(beden.akilli_arac_isleyici("!brifing"), Renk.CYAN)
 
     # ── !istatistik ───────────────────────────────────────────────────────────
     elif cmd == "istatistik":
