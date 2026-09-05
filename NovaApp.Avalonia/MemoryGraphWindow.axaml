@@ -1,0 +1,37 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="NovaApp.Avalonia.MemoryGraphWindow"
+        Title="Nova AGI - Hafiza Grafigi"
+        Width="1180" Height="780"
+        MinWidth="900" MinHeight="620"
+        WindowStartupLocation="CenterOwner">
+  <Grid RowDefinitions="58,*">
+    <Border Background="#12141D" BorderBrush="#23273A" BorderThickness="0,0,0,1" Padding="20,0">
+      <Grid ColumnDefinitions="*,Auto">
+        <TextBlock Text="Gorsel Bilgi ve Hafiza Grafigi" FontSize="16" FontWeight="Bold" VerticalAlignment="Center" />
+        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
+          <Button Classes="secondary" Content="Yenile" Click="Refresh_Click" />
+          <Button Classes="primary" Content="JSON" Click="Export_Click" />
+        </StackPanel>
+      </Grid>
+    </Border>
+    <Grid Grid.Row="1" ColumnDefinitions="*,340">
+      <Border Grid.Column="0" Background="#0C0F17" Margin="14" CornerRadius="10" BorderBrush="#23273A" BorderThickness="1">
+        <Canvas x:Name="GraphCanvas" Background="Transparent" />
+      </Border>
+      <Border Grid.Column="1" Background="#12141D" Margin="0,14,14,14" CornerRadius="10" BorderBrush="#23273A" BorderThickness="1" Padding="16">
+        <StackPanel Spacing="8">
+          <TextBlock Text="Wikipedia'dan Madde Ekle" FontWeight="Bold" />
+          <Grid ColumnDefinitions="*,Auto">
+            <TextBox x:Name="TopicBox" Watermark="Konu..." />
+            <Button Grid.Column="1" Classes="primary" Content="Ekle" Margin="6,0,0,0" Click="Fetch_Click" />
+          </Grid>
+          <TextBlock x:Name="NodeCount" Text="Dugumler: 0" Foreground="#00E5B3" Margin="0,8,0,0" />
+          <Border Background="#181A26" BorderBrush="#23273A" BorderThickness="1" CornerRadius="8" Padding="12">
+            <TextBlock x:Name="SelectedText" Text="Bir dugum secin." TextWrapping="Wrap" Foreground="#8E96AD" />
+          </Border>
+        </StackPanel>
+      </Border>
+    </Grid>
+  </Grid>
+</Window>

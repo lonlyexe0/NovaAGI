@@ -1,0 +1,75 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="NovaApp.Avalonia.SettingsWindow"
+        Title="Nova AGI - Ayarlar"
+        Width="880" Height="660"
+        MinWidth="800" MinHeight="600"
+        WindowStartupLocation="CenterOwner">
+  <Grid RowDefinitions="56,*,60">
+    <Border Background="#12141D" BorderBrush="#23273A" BorderThickness="0,0,0,1" Padding="20,0">
+      <TextBlock Text="Ayarlar ve Yapilandirma Merkezi" FontSize="16" FontWeight="Bold" VerticalAlignment="Center" />
+    </Border>
+    <Grid Grid.Row="1" ColumnDefinitions="230,*" Margin="20,16">
+      <Border Background="#12141D" BorderBrush="#23273A" BorderThickness="1" CornerRadius="10" Padding="10">
+        <StackPanel Spacing="6">
+          <Button Classes="secondary" Content="Genel ve Dil" Click="General_Click" />
+          <Button Classes="secondary" Content="Donanim ve GPU" Click="Hardware_Click" />
+          <Button Classes="secondary" Content="Sinir Agi ve Model" Click="Neural_Click" />
+          <Button Classes="secondary" Content="Mobil ve Web" Click="Web_Click" />
+        </StackPanel>
+      </Border>
+      <Border Grid.Column="1" Background="#12141D" BorderBrush="#23273A" BorderThickness="1" CornerRadius="10" Padding="24" Margin="14,0,0,0">
+        <ScrollViewer>
+          <StackPanel Spacing="10">
+            <TextBlock x:Name="SectionTitle" Text="Genel Yapilandirma" FontSize="16" FontWeight="Bold" />
+            <TextBlock x:Name="SectionDescription" Text="Dil ve temel sistem ayarlari." Foreground="#8E96AD" />
+
+            <StackPanel x:Name="GeneralPanel" Spacing="10" Margin="0,12,0,0">
+              <TextBlock Text="Arayuz ve veri dili" FontWeight="SemiBold" />
+              <ComboBox x:Name="LanguageBox" SelectedIndex="0">
+                <ComboBoxItem Content="English (en)" Tag="en" />
+                <ComboBoxItem Content="Turkce (tr)" Tag="tr" />
+              </ComboBox>
+              <CheckBox x:Name="TrainingBox" Content="Surekli arka plan egitimini aktif tut" IsChecked="True" />
+            </StackPanel>
+
+            <StackPanel x:Name="HardwarePanel" Spacing="10" IsVisible="False" Margin="0,12,0,0">
+              <TextBlock Text="Hizlandirici arka ucu" FontWeight="SemiBold" />
+              <ComboBox x:Name="DeviceBox" SelectedIndex="0">
+                <ComboBoxItem Content="Otomatik algila" Tag="auto" />
+                <ComboBoxItem Content="NVIDIA CUDA / ROCm" Tag="cuda" />
+                <ComboBoxItem Content="Sadece CPU" Tag="cpu" />
+              </ComboBox>
+              <CheckBox x:Name="MultiGpuBox" Content="Coklu GPU kullan" IsChecked="True" />
+              <TextBlock Text="CPU worker sayisi" FontWeight="SemiBold" />
+              <NumericUpDown x:Name="WorkersBox" Minimum="1" Maximum="32" Value="4" />
+            </StackPanel>
+
+            <StackPanel x:Name="NeuralPanel" Spacing="10" IsVisible="False" Margin="0,12,0,0">
+              <TextBlock Text="Surekli egitim" FontWeight="SemiBold" />
+              <CheckBox x:Name="NeuralTrainingBox" Content="Arka plan egitimini aktif tut" IsChecked="True" />
+              <TextBlock Text="Learning rate" FontWeight="SemiBold" />
+              <TextBox x:Name="LearningRateBox" Text="0.0003" />
+              <TextBlock Text="Batch size" FontWeight="SemiBold" />
+              <NumericUpDown x:Name="BatchBox" Minimum="1" Maximum="1024" Value="16" />
+              <TextBlock Text="Buyume plato esigi" FontWeight="SemiBold" />
+              <TextBox x:Name="GrowthBox" Text="0.003" />
+            </StackPanel>
+
+            <StackPanel x:Name="WebPanel" Spacing="10" IsVisible="False" Margin="0,12,0,0">
+              <CheckBox x:Name="WebBox" Content="Yerel ag web sunucusunu ac" IsChecked="False" />
+              <TextBlock Text="Web portu" FontWeight="SemiBold" />
+              <NumericUpDown x:Name="PortBox" Minimum="1" Maximum="65535" Value="8080" />
+            </StackPanel>
+
+            <TextBlock x:Name="StatusText" Foreground="#00E5B3" TextWrapping="Wrap" Margin="0,12,0,0" />
+          </StackPanel>
+        </ScrollViewer>
+      </Border>
+    </Grid>
+    <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center" Spacing="8" Margin="20,0">
+      <Button Classes="secondary" Content="Iptal" Click="Cancel_Click" />
+      <Button Classes="primary" Content="Kaydet" Click="Save_Click" />
+    </StackPanel>
+  </Grid>
+</Window>

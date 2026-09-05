@@ -1,0 +1,182 @@
+# -*- coding: utf-8 -*-
+"""
+generate_colab_notebook.py - Google Colab Notebook ve Paket Oluşturucu
+"""
+import os
+import sys
+import json
+
+if sys.platform == "win32":
+    try:
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+        sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
+from export_for_colab import paketi_olustur
+
+def notebook_olustur():
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    nb_path = os.path.join(base_dir, "nova_colab_trainer.ipynb")
+
+    cells = [
+        {
+            "cell_type": "markdown",
+            "metadata": {},
+            "source": [
+                "# 🌟 NOVA AGI — Google Colab Ücretsiz GPU Eğitim Laboratuvarı\n",
+                "\n",
+                "Bu notebook, **Nova AGI** modelini ve **Apache Spark** veri motorunu Google'ın **ücretsiz NVIDIA GPU'su** üzerinde yüksek hızda çalıştırmanızı sağlar.\n",
+                "\n",
+                "> ⚠️ **İlk Adım (GPU Seçimi):**\n",
+                "> Üst menüden **Çalışma Zamanı (Runtime) ➔ Çalışma zamanı türünü değiştir (Change runtime type)** yolunu izleyin ve **T4 GPU**'yu seçip **Kaydet**'e basın."
+            ]
+        },
+        {
+            "cell_type": "code",
+            "execution_count": None,
+            "metadata": {},
+            "outputs": [],
+            "source": [
+                "# GPU Kontrolü (NVIDIA Tesla T4 veya A100 görünmelidir)\n",
+                "!nvidia-smi"
+            ]
+        },
+        {
+            "cell_type": "markdown",
+            "metadata": {},
+            "source": [
+                "## 1. Gerekli Kütüphaneleri Kurma\n",
+                "Google Colab üzerinde Apache Spark motorunu hazır hale getiriyoruz:"
+            ]
+        },
+        {
+            "cell_type": "code",
+            "execution_count": None,
+            "metadata": {},
+            "outputs": [],
+            "source": [
+                "!pip install pyspark tqdm\n",
+                "print(\"✅ PySpark ve gerekli paketler başarıyla kuruldu!\")"
+            ]
+        },
+        {
+            "cell_type": "markdown",
+            "metadata": {},
+            "source": [
+                "## 2. Nova Paketini Yükleme ve Çıkarma\n",
+                "Bilgisayarınızdaki `nova_colab_package.zip` dosyasını Colab'a yükleyin. Aşağıdaki hücreyi çalıştırarak dosya seçebilirsiniz (veya sol paneldeki 📁 simgesine sürükleyip bırakabilirsiniz):"
+            ]
+        },
+        {
+            "cell_type": "code",
+            "execution_count": None,
+            "metadata": {},
+            "outputs": [],
+            "source": [
+                "import os, zipfile, glob\n",
+                "from google.colab import files\n",
+                "\n",
+                "zip_bulundu = [f for f in os.listdir('.') if f.endswith('.zip')]\n",
+                "if not zip_bulundu:\n",
+                "    print(\"Lütfen 'nova_colab_light.zip' dosyasını seçin:\")\n",
+                "    uploaded = files.upload()\n",
+                "    zip_bulundu = list(uploaded.keys())\n",
+                "\n",
+                "hedef_zip = zip_bulundu[0] if zip_bulundu else 'nova_colab_light.zip'\n",
+                "if os.path.exists(hedef_zip):\n",
+                "    with zipfile.ZipFile(hedef_zip, 'r') as z:\n",
+                "        z.extractall('.')\n",
+                "    print(f\"🎉 {hedef_zip} başarıyla açıldı ve hazır!\")\n",
+                "    !ls -la"
+            ]
+        },
+        {
+            "cell_type": "markdown",
+            "metadata": {},
+            "source": [
+                "## 3. (Opsiyonel) Apache Spark ile Büyük Veri Yükleme\n",
+                "İster demo verisini, isterseniz Colab'a yükleyeceğiniz metin dosyalarını Spark ile saniyeler içinde temizleyip `nova.db`'ye ekleyebilirsiniz:"
+            ]
+        },
+        {
+            "cell_type": "code",
+            "execution_count": None,
+            "metadata": {},
+            "outputs": [],
+            "source": [
+                "# Demo Spark veri boru hattı (veya --input ile kendi dosyanızı verin)\n",
+                "!python spark_data_pipeline.py --demo"
+            ]
+        },
+        {
+            "cell_type": "markdown",
+            "metadata": {},
+            "source": [
+                "## 4. Nova Modelini GPU ile Eğitme 🚀\n",
+                "Nova modeli NVIDIA GPU üzerinde yüksek performansla eğitilmeye başlar. Model takılma (plato) hissettiğinde **Network Morphism** ile kendi katmanlarını sıfır kayıpla büyütecektir."
+            ]
+        },
+        {
+            "cell_type": "code",
+            "execution_count": None,
+            "metadata": {},
+            "outputs": [],
+            "source": [
+                "# 🚀 Canlı İnternet Akışı + Sınırsız GPU Eğitimi:\n",
+                "# Arka planda sürekli internetten (Wikipedia) yeni bilgiler indirir ve GPU ile durmaksızın eğitir.\n",
+                "!python train.py --web_stream --continuous --device cuda --batch_size 64"
+            ]
+        },
+        {
+            "cell_type": "markdown",
+            "metadata": {},
+            "source": [
+                "## 5. Eğitilen DB ve Ağırlıkları Bilgisayara İndirme 💾\n",
+                "Eğitim tamamlandıktan sonra, eğitilmiş olan `nova.db` ve `nova_weights.pth` dosyalarını tek tıkla bilgisayarınıza indirin:"
+            ]
+        },
+        {
+            "cell_type": "code",
+            "execution_count": None,
+            "metadata": {},
+            "outputs": [],
+            "source": [
+                "from google.colab import files\n",
+                "\n",
+                "print(\"📥 Eğitilmiş dosyalar bilgisayarınıza indiriliyor...\")\n",
+                "files.download(\"nova_weights.pth\")\n",
+                "files.download(\"nova.db\")\n",
+                "files.download(\"nova_vocab.json\")\n",
+                "print(\"İndirme tamamlandığında bu dosyaları bilgisayarınızdaki c:\\NOVA klasörüne yapıştırmanız yeterlidir!\")"
+            ]
+        }
+    ]
+
+    notebook_data = {
+        "cells": cells,
+        "metadata": {
+            "accelerator": "GPU",
+            "colab": {
+                "name": "nova_colab_trainer.ipynb",
+                "provenance": []
+            },
+            "language_info": {
+                "name": "python"
+            }
+        },
+        "nbformat": 4,
+        "nbformat_minor": 0
+    }
+
+    with open(nb_path, "w", encoding="utf-8") as f:
+        json.dump(notebook_data, f, ensure_ascii=False, indent=2)
+
+    print(f"Notebook oluşturuldu: {nb_path}")
+
+if __name__ == "__main__":
+    print("1. Google Colab Zip Paketi Oluşturuluyor...")
+    paketi_olustur()
+    print("2. Google Colab Notebook (.ipynb) Oluşturuluyor...")
+    notebook_olustur()
+    print("\n✨ Her şey hazır!")

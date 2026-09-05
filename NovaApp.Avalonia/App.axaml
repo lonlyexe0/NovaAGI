@@ -1,0 +1,50 @@
+<Application xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:fluent="using:Avalonia.Themes.Fluent"
+             x:Class="NovaApp.Avalonia.App">
+  <Application.Resources>
+    <LinearGradientBrush x:Key="AccentGradient" StartPoint="0%,0%" EndPoint="100%,100%">
+      <GradientStop Color="#4F75FF" Offset="0" />
+      <GradientStop Color="#7C3AED" Offset="1" />
+    </LinearGradientBrush>
+    <LinearGradientBrush x:Key="HeaderGradient" StartPoint="0%,0%" EndPoint="100%,0%">
+      <GradientStop Color="#12141D" Offset="0" />
+      <GradientStop Color="#171C31" Offset="0.55" />
+      <GradientStop Color="#12141D" Offset="1" />
+    </LinearGradientBrush>
+    <LinearGradientBrush x:Key="CyanGradient" StartPoint="0%,0%" EndPoint="100%,0%">
+      <GradientStop Color="#00C9FF" Offset="0" />
+      <GradientStop Color="#00E5B3" Offset="1" />
+    </LinearGradientBrush>
+  </Application.Resources>
+  <Application.Styles>
+    <fluent:FluentTheme />
+    <Style Selector="Window">
+      <Setter Property="Background" Value="#0A0B10" />
+      <Setter Property="Foreground" Value="#F2F4F8" />
+      <Setter Property="FontFamily" Value="Inter" />
+    </Style>
+    <Style Selector="Button.primary">
+      <Setter Property="Background" Value="{StaticResource AccentGradient}" />
+      <Setter Property="Foreground" Value="White" />
+      <Setter Property="Padding" Value="14,8" />
+      <Setter Property="CornerRadius" Value="8" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+    <Style Selector="Button.secondary">
+      <Setter Property="Background" Value="#181A26" />
+      <Setter Property="Foreground" Value="#F2F4F8" />
+      <Setter Property="BorderBrush" Value="#23273A" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="Padding" Value="10,6" />
+      <Setter Property="CornerRadius" Value="7" />
+    </Style>
+    <Style Selector="TextBox">
+      <Setter Property="Background" Value="#181A26" />
+      <Setter Property="Foreground" Value="#F2F4F8" />
+      <Setter Property="BorderBrush" Value="#23273A" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="Padding" Value="12,10" />
+    </Style>
+  </Application.Styles>
+</Application>

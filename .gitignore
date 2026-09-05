@@ -1,0 +1,71 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+# Nova AGI — Git Ignore Configuration
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# ── 1. Yapay Zeka Model Ağırlıkları ve Checkpointler (Büyük Dosyalar) ────────
+*.pth
+*.pt
+*.bin
+*.onnx
+*.safetensors
+*.ckpt
+nova_weights*
+*_weights*
+*.pth.tmp
+
+# ── 2. Veritabanı ve SQLite Çalışma Zamanı Dosyaları ──────────────────────────
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite3
+
+# ── 3. Büyük Arşivler ve Veri Paketleri ──────────────────────────────────────
+*.zip
+*.tar
+*.tar.gz
+*.rar
+*.7z
+*.parquet
+
+# ── 4. Python Önbellek ve Ortam Dosyaları ────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyc
+.venv/
+venv/
+env/
+*.egg-info/
+build/
+dist/
+.pytest_cache/
+
+# ── 5. C# / .NET / Visual Studio Derleme Çıktıları ───────────────────────────
+[Bb]in/
+[Oo]bj/
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# ── 6. Loglar, Ses ve Medya Test Dosyaları ────────────────────────────────────
+*.log
+logs/
+*.wav
+*.mp3
+*.mp4
+
+# ── 7. Kullanıcı Konfigürasyonu, Anahtarlar ve Geçici Dosyalar ────────────────
+.nova_config.json
+.env
+.perm_test
+*.tmp
+*.bak
+scratch/
+
+# ── 8. InnoSetup ve Yükleyici Çıktıları ───────────────────────────────────────
+dist_installer/
+Output/

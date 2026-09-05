@@ -1,0 +1,163 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="NovaApp.Avalonia.MainWindow"
+        Title="Nova AGI - Autonomous Neural Intelligence System"
+        Width="1600" Height="900"
+        MinWidth="1120" MinHeight="630"
+        WindowStartupLocation="CenterScreen">
+  <Grid RowDefinitions="64,*,28" Margin="0">
+    <Border Grid.Row="0" Background="{StaticResource HeaderGradient}" BorderBrush="#23273A" BorderThickness="0,0,0,1" Padding="20,0">
+      <Grid ColumnDefinitions="Auto,*,Auto">
+        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+          <Border Width="36" Height="36" CornerRadius="10" Background="{StaticResource AccentGradient}" Margin="0,0,12,0">
+            <TextBlock Text="*" FontSize="22" HorizontalAlignment="Center" VerticalAlignment="Center" />
+          </Border>
+          <StackPanel VerticalAlignment="Center">
+            <StackPanel Orientation="Horizontal">
+              <TextBlock Text="NOVA" FontSize="18" FontWeight="Bold" />
+              <TextBlock Text=" AGI" FontSize="18" FontWeight="SemiBold" Foreground="#00E5B3" />
+              <Border Background="#1C2844" CornerRadius="4" Padding="6,2" Margin="10,0,0,0">
+                <TextBlock Text="v3.5 Avalonia" FontSize="10" Foreground="#8EB4FF" />
+              </Border>
+            </StackPanel>
+            <TextBlock Text="Otonom Buyuyen Sinir Agi &amp; Bilinc Dongusu" FontSize="11" Foreground="#8E96AD" />
+          </StackPanel>
+        </StackPanel>
+
+        <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
+          <Ellipse Width="8" Height="8" Fill="#00D26A" Margin="0,0,8,0" />
+          <TextBlock x:Name="StatusText" Text="Motor baglaniyor..." FontSize="12" Foreground="#8E96AD" />
+        </StackPanel>
+
+        <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+          <Border Background="#162238" BorderBrush="#2A3D66" BorderThickness="1" CornerRadius="8" Padding="12,6" Margin="0,0,12,0">
+            <TextBlock x:Name="GpuBadgeText" Text="Donanim taraniyor..." FontSize="12" Foreground="#00E5B3" />
+          </Border>
+          <Button x:Name="GraphButton" Classes="secondary" Content="Hafiza Grafigi" Margin="0,0,8,0" Click="OpenGraph_Click" />
+          <Button x:Name="SaveButton" Classes="secondary" Content="Kaydet" Margin="0,0,8,0" Click="Save_Click" />
+          <Button x:Name="GrowButton" Classes="secondary" Content="Buyut" Margin="0,0,8,0" Click="Grow_Click" />
+          <Button x:Name="SettingsButton" Classes="primary" Content="Ayarlar" Click="Settings_Click" />
+        </StackPanel>
+      </Grid>
+    </Border>
+
+    <Grid Grid.Row="1" ColumnDefinitions="2*,12,1*" Margin="14,12">
+      <Border Grid.Column="0" Background="{StaticResource HeaderGradient}" BorderBrush="#23273A" BorderThickness="1" CornerRadius="12">
+        <Grid RowDefinitions="46,*,Auto">
+          <Border Grid.Row="0" BorderBrush="#23273A" BorderThickness="0,0,0,1" Padding="14,0">
+            <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Hidden">
+              <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Spacing="6">
+                <TextBlock Text="Hizli Komutlar:" FontSize="11" Foreground="#58607A" VerticalAlignment="Center" Margin="0,0,4,0" />
+                <Button Classes="secondary" Content="Istatistik" Click="Stats_Click" />
+                <Button Classes="secondary" Content="Anilar" Click="Memories_Click" />
+                <Button Classes="secondary" Content="Yardim" Click="Help_Click" />
+                <Button Classes="secondary" Content="Temizle" Click="Clear_Click" />
+              </StackPanel>
+            </ScrollViewer>
+          </Border>
+
+          <ScrollViewer x:Name="ChatScroll" Grid.Row="1" Padding="16,12" VerticalScrollBarVisibility="Auto">
+            <ItemsControl x:Name="ChatItems">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                  <Grid Margin="0,6" ColumnDefinitions="*,Auto,*">
+                    <!-- Nova messages stay on the left. -->
+                    <Border Grid.Column="0" IsVisible="{Binding IsNova}" Background="#14261C" BorderBrush="#254734" BorderThickness="1" CornerRadius="14,14,14,2" Padding="14,10" HorizontalAlignment="Left" MaxWidth="700">
+                      <StackPanel>
+                        <StackPanel Orientation="Horizontal" Spacing="10">
+                          <TextBlock Text="Nova AGI" FontWeight="Bold" FontSize="11" Foreground="#00E5B3" />
+                          <TextBlock Text="{Binding Timestamp}" FontSize="10" Foreground="#5E9675" />
+                        </StackPanel>
+                        <TextBlock Text="{Binding Text}" TextWrapping="Wrap" FontSize="13.5" Foreground="#D6FDE0" Margin="0,6,0,0" />
+                      </StackPanel>
+                    </Border>
+
+                    <!-- User messages are pinned to the right. -->
+                    <Border Grid.Column="2" IsVisible="{Binding IsUser}" Background="#1E2A4A" BorderBrush="#314478" BorderThickness="1" CornerRadius="14,14,2,14" Padding="14,10" HorizontalAlignment="Right" MaxWidth="700">
+                      <StackPanel>
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="10">
+                          <TextBlock Text="Sen" FontWeight="Bold" FontSize="11" Foreground="#99C0FF" />
+                          <TextBlock Text="{Binding Timestamp}" FontSize="10" Foreground="#6C8BB8" />
+                        </StackPanel>
+                        <TextBlock Text="{Binding Text}" TextWrapping="Wrap" FontSize="13.5" Foreground="#E2EEFF" Margin="0,6,0,0" />
+                      </StackPanel>
+                    </Border>
+
+                    <!-- System messages remain centered. -->
+                    <Border Grid.Column="1" IsVisible="{Binding IsSystem}" Background="#241B32" BorderBrush="#472E66" BorderThickness="1" CornerRadius="10" Padding="14,10" HorizontalAlignment="Center" MaxWidth="700">
+                      <StackPanel>
+                        <TextBlock Text="Sistem" FontWeight="Bold" FontSize="11" Foreground="#C9A3FF" />
+                        <TextBlock Text="{Binding Text}" TextWrapping="Wrap" FontSize="12.5" Foreground="#EADBFF" Margin="0,5,0,0" />
+                      </StackPanel>
+                    </Border>
+                  </Grid>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </ScrollViewer>
+
+          <Border Grid.Row="2" Background="#181A26" BorderBrush="#23273A" BorderThickness="0,1,0,0" Padding="14,12">
+            <Grid ColumnDefinitions="*,Auto">
+              <TextBox x:Name="PromptInput" MinHeight="42" MaxHeight="120" AcceptsReturn="True" TextWrapping="Wrap" Watermark="Nova'ya bir mesaj yazin..." Margin="0,0,10,0" KeyDown="Prompt_KeyDown" />
+              <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Bottom" Spacing="6">
+                <Button Classes="secondary" Width="44" Height="42" Content="Ses" Click="Voice_Click" />
+                <Button Classes="secondary" Width="44" Height="42" Content="Mic" Click="Mic_Click" />
+                <Button Classes="primary" Width="90" Height="42" Content="Gonder" Click="Send_Click" />
+              </StackPanel>
+            </Grid>
+          </Border>
+        </Grid>
+      </Border>
+
+      <Border Grid.Column="2" Background="{StaticResource HeaderGradient}" BorderBrush="#23273A" BorderThickness="1" CornerRadius="12" Padding="16,14">
+        <ScrollViewer VerticalScrollBarVisibility="Auto">
+          <StackPanel Spacing="8">
+            <TextBlock Text="DONANIM &amp; HIZLANDIRICI" FontWeight="Bold" FontSize="11" Foreground="#8E96AD" />
+            <Border Background="#181A26" BorderBrush="#23273A" BorderThickness="1" CornerRadius="10" Padding="12" Margin="0,0,0,8">
+              <StackPanel Spacing="6">
+                <Grid ColumnDefinitions="*,Auto">
+                  <TextBlock Text="GPU VRAM" FontSize="12" FontWeight="SemiBold" />
+                  <TextBlock x:Name="VramText" Grid.Column="1" Text="- / - MB" FontSize="11" Foreground="#00E5B3" />
+                </Grid>
+                <ProgressBar x:Name="VramBar" Height="8" Minimum="0" Maximum="100" Value="0" />
+                <TextBlock x:Name="GpuDevicesText" Text="Cihazlar taraniyor..." FontSize="11" Foreground="#8E96AD" TextWrapping="Wrap" />
+              </StackPanel>
+            </Border>
+
+            <TextBlock Text="SINIR AGI METRIKLERI" FontWeight="Bold" FontSize="11" Foreground="#8E96AD" />
+            <Border Background="#181A26" BorderBrush="#23273A" BorderThickness="1" CornerRadius="10" Padding="12">
+              <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto">
+                <TextBlock Text="Egitim Adimi" Foreground="#8E96AD" Margin="0,3" />
+                <TextBlock x:Name="StepText" Grid.Column="1" Text="0" Foreground="#A8D2FF" Margin="0,3" />
+                <TextBlock Grid.Row="1" Text="Anlik Loss" Foreground="#8E96AD" Margin="0,3" />
+                <TextBlock x:Name="LossText" Grid.Row="1" Grid.Column="1" Text="-" Foreground="#FF8B8B" Margin="0,3" />
+                <TextBlock Grid.Row="2" Text="Ogrenme Hizi" Foreground="#8E96AD" Margin="0,3" />
+                <TextBlock x:Name="LearningRateText" Grid.Row="2" Grid.Column="1" Text="-" Foreground="#8CE99A" Margin="0,3" />
+                <TextBlock Grid.Row="3" Text="Sinir Ağı Boyutu" Foreground="#8E96AD" Margin="0,3" />
+                <TextBlock x:Name="ParamsText" Grid.Row="3" Grid.Column="1" Text="-" Foreground="#FFD166" Margin="0,3" />
+                <TextBlock Grid.Row="4" Text="Vocab Boyutu" Foreground="#8E96AD" Margin="0,3" />
+                <TextBlock x:Name="VocabText" Grid.Row="4" Grid.Column="1" Text="-" Margin="0,3" />
+                <TextBlock Grid.Row="5" Text="Epizodik Node" Foreground="#8E96AD" Margin="0,3" />
+                <TextBlock x:Name="EpisodicText" Grid.Row="5" Grid.Column="1" Text="-" Foreground="#D0BFFF" Margin="0,3" />
+                <TextBlock Grid.Row="6" Text="Semantik Node" Foreground="#8E96AD" Margin="0,3" />
+                <TextBlock x:Name="SemanticText" Grid.Row="6" Grid.Column="1" Text="-" Foreground="#FFE066" Margin="0,3" />
+              </Grid>
+            </Border>
+
+            <TextBlock Text="SISTEM BILGISI" FontWeight="Bold" FontSize="11" Foreground="#8E96AD" Margin="0,8,0,0" />
+            <Border Background="#181A26" BorderBrush="#23273A" BorderThickness="1" CornerRadius="10" Padding="12">
+              <TextBlock x:Name="SystemText" Text="Sistem bilgisi taraniyor..." FontSize="11" Foreground="#8E96AD" TextWrapping="Wrap" />
+            </Border>
+          </StackPanel>
+        </ScrollViewer>
+      </Border>
+    </Grid>
+
+    <Border Grid.Row="2" Background="{StaticResource HeaderGradient}" BorderBrush="#23273A" BorderThickness="0,1,0,0" Padding="16,0">
+      <Grid ColumnDefinitions="*,Auto">
+        <TextBlock x:Name="BottomStatus" Text="Nova motoru baglaniyor..." FontSize="11" Foreground="#58607A" VerticalAlignment="Center" />
+        <TextBlock x:Name="ClockText" Grid.Column="1" Text="00:00:00" FontSize="11" Foreground="#58607A" VerticalAlignment="Center" />
+      </Grid>
+    </Border>
+  </Grid>
+</Window>
