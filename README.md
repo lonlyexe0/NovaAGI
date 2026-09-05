@@ -3,6 +3,13 @@
   <b>English</b> | <a href="README.tr.md">Türkçe</a>
 </div>
 
+> [!NOTE]
+> ### 📌 Project Status: Final Version (Archived / Shelved)
+> **"yapay zeka eğitilebilir sadece elimde yeterince kaynak yok bu yüzden bu Projeyi rafa kaldırıyorum"**
+> *(AI is trainable, I just don't have enough resources, so I am shelving this project.)*
+> 
+> *This project has demonstrated that progressive neural network growth, autonomous data ingestion, and continuous pre-training from scratch can succeed. Due to compute and hardware resource limitations, active development is paused and this state represents the final archived version.*
+
 # NOVA — Autonomous Learning AGI Prototype
 
 ```

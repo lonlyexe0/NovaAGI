@@ -3,6 +3,12 @@
   <a href="README.md">English</a> | <b>Türkçe</b>
 </div>
 
+> [!NOTE]
+> ### 📌 Proje Durumu: Final Versiyon (Rafa Kaldırıldı)
+> **"yapay zeka eğitilebilir sadece elimde yeterince kaynak yok bu yüzden bu Projeyi rafa kaldırıyorum"**
+> 
+> *Bu proje; sıfırdan kademeli büyüyen (progressive growth) model mimarisinin, otonom veri toplama ve sürekli ön-eğitim mekanizmalarının başarıyla çalıştığını ve yapay zekanın sıfırdan eğitilebildiğini doğrulamıştır. Yetersiz donanım/kaynak sebebiyle aktif geliştirme durdurulmuş, proje bu nihai haliyle rafa kaldırılmıştır.*
+
 # NOVA — Otonom Öğrenen AGI Prototipi
 
 ```
