@@ -1,0 +1,84 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0a0a14" />
+      <stop offset="50%" stop-color="#121226" />
+      <stop offset="100%" stop-color="#1e1035" />
+    </linearGradient>
+    <linearGradient id="coreGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#00f2fe" />
+      <stop offset="50%" stop-color="#4facfe" />
+      <stop offset="100%" stop-color="#9b51e0" />
+    </linearGradient>
+    <linearGradient id="neonGlow" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#00ffff" />
+      <stop offset="100%" stop-color="#ff007f" />
+    </linearGradient>
+    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="10" result="blur" />
+      <feMerge>
+        <feMergeNode in="blur" />
+        <feMergeNode in="SourceGraphic" />
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- Arka Plan Squircle -->
+  <rect x="16" y="16" width="480" height="480" rx="100" ry="100" fill="url(#bgGrad)" stroke="url(#coreGrad)" stroke-width="6" />
+
+  <!-- Dış Enerji Halkası -->
+  <circle cx="256" cy="256" r="180" fill="none" stroke="#00f2fe" stroke-width="2" stroke-dasharray="10 15" opacity="0.4" />
+  <circle cx="256" cy="256" r="140" fill="none" stroke="#9b51e0" stroke-width="3" stroke-dasharray="25 10" opacity="0.6" />
+
+  <!-- Sinir Ağı Bağlantı Çizgileri -->
+  <g stroke="url(#coreGrad)" stroke-width="3" opacity="0.8" filter="url(#glow)">
+    <!-- Merkezden dış düğümlere -->
+    <line x1="256" y1="256" x2="256" y2="130" />
+    <line x1="256" y1="256" x2="365" y2="193" />
+    <line x1="256" y1="256" x2="365" y2="319" />
+    <line x1="256" y1="256" x2="256" y2="382" />
+    <line x1="256" y1="256" x2="147" y2="319" />
+    <line x1="256" y1="256" x2="147" y2="193" />
+
+    <!-- Çevre bağlantıları -->
+    <line x1="256" y1="130" x2="365" y2="193" />
+    <line x1="365" y1="193" x2="365" y2="319" />
+    <line x1="365" y1="319" x2="256" y2="382" />
+    <line x1="256" y1="382" x2="147" y2="319" />
+    <line x1="147" y1="319" x2="147" y2="193" />
+    <line x1="147" y1="193" x2="256" y2="130" />
+
+    <!-- Çapraz bağlar -->
+    <line x1="256" y1="130" x2="365" y2="319" opacity="0.4" />
+    <line x1="256" y1="130" x2="147" y2="319" opacity="0.4" />
+    <line x1="256" y1="382" x2="365" y2="193" opacity="0.4" />
+    <line x1="256" y1="382" x2="147" y2="193" opacity="0.4" />
+  </g>
+
+  <!-- Düğüm Noktaları (Nodes) -->
+  <!-- Dış Düğümler -->
+  <circle cx="256" cy="130" r="14" fill="#00f2fe" filter="url(#glow)" />
+  <circle cx="365" cy="193" r="14" fill="#4facfe" filter="url(#glow)" />
+  <circle cx="365" cy="319" r="14" fill="#9b51e0" filter="url(#glow)" />
+  <circle cx="256" cy="382" r="14" fill="#ff007f" filter="url(#glow)" />
+  <circle cx="147" cy="319" r="14" fill="#9b51e0" filter="url(#glow)" />
+  <circle cx="147" cy="193" r="14" fill="#00f2fe" filter="url(#glow)" />
+
+  <!-- İç Düğümler -->
+  <circle cx="256" cy="130" r="6" fill="#ffffff" />
+  <circle cx="365" cy="193" r="6" fill="#ffffff" />
+  <circle cx="365" cy="319" r="6" fill="#ffffff" />
+  <circle cx="256" cy="382" r="6" fill="#ffffff" />
+  <circle cx="147" cy="319" r="6" fill="#ffffff" />
+  <circle cx="147" cy="193" r="6" fill="#ffffff" />
+
+  <!-- Çekirdek Nova Yıldızı (Core AGI) -->
+  <circle cx="256" cy="256" r="38" fill="url(#coreGrad)" filter="url(#glow)" />
+  <circle cx="256" cy="256" r="20" fill="#ffffff" />
+
+  <!-- Dörtgen Işıma Efekti -->
+  <path d="M 256 200 Q 256 256 200 256 Q 256 256 256 312 Q 256 256 312 256 Q 256 256 256 200" fill="#ffffff" opacity="0.9" filter="url(#glow)" />
+
+  <!-- NOVA Yazısı -->
+  <text x="256" y="445" font-family="'Segoe UI', Roboto, 'Helvetica Neue', sans-serif" font-size="34" font-weight="900" letter-spacing="8" fill="#00f2fe" text-anchor="middle" filter="url(#glow)">NOVA AGI</text>
+</svg>
