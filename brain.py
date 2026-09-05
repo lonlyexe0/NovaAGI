@@ -334,6 +334,35 @@ class DinamikNovaLM(nn.Module):
         self.train()
         return gen
 
+    @torch.no_grad()
+    def uret_stream(self, idx: torch.Tensor, max_new: int = 250,
+                    sicaklik: float = 0.85, top_k: int = 50,
+                    top_p: float = 0.92, rep_ceza: float = 1.3):
+        self.eval()
+        gen = idx.clone()
+        for _ in range(max_new):
+            cond = gen[:, -self.cfg.max_seq_len:]
+            logits, _ = self(cond)
+            next_logits = logits[:, -1, :].clone().to(torch.float32).cpu()
+            for b in range(gen.shape[0]):
+                for t in set(gen[b].tolist()):
+                    if t < next_logits.shape[-1]:
+                        next_logits[b, t] /= rep_ceza
+            next_logits /= max(sicaklik, 1e-8)
+            if top_k > 0:
+                v, _ = torch.topk(next_logits, min(top_k, next_logits.size(-1)))
+                next_logits[next_logits < v[:, [-1]]] = float("-inf")
+            if 0 < top_p < 1:
+                sl, si = torch.sort(next_logits, descending=True)
+                cum = torch.cumsum(F.softmax(sl, dim=-1), dim=-1)
+                sl[cum - F.softmax(sl, dim=-1) > top_p] = float("-inf")
+                next_logits = torch.zeros_like(next_logits).scatter_(1, si, sl)
+            probs = F.softmax(next_logits, dim=-1)
+            next_token = torch.multinomial(probs, 1).to(idx.device)
+            gen = torch.cat([gen, next_token], dim=1)
+            yield next_token.item()
+        self.train()
+
 
     # ══ BÜYÜME METODLARİ ═════════════════════════════════════════════════════
 
@@ -744,6 +773,23 @@ class BeynYoneticisi:
                                       sicaklik=sicaklik, top_k=top_k, top_p=top_p,
                                       rep_ceza=rep_ceza)
             return self.decode(out[0, len(ids):].tolist())
+
+    def uret_stream(self, tohum: str, uzunluk: int = 180, sicaklik: float = 0.85,
+                    top_k: int = 50, top_p: float = 0.92, rep_ceza: float = 1.3):
+        with self._lock:
+            self._vocab_guncelle(tohum)
+            ids = self.encode(tohum) or [self.char2id.get("<BOS>", 0)]
+            ids = ids[-self.cfg.max_seq_len:]
+            idx = torch.tensor([ids], dtype=torch.long, device=self.device)
+            eos_id = self.char2id.get("<EOS>", 3)
+            for tok_id in self.raw_model.uret_stream(idx, max_new=uzunluk,
+                                                     sicaklik=sicaklik, top_k=top_k,
+                                                     top_p=top_p, rep_ceza=rep_ceza):
+                if tok_id == eos_id:
+                    break
+                ch = self.id2char.get(tok_id, "")
+                if ch:
+                    yield ch
 
 
     # ── Eğitim ────────────────────────────────────────────────────────────────

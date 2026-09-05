@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using System.Text.Json.Serialization;
 
 namespace NovaApp.Models;
@@ -170,10 +171,23 @@ public class WebServerInfo
     public string Url { get; set; } = "http://localhost:8080";
 }
 
-public class ChatMessage
+public class ChatMessage : INotifyPropertyChanged
 {
+    private string _text = string.Empty;
+
     public string Role { get; set; } = "user"; // "user", "nova", "system"
-    public string Text { get; set; } = string.Empty;
+    public string Text
+    {
+        get => _text;
+        set
+        {
+            if (_text != value)
+            {
+                _text = value;
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Text)));
+            }
+        }
+    }
     public string Timestamp { get; set; } = DateTime.Now.ToString("HH:mm:ss");
     public string ActionText { get; set; } = string.Empty;
 
@@ -181,6 +195,8 @@ public class ChatMessage
     public bool IsNova => Role.Equals("nova", StringComparison.OrdinalIgnoreCase);
     public bool IsSystem => Role.Equals("system", StringComparison.OrdinalIgnoreCase) || Role.Equals("sistem", StringComparison.OrdinalIgnoreCase);
     public bool HasAction => !string.IsNullOrWhiteSpace(ActionText);
+
+    public event PropertyChangedEventHandler? PropertyChanged;
 }
 
 public class NovaSettings

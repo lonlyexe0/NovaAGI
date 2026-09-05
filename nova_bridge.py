@@ -114,11 +114,12 @@ class NovaBridgeServer:
 
 
     def _cevap_yaz(self, obj: Dict[str, Any]):
-        """JSON satırı olarak stdout'a yazar ve flush eder."""
+        """JSON satırı olarak stdout'a yazar ve flush eder (thread-safe)."""
         try:
             line = json.dumps(obj, ensure_ascii=False)
-            sys.stdout.write(line + "\n")
-            sys.stdout.flush()
+            with self._lock:
+                sys.stdout.write(line + "\n")
+                sys.stdout.flush()
         except Exception as e:
             sys.stderr.write(f"Bridge write error: {e}\n")
 
@@ -203,7 +204,7 @@ class NovaBridgeServer:
             return {"type": "telemetry_error", "message": str(e)}
 
 
-    def _sohbet_uret(self, girdi: str) -> Dict[str, Any]:
+    def _sohbet_uret(self, girdi: str, chunk_cb: Optional[Any] = None) -> Dict[str, Any]:
         """Kullanıcı mesajını işler, araç niyetlerini kontrol eder ve yanıt üretir."""
         girdi = girdi.strip()
         if not girdi:
@@ -216,9 +217,13 @@ class NovaBridgeServer:
             if arac_res:
                 self.hafiza.ani_kaydet("kullanici", girdi)
                 self.hafiza.ani_kaydet("nova", arac_res)
+                if chunk_cb:
+                    chunk_cb(arac_res)
                 return {"type": "chat_reply", "reply": arac_res, "role": "nova", "tool_used": True}
 
             cevap = self._komut_isle(girdi)
+            if chunk_cb:
+                chunk_cb(cevap)
             return {"type": "chat_reply", "reply": cevap, "role": "system"}
 
         # 2. Doğal Dil Akıllı Araç / Niyet Tespiti (hesaplama, nedir, kimdir, saat vb.)
@@ -226,6 +231,8 @@ class NovaBridgeServer:
         if arac_res:
             self.hafiza.ani_kaydet("kullanici", girdi)
             self.hafiza.ani_kaydet("nova", arac_res)
+            if chunk_cb:
+                chunk_cb(arac_res)
             return {"type": "chat_reply", "reply": arac_res, "role": "nova", "tool_used": True}
 
         # 2.1 Geçmiş mesajları sesli okuma niyeti
@@ -243,6 +250,8 @@ class NovaBridgeServer:
             cevap = "Sohbet geçmişindeki son konuşmaları sesli olarak okuyorum." if lang_now == "tr" else "Reading recent conversation history aloud for you."
             self.hafiza.ani_kaydet("kullanici", girdi)
             self.hafiza.ani_kaydet("nova", cevap)
+            if chunk_cb:
+                chunk_cb(cevap)
             return {"type": "chat_reply", "reply": cevap, "role": "nova"}
 
         # 3. Hafıza, RAG ve Canlı İnternet / Wikipedia Zenginleştirme
@@ -262,6 +271,8 @@ class NovaBridgeServer:
                         self.hafiza.bilgi_kaydet(temiz_sorgu, wiki_res[:2000], lang)
                         # Kullanıcıya doğrudan kaynaklı bilgiyi sun
                         self.hafiza.ani_kaydet("nova", wiki_res)
+                        if chunk_cb:
+                            chunk_cb(wiki_res)
                         return {"type": "chat_reply", "reply": wiki_res, "role": "nova", "source": "Wikipedia"}
             except Exception as e:
                 logger.debug(f"[Canlı Araştırma] Hata: {e}")
@@ -280,15 +291,25 @@ class NovaBridgeServer:
         parcalar.append(f"Kullanıcı: {girdi}\nNova:")
         tohum = "\n".join(parcalar)
 
-        cevap_ham = self.beyin.uret(
-            tohum, uzunluk=260, sicaklik=0.85, top_k=50, top_p=0.92
-        )
+        cevap_ham = ""
+        stop_tags = ["Nova:", "Kullanıcı:", "[Bağlam:", "<EOS>"]
+        for ch in self.beyin.uret_stream(tohum, uzunluk=140, sicaklik=0.85, top_k=50, top_p=0.92):
+            cevap_ham += ch
+            dur = False
+            for tag in stop_tags:
+                if tag in cevap_ham:
+                    dur = True
+                    break
+            if dur:
+                break
+            if chunk_cb:
+                chunk_cb(ch)
 
-        for tag in ["Nova:", "Kullanıcı:", "[Bağlam:"]:
+        for tag in stop_tags:
             idx = cevap_ham.find(tag)
             if idx != -1:
                 cevap_ham = cevap_ham[:idx]
-        
+
         default_fallback = "I understand. As I learn more from Wikipedia and your conversations, my answers will become richer." if lang == "en" else "Anlıyorum. Wikipedia ve sohbetlerimizden öğrendikçe yanıtlarım daha da zenginleşecektir."
         cevap = re.sub(r"\n{3,}", "\n\n", cevap_ham).strip() or default_fallback
 
@@ -415,14 +436,44 @@ class NovaBridgeServer:
                     self._cevap_yaz(tel)
                 elif action == "chat":
                     prompt = req.get("prompt", "")
-                    res = self._sohbet_uret(prompt)
-                    res["id"] = req_id
-                    self._cevap_yaz(res)
+                    def _chat_worker(p, r_id):
+                        def on_chunk(c):
+                            self._cevap_yaz({
+                                "type": "chat_chunk",
+                                "chunk": c,
+                                "role": "nova",
+                                "id": r_id,
+                                "done": False
+                            })
+                        res = self._sohbet_uret(p, chunk_cb=on_chunk)
+                        res["id"] = r_id
+                        self._cevap_yaz({
+                            "type": "chat_chunk",
+                            "chunk": "",
+                            "role": res.get("role", "nova"),
+                            "id": r_id,
+                            "done": True,
+                            "reply": res.get("reply", "")
+                        })
+                        self._cevap_yaz(res)
+                    threading.Thread(target=_chat_worker, args=(prompt, req_id), daemon=True).start()
                 elif action == "speak":
                     text = req.get("text", "")
                     if text:
                         self.beden.ses.konuş(text)
                     self._cevap_yaz({"type": "speak_reply", "id": req_id, "status": "ok"})
+                elif action == "listen":
+                    timeout = int(req.get("timeout", 6))
+                    lang = req.get("language", None)
+                    def _listen_worker(t_out, l_ang, r_id):
+                        recognized = self.beden.ses.dinle(zaman_asimi=t_out, dil=l_ang)
+                        self._cevap_yaz({
+                            "type": "listen_reply",
+                            "id": r_id,
+                            "text": recognized or "",
+                            "status": "ok" if recognized else "empty"
+                        })
+                    threading.Thread(target=_listen_worker, args=(timeout, lang, req_id), daemon=True).start()
                 elif action == "get_history":
                     limit = int(req.get("limit", 40))
                     anilar = self.hafiza.son_anilar_getir(limit=limit)

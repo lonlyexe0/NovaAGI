@@ -22,7 +22,6 @@ public partial class MainWindow : Window
     private readonly DispatcherTimer _clockTimer = new();
 
     private SpeechSynthesizer? _synth;
-    private SpeechRecognitionEngine? _recognizer;
     private bool _voiceOutputEnabled = true;
     private bool _isListening = false;
     private bool _isEn = false;
@@ -54,6 +53,7 @@ public partial class MainWindow : Window
         _backend.ReadyReceived += OnBackendReady;
         _backend.TelemetryReceived += OnTelemetryReceived;
         _backend.MessageReceived += OnMessageReceived;
+        _backend.ChunkReceived += OnChunkReceived;
         _backend.ConnectionStateChanged += OnConnectionStateChanged;
         _backend.ErrorReceived += OnErrorReceived;
 
@@ -173,10 +173,67 @@ public partial class MainWindow : Window
         });
     }
 
+    private ChatMessage? _currentStreamingMessage = null;
+
+    private void OnChunkReceived(string role, string chunk, bool isDone, string finalReply)
+    {
+        Dispatcher.Invoke(() =>
+        {
+            if (!isDone)
+            {
+                if (_currentStreamingMessage == null)
+                {
+                    _currentStreamingMessage = new ChatMessage
+                    {
+                        Role = role,
+                        Text = chunk,
+                        Timestamp = DateTime.Now.ToString("HH:mm:ss")
+                    };
+                    _messages.Add(_currentStreamingMessage);
+                }
+                else
+                {
+                    _currentStreamingMessage.Text += chunk;
+                }
+                ScrollChatToBottom();
+            }
+            else
+            {
+                if (_currentStreamingMessage != null)
+                {
+                    if (!string.IsNullOrEmpty(finalReply))
+                    {
+                        _currentStreamingMessage.Text = finalReply;
+                    }
+                    if (_voiceOutputEnabled && _currentStreamingMessage.Role.Equals("nova", StringComparison.OrdinalIgnoreCase))
+                    {
+                        SpeakText(_currentStreamingMessage.Text);
+                    }
+                    _currentStreamingMessage = null;
+                }
+                ScrollChatToBottom();
+            }
+        });
+    }
+
     private void OnMessageReceived(string role, string text, string action)
     {
         Dispatcher.Invoke(() =>
         {
+            // If already handled by streaming
+            if (_currentStreamingMessage != null)
+            {
+                _currentStreamingMessage.Text = text;
+                _currentStreamingMessage.ActionText = action;
+                _currentStreamingMessage = null;
+                return;
+            }
+
+            if (_messages.Count > 0 && _messages[_messages.Count - 1].Role.Equals(role, StringComparison.OrdinalIgnoreCase) && _messages[_messages.Count - 1].Text == text)
+            {
+                return;
+            }
+
             _messages.Add(new ChatMessage
             {
                 Role = role,
@@ -648,60 +705,55 @@ public partial class MainWindow : Window
         }
     }
 
-    private void BtnMic_Click(object sender, RoutedEventArgs e)
+    private async void BtnMic_Click(object sender, RoutedEventArgs e)
     {
+        if (_isListening)
+        {
+            return;
+        }
+
+        if (!_backend.IsRunning)
+        {
+            AddSystemMessage(_isEn
+                ? "⚠️ Nova backend service is not running. Please launch the backend or use Windows Voice Typing (Win + H)."
+                : "⚠️ Nova arka plan servisi çalışmıyor. Lütfen servisi başlatın veya Windows Sesle Yazma kısayolunu (Win + H) kullanın.");
+            return;
+        }
+
         try
         {
-            if (_isListening)
-            {
-                _recognizer?.RecognizeAsyncStop();
-                _isListening = false;
-                TxtMicIcon.Text = "🎙️";
-                BtnMic.Background = (Brush)FindResource("CardBrush");
-                return;
-            }
-
-            if (_recognizer == null)
-            {
-                _recognizer = new SpeechRecognitionEngine();
-                _recognizer.SetInputToDefaultAudioDevice();
-                var dictGrammar = new DictationGrammar();
-                _recognizer.LoadGrammar(dictGrammar);
-
-                _recognizer.SpeechRecognized += (s, args) =>
-                {
-                    Dispatcher.Invoke(() =>
-                    {
-                        if (!string.IsNullOrWhiteSpace(args.Result.Text))
-                        {
-                            TxtInput.Text = (TxtInput.Text + " " + args.Result.Text).Trim();
-                            TxtInput.CaretIndex = TxtInput.Text.Length;
-                        }
-                    });
-                };
-
-                _recognizer.RecognizeCompleted += (s, args) =>
-                {
-                    Dispatcher.Invoke(() =>
-                    {
-                        _isListening = false;
-                        TxtMicIcon.Text = "🎙️";
-                        BtnMic.Background = (Brush)FindResource("CardBrush");
-                    });
-                };
-            }
-
-            _recognizer.RecognizeAsync(RecognizeMode.Single);
             _isListening = true;
             TxtMicIcon.Text = "🔴";
             BtnMic.Background = new SolidColorBrush(Color.FromArgb(0x66, 0xEF, 0x44, 0x44));
-            AddSystemMessage("🎙️ Dinleniyor... Lütfen konuşun.");
+            AddSystemMessage(_isEn
+                ? "🎙️ Listening... Speak naturally in Turkish or English."
+                : "🎙️ Dinleniyor... Türkçe veya İngilizce doğal bir şekilde konuşun.");
+
+            string recognized = await _backend.ListenAsync(timeout: 7);
+
+            _isListening = false;
+            TxtMicIcon.Text = "🎙️";
+            BtnMic.Background = (Brush)FindResource("CardBrush");
+
+            if (!string.IsNullOrWhiteSpace(recognized))
+            {
+                TxtInput.Text = (TxtInput.Text + " " + recognized).Trim();
+                TxtInput.CaretIndex = TxtInput.Text.Length;
+                AddSystemMessage($"🎤 {(_isEn ? "Recognized" : "Algılandı")}: \"{recognized}\"");
+            }
+            else
+            {
+                AddSystemMessage(_isEn
+                    ? "ℹ️ No speech recognized. Please check your microphone and try again."
+                    : "ℹ️ Ses algılanamadı. Lütfen mikrofonunuzu kontrol edip tekrar deneyin.");
+            }
         }
         catch (Exception ex)
         {
             _isListening = false;
             TxtMicIcon.Text = "🎙️";
-            AddSystemMessage($"Mikrofon başlatılamadı: {ex.Message}. Windows Sesle Yazma kısayolunu (Win + H) kullanabilirsiniz.");
+            BtnMic.Background = (Brush)FindResource("CardBrush");
+            AddSystemMessage($"Mikrofon dinleme hatası: {ex.Message}");
         }
     }
 

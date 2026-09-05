@@ -19,6 +19,7 @@ public class BackendService : IDisposable
 
     public event Action<TelemetryPacket>? TelemetryReceived;
     public event Action<string, string, string>? MessageReceived;
+    public event Action<string, string, bool, string>? ChunkReceived;
     public event Action<string>? ReadyReceived;
     public event Action<string>? ErrorReceived;
     public event Action<bool>? ConnectionStateChanged;
@@ -122,6 +123,7 @@ public class BackendService : IDisposable
                 if (line == null) break;
                 line = line.Trim();
                 if (string.IsNullOrEmpty(line)) continue;
+                if (!line.StartsWith("{") || !line.EndsWith("}")) continue;
 
                 ProcessIncomingJson(line);
             }
@@ -193,6 +195,14 @@ public class BackendService : IDisposable
                     {
                         TelemetryReceived?.Invoke(packet);
                     }
+                    break;
+
+                case "chat_chunk":
+                    var chunk = root.TryGetProperty("chunk", out var chProp) ? chProp.GetString() ?? "" : "";
+                    var cRole = root.TryGetProperty("role", out var crProp) ? crProp.GetString() ?? "nova" : "nova";
+                    var isDone = root.TryGetProperty("done", out var dProp) && dProp.GetBoolean();
+                    var finalRep = root.TryGetProperty("reply", out var frProp) ? frProp.GetString() ?? "" : "";
+                    ChunkReceived?.Invoke(cRole, chunk, isDone, finalRep);
                     break;
 
                 case "chat_reply":
@@ -312,6 +322,16 @@ public class BackendService : IDisposable
     {
         if (string.IsNullOrWhiteSpace(text)) return;
         await SendRawRequestAsync(new { action = "speak", text });
+    }
+
+    public async Task<string> ListenAsync(int timeout = 6, string? language = null)
+    {
+        var res = await SendRawRequestAsync(new { action = "listen", timeout, language }, timeoutMs: (timeout + 6) * 1000);
+        if (res.HasValue && res.Value.TryGetProperty("text", out var tProp))
+        {
+            return tProp.GetString() ?? "";
+        }
+        return string.Empty;
     }
 
     public async Task<string> ObserveScreenAsync(string prompt = "", bool speak = true)

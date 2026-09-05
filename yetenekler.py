@@ -385,3 +385,102 @@ def yetenek_listesi() -> str:
 
 def selamla(): return "Komutanım, sistemler tam kapasite calisiyor!"
 
+
+# ══════════════════════════════════════════════════════════════════════════════
+# F.R.I.D.A.Y. BRİFİNG & SİSTEM YÖNETİMİ
+# ══════════════════════════════════════════════════════════════════════════════
+
+def aktif_pencere_basligi() -> str:
+    """Windows'ta şu an odakta olan ön pencerenin başlığını döner."""
+    try:
+        import ctypes
+        hwnd = ctypes.windll.user32.GetForegroundWindow()
+        length = ctypes.windll.user32.GetWindowTextLengthW(hwnd)
+        if length > 0:
+            buff = ctypes.create_unicode_buffer(length + 1)
+            ctypes.windll.user32.GetWindowTextW(hwnd, buff, length + 1)
+            return buff.value
+    except Exception:
+        pass
+    return "Masaüstü"
+
+
+def gunluk_brifing() -> str:
+    """F.R.I.D.A.Y. tarzı sinematik sistem, zaman ve donanım brifingi döner."""
+    import psutil
+    simdi = datetime.datetime.now()
+    saat = simdi.hour
+    if saat < 12:
+        hitap = "Günaydın patron."
+    elif saat < 18:
+        hitap = "İyi günler patron."
+    else:
+        hitap = "İyi akşamlar patron."
+
+    cpu_yuzde = int(psutil.cpu_percent(interval=0.1))
+    ram = psutil.virtual_memory()
+    ram_yuzde = int(ram.percent)
+    pencere = aktif_pencere_basligi()
+    
+    tarih_str = simdi.strftime("%H:%M")
+    gun = bugun_gun()
+    
+    brifing = (
+        f"{hitap} Saat {tarih_str}, {gun}. "
+        f"Nova sistemleri operasyonel. "
+        f"İşlemci yükü %{cpu_yuzde}, bellek kullanımı %{ram_yuzde}. "
+    )
+    if pencere and pencere != "Masaüstü":
+        pencere_kisa = pencere[:35]
+        brifing += f"Aktif pencereniz: '{pencere_kisa}'. "
+    brifing += "Gününüzü asiste etmeye hazırım. Nasıl yardımcı olabilirim?"
+    return brifing
+
+
+def sistem_eylemi(eylem: str) -> str:
+    """Bilgisayar üzerinde sistem seviyesinde eylemler yürütür (kilitle, ses vb)."""
+    eylem = eylem.lower().strip()
+    try:
+        import ctypes
+        user32 = ctypes.windll.user32
+        if eylem in ("lock", "kilitle"):
+            user32.LockWorkStation()
+            return "🔒 Bilgisayar ekranı kilitlendi."
+        elif eylem in ("mute", "sessiz"):
+            # VK_VOLUME_MUTE = 0xAD
+            user32.keybd_event(0xAD, 0, 0, 0)
+            user32.keybd_event(0xAD, 0, 2, 0)
+            return "🔇 Ses durumu değiştirildi (Açık/Kapalı)."
+        elif eylem in ("vol_up", "ses_artir"):
+            # VK_VOLUME_UP = 0xAF
+            for _ in range(3):
+                user32.keybd_event(0xAF, 0, 0, 0)
+                user32.keybd_event(0xAF, 0, 2, 0)
+            return "🔊 Ses artırıldı."
+        elif eylem in ("vol_down", "ses_azalt"):
+            # VK_VOLUME_DOWN = 0xAE
+            for _ in range(3):
+                user32.keybd_event(0xAE, 0, 0, 0)
+                user32.keybd_event(0xAE, 0, 2, 0)
+            return "🔉 Ses azaltıldı."
+        elif eylem in ("desktop", "masaustu", "minimize_all"):
+            # Win + D
+            user32.keybd_event(0x5B, 0, 0, 0)
+            user32.keybd_event(0x44, 0, 0, 0)
+            user32.keybd_event(0x44, 0, 2, 0)
+            user32.keybd_event(0x5B, 0, 2, 0)
+            return "🪟 Masaüstüne geçildi."
+        elif eylem in ("taskmgr", "gorev_yoneticisi"):
+            # Ctrl + Shift + Esc
+            user32.keybd_event(0x11, 0, 0, 0)
+            user32.keybd_event(0x10, 0, 0, 0)
+            user32.keybd_event(0x1B, 0, 0, 0)
+            user32.keybd_event(0x1B, 0, 2, 0)
+            user32.keybd_event(0x10, 0, 2, 0)
+            user32.keybd_event(0x11, 0, 2, 0)
+            return "⚙️ Görev Yöneticisi açıldı."
+        else:
+            return f"Bilinmeyen eylem: {eylem}"
+    except Exception as e:
+        return f"Sistem eylem hatası: {e}"
+

@@ -82,7 +82,8 @@ class BilgisayarKontrol:
     def surukle(self, x1: int, y1: int, x2: int, y2: int, sure: float = 0.5):
         """(x1,y1)'den (x2,y2)'ye sürükle."""
         if not self._aktif: return "Bilgisayar kontrolü aktif değil."
-        self._gui.drag(x1, y1, x2-x1, y2-y1, duration=sure, button="left")
+        self._gui.moveTo(x1, y1)
+        self._gui.dragTo(x2, y2, duration=sure, button="left")
         return f"Sürüklendi ({x1},{y1}) → ({x2},{y2})"
 
     def kayan_teker(self, miktar: int, x: Optional[int] = None, y: Optional[int] = None):
@@ -182,29 +183,32 @@ class SesMotoru:
         self._tts_thread = None
         self._stop_event = threading.Event()
 
-        # F.R.I.D.A.Y. ses yolu (varsa)
+        # F.R.I.D.A.Y. ses yolu ve önbellek dosyaları
         self._base_dir = os.path.dirname(os.path.abspath(__file__))
         self._speaker_wav = os.path.join(self._base_dir, "kerry_condon_friday.wav")
+        self._friday_tr_wav = os.path.join(self._base_dir, "nova_friday_test.wav")
+        self._friday_en_wav = os.path.join(self._base_dir, "nova_friday_en_test.wav")
 
-        # Speech Recognition
+        # Speech Recognition (PyAudio + SpeechRecognition)
         try:
             import speech_recognition as sr
             self._sr = sr
             self._taniyici = sr.Recognizer()
             self._taniyici.energy_threshold = 300
             self._taniyici.dynamic_energy_threshold = True
+            self._taniyici.pause_threshold = 0.8
             self._sr_aktif = True
-            logger.info("[Ses] speech_recognition hazır.")
+            logger.info("[Ses] speech_recognition + pyaudio hazır.")
         except ImportError:
-            logger.warning("[Ses] speech_recognition bulunamadı → pip install speechrecognition pyaudio")
+            logger.warning("[Ses] speech_recognition veya pyaudio bulunamadı → pip install speechrecognition pyaudio")
 
-        # TTS Başlat
+        # TTS Servisini Başlat
         self._tts_aktif = True
         self._tts_thread = threading.Thread(
             target=self._tts_dongusu, daemon=True, name="NovaTTS"
         )
         self._tts_thread.start()
-        logger.info("[Ses] Nova TTS Servisi başlatıldı (Neural edge-tts + SAPI pyttsx3).")
+        logger.info("[Ses] Nova Ses Servisi başlatıldı (F.R.I.D.A.Y. Neural Voice).")
 
     def _metin_temizle(self, metin: str) -> str:
         """Metindeki kod bloklarını, linkleri ve markdown işaretlerini temizler."""
@@ -216,10 +220,20 @@ class SesMotoru:
         return metin
 
     def _cal_ses_dosyasi(self, dosya_yolu: str) -> bool:
-        """Windows mciSendString kullanarak MP3 veya WAV dosyasını sorunsuz çalar."""
-        import ctypes
+        """Windows üzerinde WAV veya MP3 ses dosyasını sorunsuz çalar."""
+        import os
         try:
             abs_path = os.path.abspath(dosya_yolu)
+            if not os.path.exists(abs_path):
+                return False
+            if abs_path.lower().endswith(".wav"):
+                try:
+                    import winsound
+                    winsound.PlaySound(abs_path, winsound.SND_FILENAME)
+                    return True
+                except Exception:
+                    pass
+            import ctypes
             winmm = ctypes.windll.winmm
             alias = f"novatts_{int(time.time()*1000)}"
             winmm.mciSendStringW(f'open "{abs_path}" type mpegvideo alias {alias}', None, 0, None)
@@ -232,8 +246,10 @@ class SesMotoru:
 
     def _tts_dongusu(self):
         """TTS kuyruğunu işleyen arka plan thread'i.
-        Önce ultra-hızlı Neural edge-tts (Kerry Condon İrlanda kadın sesi) dener,
-        çevrimdışıysa COM korumalı pyttsx3 SAPI'ye geçer.
+        Öncelik Sırası:
+        1. Hazır F.R.I.D.A.Y. karşılama replikleri (Sıfır gecikme)
+        2. Hızlı Neural edge-tts (F.R.I.D.A.Y. Kerry Condon İrlanda sesi / Emel Neural)
+        3. COM korumalı pyttsx3 Windows SAPI Fallback
         """
         import tempfile
         import asyncio
@@ -254,7 +270,6 @@ class SesMotoru:
             pyttsx_eng = pyttsx3.init()
             pyttsx_eng.setProperty("rate", 175)
             pyttsx_eng.setProperty("volume", 0.95)
-            # Kadın sesini önceliklendir (Zira / Female)
             for ses in pyttsx_eng.getProperty("voices"):
                 s_name = getattr(ses, "name", "").lower()
                 s_id = getattr(ses, "id", "").lower()
@@ -275,32 +290,40 @@ class SesMotoru:
                     self._tts_kuyruk.task_done()
                     continue
 
-                # Kısalt (uzun yanıtları 450 karakterde sınırla)
                 temiz = temiz[:450]
-                lang = config_manager.get_language() or "en"
+                lang = config_manager.get_language() or "tr"
                 konusuldu = False
 
-                # 1. Aşama: edge-tts (F.R.I.D.A.Y. stili Kerry Condon / Neural Ses)
-                try:
-                    import edge_tts
-                    # İngilizce: Kerry Condon'ın İrlanda kadın sesi; Türkçe: Emel Neural
-                    voice_name = "en-IE-EmilyNeural" if lang == "en" else "tr-TR-EmelNeural"
-                    mp3_path = os.path.join(tempfile.gettempdir(), f"nova_speech_{int(time.time()*1000)}.mp3")
-                    
-                    async def _uret():
-                        communicate = edge_tts.Communicate(temiz, voice_name)
-                        await communicate.save(mp3_path)
+                # 0. Aşama: F.R.I.D.A.Y. Hazır Karşılama Sesleri (Sıfır Gecikme)
+                temiz_lower = temiz.lower()
+                if "tüm sistemler aktif" in temiz_lower or "patron" in temiz_lower or "devrede" in temiz_lower:
+                    if os.path.exists(self._friday_tr_wav):
+                        konusuldu = self._cal_ses_dosyasi(self._friday_tr_wav)
+                elif "all systems" in temiz_lower or "online" in temiz_lower or "functional" in temiz_lower:
+                    if os.path.exists(self._friday_en_wav):
+                        konusuldu = self._cal_ses_dosyasi(self._friday_en_wav)
 
-                    asyncio.run(_uret())
+                # 1. Aşama: Neural edge-tts (Kerry Condon İrlanda kadın sesi / Emel Neural)
+                if not konusuldu:
+                    try:
+                        import edge_tts
+                        voice_name = "en-IE-EmilyNeural" if lang == "en" else "tr-TR-EmelNeural"
+                        mp3_path = os.path.join(tempfile.gettempdir(), f"nova_speech_{int(time.time()*1000)}.mp3")
 
-                    if os.path.exists(mp3_path) and os.path.getsize(mp3_path) > 0:
-                        konusuldu = self._cal_ses_dosyasi(mp3_path)
-                        try:
-                            os.remove(mp3_path)
-                        except Exception:
-                            pass
-                except Exception as e:
-                    logger.debug(f"[TTS] edge-tts atlandı ({e}), SAPI'ye geçiliyor...")
+                        async def _uret():
+                            communicate = edge_tts.Communicate(temiz, voice_name)
+                            await communicate.save(mp3_path)
+
+                        asyncio.run(_uret())
+
+                        if os.path.exists(mp3_path) and os.path.getsize(mp3_path) > 0:
+                            konusuldu = self._cal_ses_dosyasi(mp3_path)
+                            try:
+                                os.remove(mp3_path)
+                            except Exception:
+                                pass
+                    except Exception as e:
+                        logger.debug(f"[TTS] edge-tts atlandı ({e}), SAPI'ye geçiliyor...")
 
                 # 2. Aşama: Çevrimdışı SAPI (pyttsx3) Fallback
                 if not konusuldu and pyttsx_eng:
@@ -332,39 +355,61 @@ class SesMotoru:
         if bloke:
             self._tts_kuyruk.join()
         return f"Sesli okunuyor: {metin_kisa[:60]}..."
-        # Çok uzun metni kısalt
-        metin_kisa = metin[:500]
-        self._tts_kuyruk.put(metin_kisa)
-        if bloke:
-            self._tts_kuyruk.join()
-        return f"Sesli okunuyor: {metin_kisa[:60]}..."
 
-    def dinle(self, zaman_asimi: int = 5, dil: Optional[str] = None) -> str:
+    def dinle(self, zaman_asimi: int = 6, dil: Optional[str] = None) -> str:
         """
         Mikrofondan ses dinle ve metne çevir.
-        Döner: tanınan metin veya hata mesajı
+        Akıllı Çift Dilli (Dual-Language Fallback): Hem Türkçe hem İngilizce konuşulduğunda
+        kullanıcının dilini otomatik tespit ederek metne çevirir.
+        Döner: tanınan metin veya boş string.
         """
         if not self._sr_aktif:
             return "Ses tanıma aktif değil (pip install speechrecognition pyaudio)"
-        if dil is None:
-            from config_manager import get_language
-            lang = get_language() or "en"
-            dil = "en-US" if lang == "en" else "tr-TR"
+
+        from config_manager import get_language
+        lang = get_language() or "tr"
+
+        if dil:
+            diller = [dil]
+            if dil.startswith("tr"):
+                diller.append("en-US")
+            elif dil.startswith("en"):
+                diller.append("tr-TR")
+        else:
+            if lang == "en":
+                diller = ["en-US", "tr-TR"]
+            else:
+                diller = ["tr-TR", "en-US"]
+
         sr = self._sr
         try:
             with sr.Microphone() as kaynak:
-                logger.info("[Ses] Dinleniyor...")
-                self._taniyici.adjust_for_ambient_noise(kaynak, duration=0.5)
-                ses = self._taniyici.listen(kaynak, timeout=zaman_asimi,
-                                             phrase_time_limit=15)
-            metin = self._taniyici.recognize_google(ses, language=dil)
-            logger.info(f"[Ses] Tanındı: {metin}")
-            return metin
-        except sr.WaitTimeoutError:
+                logger.info(f"[Ses] 🎙️ Dinleniyor... ({diller[0]} / {diller[1]})")
+                try:
+                    self._taniyici.adjust_for_ambient_noise(kaynak, duration=0.25)
+                except Exception:
+                    pass
+                ses = self._taniyici.listen(kaynak, timeout=zaman_asimi, phrase_time_limit=15)
+
+            # Kaydedilen ses verisinde dilleri sırayla dene (TR ve EN)
+            for hedef_dil in diller:
+                try:
+                    metin = self._taniyici.recognize_google(ses, language=hedef_dil)
+                    if metin and metin.strip():
+                        logger.info(f"[Ses] Başarıyla algılandı ({hedef_dil}): {metin}")
+                        return metin.strip()
+                except sr.UnknownValueError:
+                    continue
+                except Exception as ex:
+                    logger.debug(f"[Ses] recognize_google ({hedef_dil}) hatası: {ex}")
+                    continue
+
             return ""
-        except sr.UnknownValueError:
+        except sr.WaitTimeoutError:
+            logger.info("[Ses] Dinleme zaman aşımı (ses gelmedi).")
             return ""
         except Exception as e:
+            logger.error(f"[Ses] Mikrofon hatası: {e}")
             return f"Ses hatası: {e}"
 
     def ses_aktif_mi(self) -> bool:
@@ -810,6 +855,41 @@ class GorselGozlemci:
             self.ses.konuş(ses_ozeti)
 
         return rapor
+
+    def foto_analiz(self, img_veya_yol, istek: str = "") -> str:
+        """Kullanıcının telefondan veya dosya olarak gönderdiği fotoğrafı analiz eder."""
+        from PIL import Image
+        try:
+            if isinstance(img_veya_yol, str):
+                img = Image.open(img_veya_yol)
+            else:
+                img = img_veya_yol
+
+            analiz = self._statik_analiz(img)
+            if "hata" in analiz:
+                return f"⚠️ Fotoğraf incelenemedi: {analiz['hata']}"
+
+            rapor = (
+                f"📸 **Görsel Analiz Raporu ({analiz['boyut']}):**\n"
+                f"• **Görsel Teması:** {analiz['tema']} (Parlaklık: {analiz['parlaklik']}/255)\n"
+            )
+            if analiz.get("metin"):
+                rapor += f"• **Tespit Edilen Metin / İçerik:**\n```\n{analiz['metin'][:400]}\n```\n"
+            else:
+                rapor += "• **Metin Tespiti:** Görselde okunabilir belirgin bir metin saptanmadı.\n"
+
+            if istek:
+                rapor += f"• **Kullanıcı Notu:** *{istek}*\n"
+
+            if self.hafiza:
+                try:
+                    self.hafiza.ani_kaydet("foto_analiz", rapor[:500])
+                except Exception:
+                    pass
+
+            return rapor
+        except Exception as e:
+            return f"⚠️ Görsel işleme hatası: {e}"
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -1290,6 +1370,13 @@ class AjanBeden:
 
         if pl.startswith("!zaman") or pl.startswith("!saat") or pl.startswith("!time"):
             return f"⏰ **Tarih & Saat**: {yetenekler.tarih_saat()} ({yetenekler.bugun_gun()})"
+
+        if pl.startswith("!brifing") or pl.startswith("!briefing") or any(w in pl for w in ["günlük brifing", "sabah brifingi", "durum brifingi", "sistem brifingi", "friday brifing", "brifing ver"]):
+            return yetenekler.gunluk_brifing()
+
+        if pl.startswith("!eylem ") or pl.startswith("!action "):
+            eylem_adi = p.split(" ", 1)[1]
+            return yetenekler.sistem_eylemi(eylem_adi)
 
         # 2. Matematik Hesabı Niyet Tespiti (örn: 154 * 28 + 19 kaç eder)
         math_match = re.search(r"(\d+\s*[\+\-\*\/\^%]\s*\d+[\s\d\+\-\*\/\^%]*)", p)

@@ -1,10 +1,48 @@
-# Byte-compiled / optimized / DLL files
+# ═══════════════════════════════════════════════════════════════════════════════
+# Nova AGI — Git Ignore Configuration
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# ── 1. Yapay Zeka Model Ağırlıkları ve Checkpointler (Büyük Dosyalar) ────────
+*.pth
+*.pt
+*.bin
+*.onnx
+*.safetensors
+*.ckpt
+nova_weights*
+*_weights*
+*.pth.tmp
+
+# ── 2. Veritabanı ve SQLite Çalışma Zamanı Dosyaları ──────────────────────────
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite3
+
+# ── 3. Büyük Arşivler ve Veri Paketleri ──────────────────────────────────────
+*.zip
+*.tar
+*.tar.gz
+*.rar
+*.7z
+*.parquet
+
+# ── 4. Python Önbellek ve Ortam Dosyaları ────────────────────────────────────
 __pycache__/
 *.py[cod]
 *$py.class
 *.pyc
+.venv/
+venv/
+env/
+*.egg-info/
+build/
+dist/
+.pytest_cache/
 
-# C# / .NET build artifacts
+# ── 5. C# / .NET / Visual Studio Derleme Çıktıları ───────────────────────────
 [Bb]in/
 [Oo]bj/
 .vs/
@@ -13,27 +51,21 @@ __pycache__/
 *.userosscache
 *.sln.docstates
 
-# Database & Runtime State
-nova.db
-nova.db-journal
-nova.db-wal
-nova.db-shm
-*.pth
-*.pth.tmp
-*.tmp
-.perm_test
-
-
-# Local logs & caches
-logs/
+# ── 6. Loglar, Ses ve Medya Test Dosyaları ────────────────────────────────────
 *.log
-.pytest_cache/
+logs/
+*.wav
+*.mp3
+*.mp4
 
-# Scratch & Dev
+# ── 7. Kullanıcı Konfigürasyonu, Anahtarlar ve Geçici Dosyalar ────────────────
+.nova_config.json
+.env
+.perm_test
+*.tmp
+*.bak
 scratch/
-test_*.py
-test_features.py
 
-# InnoSetup output
+# ── 8. InnoSetup ve Yükleyici Çıktıları ───────────────────────────────────────
 dist_installer/
 Output/
