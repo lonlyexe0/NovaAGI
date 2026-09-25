@@ -1,243 +1,106 @@
-<div align="right">
-  <strong>Diller:</strong> 
-  <a href="README.md">English</a> | <b>Türkçe</b>
+<div align="right"><a href="README.md">English</a> · <b>Türkçe</b></div>
+
+<div align="center">
+
+<img src="assets/nova_icon.svg" width="88" alt="Nova">
+
+# Nova
+
+**Takıldığında kendi kendine büyüyen, hafızası olan ve internetten öğrenen küçük bir dil modeli.**
+
+![Python](https://img.shields.io/badge/python-3.10+-3776AB?logo=python&logoColor=white)
+![PyTorch](https://img.shields.io/badge/pytorch-2.2+-EE4C2C?logo=pytorch&logoColor=white)
+![Lisans](https://img.shields.io/badge/lisans-GPL--3.0-2ea44f)
+
 </div>
 
 > [!NOTE]
-> ### 📌 Proje Durumu: Final Versiyon (Rafa Kaldırıldı)
-> **"yapay zeka eğitilebilir sadece elimde yeterince kaynak yok bu yüzden bu Projeyi rafa kaldırıyorum"**
-> 
-> *Bu proje; sıfırdan kademeli büyüyen (progressive growth) model mimarisinin, otonom veri toplama ve sürekli ön-eğitim mekanizmalarının başarıyla çalıştığını ve yapay zekanın sıfırdan eğitilebildiğini doğrulamıştır. Yetersiz donanım/kaynak sebebiyle aktif geliştirme durdurulmuş, proje bu nihai haliyle rafa kaldırılmıştır.*
+> **Proje rafa kaldırıldı.** *"Yapay zeka eğitilebilir, sadece elimde yeterince kaynak yok."*
+> Mimari, büyüme, hafıza ve öğrenme döngüsü çalışıyor. Ama sıfırdan anlamlı konuşan bir model
+> eğitmek bir ev bilgisayarının çok ötesinde işlem gücü ister; eğitilmemiş model anlamsız metin üretir.
 
-# NOVA — Otonom Öğrenen AGI Prototipi
+## Nasıl çalışır
 
-```
-███╗   ██╗ ██████╗ ██╗   ██╗ █████╗
-████╗  ██║██╔═══██╗██║   ██║██╔══██╗
-██╔██╗ ██║██║   ██║██║   ██║███████║
-██║╚██╗██║██║   ██║╚██╗ ██╔╝██╔══██╗
-██║ ╚████║╚██████╔╝ ╚████╔╝ ██║  ██║
-╚═╝  ╚═══╝ ╚═════╝   ╚═══╝  ╚═╝  ╚═╝
-```
-
-## Proje Vizyonu
-
-Nova sadece bir chatbot değildir. İki ana bileşenden oluşan **yaşayan bir organizmadır**:
-
-1. **Üretken Beyin** — PyTorch Mini-GPT Transformer (~15M parametre)
-2. **Otonom Beden** — Web Crawler + Self-Coding + Hot-Reload Yetenek Sistemi
-
----
-
-## Mimari
-
-```
-nova/
-├── main.py          ← Bilinç Döngüsü (2 Thread orkestratörü)
-├── brain.py         ← Mini-GPT Transformer + Sürekli Eğitim
-├── memory.py        ← SQLite3 Hafıza + RAG Altyapısı
-├── body.py          ← Crawler + Self-Coding + Araç Motoru
-├── yetenekler.py    ← Hot-reload ile büyüyen yetenek havuzu
-├── requirements.txt
-└── README.md
-```
-
-### Otomatik Oluşturulan Dosyalar
-```
-nova.db              ← SQLite veritabanı
-nova_weights.pth     ← Model checkpoint (otomatik kaydedilir)
-nova_vocab.json      ← Karakter sözlüğü (dinamik büyür)
-nova.log             ← Sistem logları
-```
-
----
+| | |
+|---|---|
+| 🧠 **Beyin** (`brain.py`) | Küçük başlayan bir Transformer. Loss durduğunda sırayla FF nöronlarını, yeni bir bloğu ve embedding boyutunu büyütür. Eski ağırlıklar korunur (network morphism). |
+| 💾 **Hafıza** (`memory.py`) | SQLite: konuşmalar (epizodik), öğrenilen metinler (semantik) ve görev kuyruğu. Anahtar kelimeyle bağlam getirir (RAG). |
+| 🌐 **Beden** (`body.py`) | Wikipedia'yı merakla gezer, kendine Python yetenekleri yazar, isteğe bağlı olarak ekran, ses ve kamerayı kullanır. |
+| 🔁 **Döngü** (`main.py`) | Arka planda sürekli tarar ve eğitir; önde seninle sohbet eder. |
 
 ## Kurulum
 
 ```bash
-# 1. Sanal ortam oluştur (önerilir)
-python -m venv nova_env
-source nova_env/bin/activate        # Linux/macOS
-# nova_env\Scripts\activate         # Windows
-
-# 2. Bağımlılıkları yükle
+git clone https://github.com/lonlyexe0/NovaAGI.git
+cd NovaAGI
+python -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\activate
+pip install torch --index-url https://download.pytorch.org/whl/cpu   # veya GPU sürümü
 pip install -r requirements.txt
-
-# 3. CUDA ile PyTorch (GPU varsa):
-# pip install torch --index-url https://download.pytorch.org/whl/cu118
-```
-
----
-
-## Çalıştırma
-
-```bash
-# Terminal başlatma
 python main.py
-
-# Arayüzlü Başlatma
-python nova_launcher.py
-
-# Sorunsuz Başlatma
-py -3.10 nova_launcher.py
-
-# Debug modu (ayrıntılı loglar)
-python main.py --debug
-
-# Web taraması olmadan (sadece konuşma + eğitim)
-python main.py --no-crawl
-
-# Özel veritabanı
-python main.py --db /path/to/nova.db
 ```
 
----
+Başka yollar: `python nova_launcher.py --term` (Hugging Face Wikipedia akışlı başlatıcı),
+`python nova_launcher.py --gui` (Tk penceresi).
 
-## Model Mimarisi
+## Ayarlar — `ayarlar.json`
 
-| Parametre | Değer |
-|-----------|-------|
-| Mimari | Decoder-only Causal Transformer (GPT tarzı) |
-| Toplam parametre | ~15 Milyon |
-| Gömme boyutu | 384 |
-| Dikkat kafası | 6 |
-| Transformer katmanı | 6 |
-| Feed-forward boyutu | 1536 |
-| Bağlam penceresi | 256 token |
-| Tokenizasyon | Karakter düzeyinde (dinamik vocab) |
-| Örnekleme | Top-k (k=50) + Nucleus Top-p (p=0.92) + Tekrar Cezası |
+Nova hiçbir işletim sistemine bağlı değildir; her şey elle ayarlanır. Dosyayı düzenleyip programı
+yeniden başlatın.
 
-### Özel Özellikler
-- **Pre-Norm**: LayerNorm sublayer öncesinde → daha stabil eğitim
-- **Weight Tying**: Embedding ↔ Output katmanı paylaşımı → az parametre, iyi genelleme
-- **Label Smoothing**: 0.05 → overfitting önleme
-- **AdamW + CosineAnnealingWarmRestarts**: LR yerel minimumdan kaçar
+| Anahtar | Varsayılan | Anlamı |
+|---|---|---|
+| `cihaz` | `auto` | `auto`, `cpu`, `cuda` (NVIDIA / AMD ROCm) veya `mps` (Apple). `auto`: varsa GPU. |
+| `cpu_thread` | `0` | Kullanılacak işlemci çekirdeği sayısı. `0` = hepsi. |
+| `batch_size` | `16` | Tek eğitim adımındaki örnek sayısı. Bellek yetmezse düşürün. |
+| `ogrenme_hizi` | `0.0003` | Öğrenme hızı. |
+| `max_seq_len` | `256` | Modelin bir seferde gördüğü karakter sayısı. |
+| `kayit_araligi` | `50` | Kaç eğitim adımında bir ağırlıkların kaydedileceği. |
+| `buyume_esigi` | `0.003` | Loss bu orandan az düşerse model büyür. |
+| `agirlik_dosyasi` · `vocab_dosyasi` · `veritabani` | `nova_weights.pth` … | Dosya yolları (proje klasörüne göre). |
 
----
+## Komutlar
 
-## Veritabanı Şeması
-
-```sql
--- Epizodik hafıza
-CREATE TABLE anilar (
-    id          INTEGER PRIMARY KEY AUTOINCREMENT,
-    rol         TEXT NOT NULL CHECK(rol IN ('kullanici','nova','sistem')),
-    icerik      TEXT NOT NULL,
-    zaman       TEXT DEFAULT (datetime('now','localtime')),
-    onem_skoru  REAL DEFAULT 0.5
-);
-
--- Semantik hafıza (internetten öğrenilen)
-CREATE TABLE bilgi_agaci (
-    id          INTEGER PRIMARY KEY AUTOINCREMENT,
-    kaynak_url  TEXT,
-    konu        TEXT,
-    icerik      TEXT NOT NULL,
-    islendi     INTEGER DEFAULT 0,   -- 0=ham, 1=eğitimde kullanıldı
-    zaman       TEXT DEFAULT (datetime('now','localtime'))
-);
-
--- Görev kuyruğu
-CREATE TABLE gorevler (
-    id          INTEGER PRIMARY KEY AUTOINCREMENT,
-    tanim       TEXT NOT NULL,
-    durum       TEXT DEFAULT 'bekliyor',
-    oncelik     INTEGER DEFAULT 5,
-    olusturulma TEXT DEFAULT (datetime('now','localtime')),
-    tamamlanma  TEXT
-);
-```
-
----
-
-## Komut Rehberi
-
-| Komut | Açıklama |
-|-------|----------|
-| `!yardim` | Tüm komutları listele |
-| `!istatistik` | DB, model ve eğitim durumu |
-| `!tara <url>` | URL'yi tara ve öğren |
-| `!yetenekler` | Mevcut yetenekleri listele |
-| `!cagir hesapla(2**10)` | Yetenek çağır |
-| `!kod isim\|def isim():...` | Yeni yetenek yaz & yükle |
-| `!gorev TARA: <url>` | Görevi kuyruğa ekle |
-| `!anilar 10` | Son 10 anıyı göster |
-| `!rag <sorgu>` | Hafızadan bağlam sorgula |
-| `!komut ls -la` | Shell komutu çalıştır |
-| `!kaydet` | Model checkpoint'i zorla kaydet |
-| `!cikis` | Güvenli kapanış |
-
----
-
-## Self-Coding Örneği
-
-Nova terminalde:
-```
-Sen » !kod hava_durumu|def hava_durumu(sehir: str) -> str:
-    import requests
-    r = requests.get(f"https://wttr.in/{sehir}?format=3")
-    return r.text if r.ok else "Alınamadı"
-
-Nova » ✓ 'hava_durumu' yeteneği sisteme eklendi.
-
-Sen » !cagir hava_durumu(Istanbul)
-Nova » Istanbul: ⛅️  +18°C
-```
-
----
-
-## Sürekli Öğrenme Döngüsü
+`!yardim` hepsini listeler. En sık kullanılanlar:
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│  Thread 1 (Bilinçaltı, 90s aralıkla)                        │
-│                                                             │
-│  Wikipedia/Web  ──►  bilgi_agaci  ──►  egitim_adimi()       │
-│                           ↑                                 │
-│  Görev Kuyruğu  ──►  gorevi_coz()                           │
-└─────────────────────────────────────────────────────────────┘
-           ↕ (paylaşılan SQLite WAL modunda)
-┌─────────────────────────────────────────────────────────────┐
-│  Thread 2 (Bilinç, terminal REPL)                           │
-│                                                             │
-│  Kullanıcı  ──►  RAG  ──►  brain.uret()  ──►  Cevap        │
-│                                    │                        │
-│                          [EYLEM:...]  ──►  body.gorevi_coz  │
-└─────────────────────────────────────────────────────────────┘
-
-  Thread 3 (Daemon, brain.surekli_egitim_baslat())
-  ─ Her 15 saniyede bir eğitilmemiş verileri çek ve eğit
+!istatistik        model ve hafıza durumu        !tara <url>       sayfayı oku ve öğren
+!anilar [N]        son konuşmalar                !yetenekler       yazılmış yetenekler
+!rag <sorgu>       hafızada ara                  !kod isim|kod     yeni yetenek yaz
+!gorev <tanım>     görev kuyruğuna ekle          !kaydet · !cikis
 ```
 
----
+## Performans
 
-## Modül Test Komutları
+Beyin ve hafıza yeniden yazıldı; davranış aynı, iş daha az:
 
-```bash
-# Her modülü ayrı ayrı test et
-python memory.py       # SQLite + RAG test
-python brain.py        # Model + eğitim test (5 adım)
-python body.py         # Crawler + self-coding test
-python main.py         # Tam sistem
+- **~3.4× hızlı üretim:** KV-cache sayesinde her yeni karakterde tüm bağlam yeniden hesaplanmıyor
+  (200 karakter: 1.04 sn → 0.31 sn, CPU). Model büyüdükçe fark artar.
+- **Hızlı dikkat katmanı:** `scaled_dot_product_attention` donanıma göre Flash veya bellek-verimli
+  çekirdeği seçer. Tekrar cezası artık Python döngüsü yerine tek tensör işlemi.
+- **Daha verimli eğitim:** Eskiden kuyruktaki 20 kayıttan yalnızca ilki öğreniliyordu. Artık hepsinden
+  örnek alınıyor ve hazırlanan veri birkaç adımda kullanılıyor.
+- **Doğru büyüme:** Embedding büyürken Q/K/V ağırlıklarının karışması düzeltildi.
+- **Güvenli kayıt:** Ağırlık ve vocab dosyaları geçici dosyaya yazılıp tek hamlede değiştiriliyor;
+  yazma yarıda kesilirse eski dosya bozulmuyor.
+- **Hafıza:** Kaynak URL indeksi (içe aktarma büyüdükçe yavaşlamıyor), SQL içinde ön filtreli arama,
+  toplu güncelleme ve tek sorguluk istatistik.
+
+## Dosyalar
+
+```
+main.py          terminal sohbeti + arka plan döngüsü
+nova_launcher.py Hugging Face akışlı gelişmiş başlatıcı (--term / --gui)
+brain.py         büyüyen Transformer
+memory.py        SQLite hafıza ve RAG
+body.py          tarayıcı, yetenekler, ses / görüntü / bilgisayar kontrolü
+yetenekler.py    Nova'nın kendi yazdığı fonksiyonlar (canlı yüklenir)
+ayarlar.json     tüm ayarlar
 ```
 
----
-
-## Geliştirme Yol Haritası
-
-- [ ] Embedding tabanlı vektör RAG (FAISS)
-- [ ] Çok GPU desteği (DataParallel)
-- [ ] LoRA fine-tuning adaptörü
-- [ ] REST API arayüzü (FastAPI)
-- [ ] Görsel hafıza (image embedding)
-- [ ] Çoklu ajan iletişimi
-
----
+Platforma özel sürümler ayrı dallarda: [`windows-part`](https://github.com/lonlyexe0/NovaAGI/tree/windows-part)
+(WPF arayüz, DirectML) ve [`claude-verison`](https://github.com/lonlyexe0/NovaAGI/tree/claude-verison)
+(Linux, Avalonia arayüz, web/telefon erişimi).
 
 ## Lisans
 
-Bu proje GNU Genel Kamu Lisansı v3.0 (GPL-3.0) ile lisanslanmıştır - detaylar için [LICENSE](LICENSE) dosyasına bakabilirsiniz.
-
----
-
-*Nova, her konuşmayla, her web sayfasıyla, her yazdığı kodla büyümeye devam eder.*
+[GPL-3.0](LICENSE)

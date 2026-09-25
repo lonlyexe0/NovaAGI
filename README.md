@@ -1,244 +1,106 @@
-<div align="right">
-  <strong>Languages:</strong> 
-  <b>English</b> | <a href="README.tr.md">Türkçe</a>
+<div align="right"><b>English</b> · <a href="README.tr.md">Türkçe</a></div>
+
+<div align="center">
+
+<img src="assets/nova_icon.svg" width="88" alt="Nova">
+
+# Nova
+
+**A small language model that grows itself when it gets stuck, remembers, and learns from the web.**
+
+![Python](https://img.shields.io/badge/python-3.10+-3776AB?logo=python&logoColor=white)
+![PyTorch](https://img.shields.io/badge/pytorch-2.2+-EE4C2C?logo=pytorch&logoColor=white)
+![License](https://img.shields.io/badge/license-GPL--3.0-2ea44f)
+
 </div>
 
 > [!NOTE]
-> ### 📌 Project Status: Final Version (Archived / Shelved)
-> **"yapay zeka eğitilebilir sadece elimde yeterince kaynak yok bu yüzden bu Projeyi rafa kaldırıyorum"**
-> *(AI is trainable, I just don't have enough resources, so I am shelving this project.)*
-> 
-> *This project has demonstrated that progressive neural network growth, autonomous data ingestion, and continuous pre-training from scratch can succeed. Due to compute and hardware resource limitations, active development is paused and this state represents the final archived version.*
+> **Archived.** *"The AI can be trained; I just don't have enough resources."*
+> The architecture, growth, memory and learning loop all work. Training a model that actually talks
+> from scratch needs far more compute than a home PC, so an untrained Nova produces gibberish.
 
-# NOVA — Autonomous Learning AGI Prototype
+## How it works
 
-```
-███╗   ██╗ ██████╗ ██╗   ██╗ █████╗
-████╗  ██║██╔═══██╗██║   ██║██╔══██╗
-██╔██╗ ██║██║   ██║██║   ██║███████║
-██║╚██╗██║██║   ██║╚██╗ ██╔╝██╔══██║
-██║ ╚████║╚██████╔╝ ╚████╔╝ ██║  ██║
-╚═╝  ╚═══╝ ╚═════╝   ╚═══╝  ╚═╝  ╚═╝
-```
+| | |
+|---|---|
+| 🧠 **Brain** (`brain.py`) | A Transformer that starts small. When the loss plateaus it grows: first the feed-forward neurons, then a new block, then the embedding size. Old weights are preserved (network morphism). |
+| 💾 **Memory** (`memory.py`) | SQLite: conversations (episodic), learned text (semantic) and a task queue. Keyword-based retrieval (RAG). |
+| 🌐 **Body** (`body.py`) | Explores Wikipedia out of curiosity, writes its own Python skills, and can optionally use the screen, voice and camera. |
+| 🔁 **Loop** (`main.py`) | Crawls and trains in the background while it chats with you in the foreground. |
 
-## Project Vision
-
-Nova is not just a chatbot. It is a **living organism** composed of two core components:
-
-1. **Generative Brain** — PyTorch Mini-GPT Transformer (~15M parameters)
-2. **Autonomous Body** — Web Crawler + Self-Coding + Hot-Reload Skill System
-
----
-
-## Architecture
-
-```
-nova/
-├── main.py          ← Consciousness Loop (2 Thread Orchestrator)
-├── brain.py         ← Mini-GPT Transformer + Continuous Training
-├── memory.py        ← SQLite3 Memory + RAG Infrastructure
-├── body.py          ← Crawler + Self-Coding + Tool Engine
-├── yetenekler.py    ← Dynamic Hot-reload Skill Pool
-├── requirements.txt
-└── README.md
-```
-
-### Auto-Generated Files
-```
-nova.db              ← SQLite database
-nova_weights.pth     ← Model checkpoint (auto-saved)
-nova_vocab.json      ← Character vocabulary (dynamically expands)
-nova.log             ← System logs
-```
-
----
-
-## Installation
+## Setup
 
 ```bash
-# 1. Create virtual environment (recommended)
-python -m venv nova_env
-source nova_env/bin/activate        # Linux/macOS
-# nova_env\Scripts\activate         # Windows
-
-# 2. Install dependencies
+git clone https://github.com/lonlyexe0/NovaAGI.git
+cd NovaAGI
+python -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\activate
+pip install torch --index-url https://download.pytorch.org/whl/cpu   # or the GPU build
 pip install -r requirements.txt
-
-# 3. PyTorch with CUDA (if GPU available):
-# pip install torch --index-url https://download.pytorch.org/whl/cu118
-```
-
----
-
-## Running
-
-```bash
-# Terminal startup
 python main.py
-
-# GUI Launcher startup
-python nova_launcher.py
-
-# Python 3.10 Launcher startup
-py -3.10 nova_launcher.py
-
-# Debug mode (detailed logs)
-python main.py --debug
-
-# Without web crawling (chat + training only)
-python main.py --no-crawl
-
-# Custom database path
-python main.py --db /path/to/nova.db
 ```
 
----
+Other entry points: `python nova_launcher.py --term` (launcher with Hugging Face Wikipedia streaming)
+and `python nova_launcher.py --gui` (Tk window).
 
-## Model Architecture
+## Settings — `ayarlar.json`
 
-| Parameter | Value |
-|-----------|-------|
-| Architecture | Decoder-only Causal Transformer (GPT-style) |
-| Total Parameters | ~15 Million |
-| Embedding Size | 384 |
-| Attention Heads | 6 |
-| Transformer Layers | 6 |
-| Feed-forward Size | 1536 |
-| Context Window | 256 tokens |
-| Tokenization | Character-level (dynamic vocabulary) |
-| Sampling | Top-k (k=50) + Nucleus Top-p (p=0.92) + Repetition Penalty |
+Nova is not tied to any operating system; everything is configured by hand. Edit the file and restart.
 
-### Key Features
-- **Pre-Norm**: LayerNorm prior to sublayers → stable training
-- **Weight Tying**: Shared Embedding ↔ Output Layer → parameter efficiency & generalization
-- **Label Smoothing**: 0.05 → prevents overfitting
-- **AdamW + CosineAnnealingWarmRestarts**: Learning rate escapes local minima
+| Key | Default | Meaning |
+|---|---|---|
+| `cihaz` | `auto` | `auto`, `cpu`, `cuda` (NVIDIA / AMD ROCm) or `mps` (Apple). `auto` picks a GPU if there is one. |
+| `cpu_thread` | `0` | CPU cores to use. `0` means all of them. |
+| `batch_size` | `16` | Samples per training step. Lower it if you run out of memory. |
+| `ogrenme_hizi` | `0.0003` | Learning rate. |
+| `max_seq_len` | `256` | Characters the model sees at once. |
+| `kayit_araligi` | `50` | Save the weights every N training steps. |
+| `buyume_esigi` | `0.003` | The model grows when the loss improves by less than this ratio. |
+| `agirlik_dosyasi` · `vocab_dosyasi` · `veritabani` | `nova_weights.pth` … | File paths (relative to the project folder). |
 
----
+## Commands
 
-## Database Schema
-
-```sql
--- Episodic Memory
-CREATE TABLE anilar (
-    id          INTEGER PRIMARY KEY AUTOINCREMENT,
-    rol         TEXT NOT NULL CHECK(rol IN ('kullanici','nova','sistem')),
-    icerik      TEXT NOT NULL,
-    zaman       TEXT DEFAULT (datetime('now','localtime')),
-    onem_skoru  REAL DEFAULT 0.5
-);
-
--- Semantic Memory (learned from internet)
-CREATE TABLE bilgi_agaci (
-    id          INTEGER PRIMARY KEY AUTOINCREMENT,
-    kaynak_url  TEXT,
-    konu        TEXT,
-    icerik      TEXT NOT NULL,
-    islendi     INTEGER DEFAULT 0,   -- 0=raw, 1=used in training
-    zaman       TEXT DEFAULT (datetime('now','localtime'))
-);
-
--- Task Queue
-CREATE TABLE gorevler (
-    id          INTEGER PRIMARY KEY AUTOINCREMENT,
-    tanim       TEXT NOT NULL,
-    durum       TEXT DEFAULT 'bekliyor',
-    oncelik     INTEGER DEFAULT 5,
-    olusturulma TEXT DEFAULT (datetime('now','localtime')),
-    tamamlanma  TEXT
-);
-```
-
----
-
-## Command Reference
-
-| Command | Description |
-|---------|-------------|
-| `!yardim` | List all commands |
-| `!istatistik` | Display DB, model, and training status |
-| `!tara <url>` | Crawl URL and learn |
-| `!yetenekler` | List available skills |
-| `!cagir calculate(2**10)` | Execute a skill |
-| `!kod name\|def name():...` | Write & load a new skill |
-| `!gorev TARA: <url>` | Add a task to queue |
-| `!anilar 10` | Show last 10 memory entries |
-| `!rag <query>` | Query context from memory |
-| `!komut ls -la` | Execute shell command |
-| `!kaydet` | Force model checkpoint save |
-| `!cikis` | Safe shutdown |
-
----
-
-## Self-Coding Example
-
-Nova terminal interaction:
-```
-You » !kod weather|def weather(city: str) -> str:
-    import requests
-    r = requests.get(f"https://wttr.in/{city}?format=3")
-    return r.text if r.ok else "Failed"
-
-Nova » ✓ Skill 'weather' added to the system.
-
-You » !cagir weather(Istanbul)
-Nova » Istanbul: ⛅️  +18°C
-```
-
----
-
-## Continuous Learning Loop
+`!yardim` lists everything. The most used ones:
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│  Thread 1 (Subconscious, 90s interval)                     │
-│                                                             │
-│  Wikipedia/Web  ──►  knowledge_tree  ──►  train_step()      │
-│                           ↑                                 │
-│  Task Queue     ──►  solve_task()                           │
-└─────────────────────────────────────────────────────────────┘
-           ↕ (shared SQLite WAL mode)
-┌─────────────────────────────────────────────────────────────┐
-│  Thread 2 (Consciousness, terminal REPL)                    │
-│                                                             │
-│  User  ──►  RAG  ──►  brain.generate()  ──►  Response       │
-│                                │                            │
-│                      [ACTION:...]  ──►  body.solve_task     │
-└─────────────────────────────────────────────────────────────┘
-
-  Thread 3 (Daemon, brain.start_continuous_training())
-  ─ Fetch untrained data every 15 seconds and train
+!istatistik        model and memory status       !tara <url>       read a page and learn it
+!anilar [N]        recent conversations          !yetenekler       skills written so far
+!rag <query>       search memory                 !kod name|code    write a new skill
+!gorev <task>      queue a task                  !kaydet · !cikis
 ```
 
----
+## Performance
 
-## Module Test Commands
+The brain and memory were rewritten. The behavior is the same, with less work:
 
-```bash
-# Test each module individually
-python memory.py       # SQLite + RAG test
-python brain.py        # Model + training test (5 steps)
-python body.py         # Crawler + self-coding test
-python main.py         # Full system test
+- **~3.4× faster generation:** a KV-cache means the whole context is no longer recomputed for every new
+  character (200 characters: 1.04 s → 0.31 s on CPU). The gap widens as the model grows.
+- **Faster attention:** `scaled_dot_product_attention` picks the Flash or memory-efficient kernel for
+  your hardware. The repetition penalty is now one tensor operation instead of a Python loop.
+- **More efficient training:** only the first of 20 queued records used to be learned. Now every record
+  is sampled, and each prepared batch of data is reused for several steps.
+- **Correct growth:** fixed the Q/K/V weights being scrambled when the embedding grows.
+- **Safe saves:** weights and vocab are written to a temporary file and swapped in one step, so an
+  interrupted write can no longer corrupt them.
+- **Memory:** an index on source URLs (imports no longer slow down as the database grows), SQL-side
+  pre-filtering for search, batched updates and a single-query stats call.
+
+## Files
+
+```
+main.py          terminal chat + background loop
+nova_launcher.py advanced launcher with Hugging Face streaming (--term / --gui)
+brain.py         the growing Transformer
+memory.py        SQLite memory and RAG
+body.py          crawler, skills, voice / vision / computer control
+yetenekler.py    functions Nova writes for itself (hot-reloaded)
+ayarlar.json     all settings
 ```
 
----
-
-## Development Roadmap
-
-- [ ] Embedding-based vector RAG (FAISS)
-- [ ] Multi-GPU support (DataParallel)
-- [ ] LoRA fine-tuning adapter
-- [ ] REST API interface (FastAPI)
-- [ ] Visual memory (image embedding)
-- [ ] Multi-agent communication
-
----
+Platform-specific editions live on separate branches:
+[`windows-part`](https://github.com/lonlyexe0/NovaAGI/tree/windows-part) (WPF UI, DirectML) and
+[`claude-verison`](https://github.com/lonlyexe0/NovaAGI/tree/claude-verison) (Linux, Avalonia UI,
+web/phone access).
 
 ## License
 
-This project is licensed under the GNU General Public License v3.0 (GPL-3.0) - see the [LICENSE](LICENSE) file for details.
-
----
-
-*Nova continues to grow with every conversation, every webpage, and every line of code it writes.*
+[GPL-3.0](LICENSE)

@@ -1,13 +1,16 @@
 # ═══════════════════════════════════════════════════════════════════════════════
-# requirements.txt  —  Nova AGI Bağımlılıkları
+# requirements.txt — Nova AGI
 # ═══════════════════════════════════════════════════════════════════════════════
+# PyTorch: GPU'nuza uygun sürümü https://pytorch.org/get-started/locally/ adresinden seçin.
+# Sadece CPU için daha küçük paket:
+#   pip install torch --index-url https://download.pytorch.org/whl/cpu
+torch>=2.2
 
-# Derin Öğrenme (PyTorch — CPU veya CUDA otomatik seçilir)
-torch>=2.0.0
+requests>=2.28
+beautifulsoup4>=4.12
 
-# Web Scraping
-requests>=2.28.0
-beautifulsoup4>=4.12.0
-
-# Standart kütüphaneler (kurulum gerekmez):
-#   sqlite3, threading, importlib, subprocess, json, re, math, os, signal
+# ── İsteğe bağlı (yorumdan çıkarın) ───────────────────────────────────────────
+# pillow pyautogui pyperclip        # ekran / fare / klavye kontrolü
+# opencv-python pytesseract         # kamera ve OCR
+# SpeechRecognition pyaudio pyttsx3 # sesli giriş / çıkış
+# datasets                          # Hugging Face Wikipedia akışı (nova_launcher.py)

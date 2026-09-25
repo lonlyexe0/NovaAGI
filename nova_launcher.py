@@ -16,14 +16,8 @@ import sys, os, time, signal, logging, argparse, threading, queue
 from typing import Optional
 from datetime import datetime
 
-os.environ.setdefault("OMP_NUM_THREADS",        "12")
-os.environ.setdefault("MKL_NUM_THREADS",        "12")
-os.environ.setdefault("OPENBLAS_NUM_THREADS",   "12")
-os.environ.setdefault("VECLIB_MAXIMUM_THREADS", "12")
-os.environ.setdefault("NUMEXPR_NUM_THREADS",    "12")
-
+import ayarlar  # ayarlar.json: cihaz, CPU thread sayısı, dosya yolları
 import torch
-torch.set_num_threads(12)
 torch.set_num_interop_threads(4)
 
 
@@ -552,8 +546,7 @@ def main():
     hafiza = HafizaYoneticisi(db_yolu=args.db)
 
     print(f"{R.GRI}[2/4] Beyin (Sınırsız Büyüyen Transformer)...{R.SIFIR}")
-    from brain import BeynYoneticisi, Config
-    Config.device = "cpu"
+    from brain import BeynYoneticisi
     beyin = BeynYoneticisi(hafiza)
 
     print(f"{R.GRI}[3/4] Beden (Bilgisayar+Ses+Görüntü+Merak)...{R.SIFIR}")

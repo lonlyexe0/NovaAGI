@@ -1,0 +1,19 @@
+{
+  "_aciklama": "Nova ayarları. Değiştirip programı yeniden başlatın. Bilinmeyen/eksik anahtarlar varsayılanı kullanır.",
+
+  "cihaz": "auto",
+  "_cihaz": "auto | cpu | cuda | mps  (auto: varsa GPU, yoksa CPU)",
+
+  "cpu_thread": 0,
+  "_cpu_thread": "0 = işlemcideki tüm çekirdekler",
+
+  "batch_size": 16,
+  "ogrenme_hizi": 0.0003,
+  "max_seq_len": 256,
+  "kayit_araligi": 50,
+  "buyume_esigi": 0.003,
+
+  "agirlik_dosyasi": "nova_weights.pth",
+  "vocab_dosyasi": "nova_vocab.json",
+  "veritabani": "nova.db"
+}

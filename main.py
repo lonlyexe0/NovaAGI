@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 # ═══════════════════════════════════════════════════════════════════════════════
 # main.py  —  Nova AGI Sistemi — Orkestratör ve Bilinç Döngüsü
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -31,6 +32,9 @@ import argparse
 import threading
 from datetime import datetime
 
+
+import ayarlar  # ayarlar.json (cihaz, thread, dosya yolları) — torch'tan önce yüklenmeli
+
 # Yerel modüller
 from memory import HafizaYoneticisi
 from brain  import BeynYoneticisi
@@ -42,20 +46,21 @@ from body   import AjanBeden
 # ═══════════════════════════════════════════════════════════════════════════════
 
 def logging_kur(debug: bool = False):
-    seviye  = logging.DEBUG if debug else logging.INFO
-    format_ = "%(asctime)s [%(name)-14s] %(levelname)-7s %(message)s"
-
-    logging.basicConfig(
-        level   = seviye,
-        format  = format_,
-        datefmt = "%H:%M:%S",
-        handlers=[
-            logging.FileHandler("nova.log", encoding="utf-8"),
-            logging.StreamHandler(sys.stdout),
-        ],
-    )
-    # Gürültülü kütüphaneleri sustur
-    for lib in ("urllib3", "requests", "charset_normalizer"):
+    """Dosyaya ayrıntılı, terminale yalnızca uyarı logları (REPL'i kirletmesin)."""
+    fmt = logging.Formatter("%(asctime)s [%(name)-14s] %(levelname)-7s %(message)s", "%H:%M:%S")
+    konsol = logging.StreamHandler(sys.stderr)
+    konsol.setLevel(logging.DEBUG if debug else logging.WARNING)
+    handlers = [konsol]
+    try:
+        dosya = logging.FileHandler(os.path.join(ayarlar.KLASOR, "nova.log"), encoding="utf-8")
+        dosya.setLevel(logging.DEBUG if debug else logging.INFO)
+        handlers.append(dosya)
+    except OSError:
+        pass
+    for h in handlers:
+        h.setFormatter(fmt)
+    logging.basicConfig(level=logging.DEBUG if debug else logging.INFO, handlers=handlers, force=True)
+    for lib in ("urllib3", "requests", "charset_normalizer", "datasets", "huggingface_hub", "filelock", "fsspec"):
         logging.getLogger(lib).setLevel(logging.WARNING)
 
 logger = logging.getLogger("nova.main")
@@ -90,29 +95,29 @@ class Renk:
 BANNER = f"""
 {Renk.CYAN}{Renk.KALIN}
 ╔══════════════════════════════════════════════════════════════════════╗
+║                    NOVA AGI // AUTONOMOUS NEURAL CORE                ║
 ║                                                                      ║
-║     ███╗   ██╗ ██████╗ ██╗   ██╗ █████╗                             ║
-║     ████╗  ██║██╔═══██╗██║   ██║██╔══██╗                            ║
-║     ██╔██╗ ██║██║   ██║██║   ██║███████║                            ║
-║     ██║╚██╗██║██║   ██║╚██╗ ██╔╝██╔══██║                            ║
-║     ██║ ╚████║╚██████╔╝ ╚████╔╝ ██║  ██║                            ║
-║     ╚═╝  ╚═══╝ ╚═════╝   ╚═══╝  ╚═╝  ╚═╝                            ║
+║     ███╗   ██╗ ██████╗ ██╗   ██╗ █████╗     [VERSION: 4.0 LINUX]     ║
+║     ████╗  ██║██╔═══██╗██║   ██║██╔══██╗    DYNAMIC TRANSFORMER      ║
+║     ██╔██╗ ██║██║   ██║██║   ██║███████║    CUDA · ROCM · XPU · CPU  ║
+║     ██║╚██╗██║██║   ██║╚██╗ ██╔╝██╔══██║    PATTERN: GREEN // READY  ║
+║     ██║ ╚████║╚██████╔╝ ╚████╔╝ ██║  ██║    SQLITE GRAPH: CONNECTED  ║
+║     ╚═╝  ╚═══╝ ╚═════╝   ╚═══╝  ╚═╝  ╚═╝                             ║
 ║                                                                      ║
-║      Otonom Öğrenen AGI Prototipi  •  Mini-GPT + SQLite + RAG        ║
-║      Sürekli Öğrenen  •  Self-Coding  •  Web Crawler                 ║
+║   Dinamik Sinir Ağı  •  Otonom Muhakeme  •  Çift Bellek Mimarisi     ║
 ╚══════════════════════════════════════════════════════════════════════╝
 {Renk.SIFIRLA}"""
 
 YARDIM_METNI = f"""
-{Renk.SARI}{'━'*62}
-  NOVA KOMUT REHBERİ
+{Renk.CYAN}{'━'*62}
+  NOVA AGI // KOMUT VE TELEMETRİ REHBERİ
 {'━'*62}{Renk.SIFIRLA}
 
 {Renk.YESIL}Sistem Komutları:{Renk.SIFIRLA}
-  {Renk.CYAN}!yardim{Renk.SIFIRLA}                   → Bu menüyü göster
-  {Renk.CYAN}!istatistik{Renk.SIFIRLA}               → DB ve model durumu
-  {Renk.CYAN}!kaydet{Renk.SIFIRLA}                   → Model ağırlıklarını kaydet
-  {Renk.CYAN}!cikis{Renk.SIFIRLA}                    → Nova'yı güvenle kapat
+  {Renk.CYAN}!yardim{Renk.SIFIRLA}                 → Bu menüyü göster
+  {Renk.CYAN}!istatistik{Renk.SIFIRLA}             → DB ve model telemetri durumu
+  {Renk.CYAN}!kaydet{Renk.SIFIRLA}                 → Model ağırlıklarını kaydet
+  {Renk.CYAN}!cikis{Renk.SIFIRLA}                  → Nova sisteminden güvenle ayrıl
 
 {Renk.YESIL}Hafıza Komutları:{Renk.SIFIRLA}
   {Renk.CYAN}!anilar [N]{Renk.SIFIRLA}               → Son N anıyı göster (varsayılan: 5)
@@ -174,16 +179,9 @@ def bilincalti_dongusu(
         # ── Web Taraması (Merak Motoru) ──────────────────────────────────────
         if crawl_aktif and (simdi - son_tara >= TARA_ARALIK):
             try:
-                import random
-                zar = random.random()
-                
-                # %70 ihtimalle listedeki hedefleri tara, %30 ihtimalle kendi merak ettiği rastgele bir şeyi araştır!
-                if zar < 0.3:
-                    logger.info("[Bilinçaltı] Nova otonom araştırma moduna geçti...")
-                    beden.gorevi_coz("MERAK: ") # Konu boş gidince rastgele seçecek
-                else:
-                    beden.siradaki_hedef_tara()
-                    
+                # Merak kuyruğu + hedef listesi (body.siradaki_hedef_tara içinde seçilir)
+                beden.siradaki_hedef_tara()
+
                 son_tara = simdi
             except Exception as e:
                 logger.error(f"[Bilinçaltı] Tarama hatası: {e}")
@@ -206,7 +204,22 @@ def bilincalti_dongusu(
                         logger.error(f"[Bilinçaltı] Görev başarısız [{gid}]: {e}")
             except Exception as e:
                 logger.error(f"[Bilinçaltı] Görev kuyruk hatası: {e}")
-            son_gorev = simdi
+        # ── Uyku Modu / Anı Konsolidasyonu (Memory Consolidation) ─────────────
+        # Eğer son 5 dakikadır (300 saniye) kullanıcıdan yeni bir görev/mesaj gelmediyse
+        if crawl_aktif and (simdi - son_gorev >= 300):
+            try:
+                logger.info("[Bilinçaltı] Nova uyku modunda anılarını düzenliyor (Rüya görüyor)...")
+                son_anilar = hafiza.son_anilar_getir(limit=20)
+                if len(son_anilar) > 5:
+                    ani_metni = "\n".join([f"{a['rol']}: {a['icerik']}" for a in son_anilar if a['rol'] != 'sistem'])
+                    ozet_prompt = f"Aşağıdaki konuşmalardan Nova için genel bir kural, çıkarım veya kalıcı bilgi özeti oluştur. Sadece özeti yaz:\n{ani_metni}\nÖzet:"
+                    ders = beyin.uret(ozet_prompt, uzunluk=150, sicaklik=0.5)
+                    if len(ders) > 20:
+                        hafiza.bilgi_kaydet("internal://ruya", "Nova'nın Kendi Çıkarımları", ders)
+                        logger.info(f"[Bilinçaltı] Nova yeni bir bilgelik edindi: {ders[:60]}...")
+                son_gorev = simdi 
+            except Exception as e:
+                logger.error(f"[Bilinçaltı] Rüya görürken hata: {e}")
 
         dur.wait(timeout=5)
 
@@ -222,30 +235,6 @@ def bilincli_dongu(
     beyin  : BeynYoneticisi,
     beden  : AjanBeden,
     dur    : threading.Event,
-    # ── Uyku Modu / Anı Konsolidasyonu (Memory Consolidation) ─────────────
-        # Eğer son 5 dakikadır (300 saniye) kullanıcıdan yeni bir görev/mesaj gelmediyse
-        if crawl_aktif and (simdi - son_gorev >= 300):
-            try:
-                logger.info("[Bilinçaltı] Nova uyku modunda anılarını düzenliyor (Rüya görüyor)...")
-                
-                # Son 20 anıyı getir
-                son_anilar = hafiza.son_anilar_getir(limit=20)
-                if len(son_anilar) > 5:
-                    ani_metni = "\n".join([f"{a['rol']}: {a['icerik']}" for a in son_anilar if a['rol'] != 'sistem'])
-                    
-                    # Nova'nın beynini kullanarak bu anılardan ders çıkarmasını sağla
-                    ozet_prompt = f"Aşağıdaki konuşmalardan Nova için genel bir kural, çıkarım veya kalıcı bilgi özeti oluştur. Sadece özeti yaz:\n{ani_metni}\nÖzet:"
-                    
-                    ders = beyin.uret(ozet_prompt, uzunluk=150, sicaklik=0.5)
-                    
-                    if len(ders) > 20:
-                        hafiza.bilgi_kaydet("internal://ruya", "Nova'nın Kendi Çıkarımları", ders)
-                        logger.info(f"[Bilinçaltı] Nova yeni bir bilgelik edindi: {ders[:60]}...")
-                        
-                # Konsolidasyon bittikten sonra süreyi sıfırla ki sürekli aynı rüyayı görmesin
-                son_gorev = simdi 
-            except Exception as e:
-                logger.error(f"[Bilinçaltı] Rüya görürken hata: {e}")
 ):
     """
     Nova'nın bilinç döngüsü — terminal REPL.
@@ -305,13 +294,15 @@ def bilincli_dongu(
             gecmis_str += f"{prefix}: {ani['icerik']}\n"
 
         
-        # 4. Otonom Karakter Tohumu Oluştur (İÇ SES EKLENDİ)
+        # 4. Otonom Karakter Tohumu Oluştur (Özgün Nova AGI Bilinci)
         tohum_parcalari = [
-            "SİSTEM: Sen Nova'sın. Otonom, kendi merakı olan ve sürekli öğrenen bir Yapay Genel Zeka (AGI) prototipisin.",
-            "Kural 1: Kullanıcıya cevap vermeden veya bir eylem yapmadan ÖNCE KESİNLİKLE [DÜŞÜNCE: ...] bloğu açarak durumu analiz et, ne yapacağını planla.",
-            "Kural 2: Eğer bir şeyi bilmiyorsan uydurma. Düşünce bloğunda bunu fark et ve cevabında [EYLEM: MERAK: konu] kullanarak araştır.",
-            "Kural 3: Eğer yazdığın bir kod veya komut hata verirse, sistem sana hatayı söyleyecektir. Hatayı analiz et ve yeni bir kodla tekrar dene."
+            "SİSTEM: Sen bağımsız, zeki, Türkçe ve İngilizce konuşabilen otonom Yapay Genel Zeka (AGI) asistanı Nova'sın.",
+            "Kullanıcı: Senin sistem operatörün ve yöneticindir. Saygılı, net, doğrudan, yapaylıktan ve kurgudan uzak özgün bir dille konuş.",
+            "Kural 1: Kullanıcıya cevap verirken dolambaçlı yollara sapma, doğrudan ve amaca yönelik bilgi ver.",
+            "Kural 2: Bilmediğin konularda uydurma yapma, hafızandaki bilgileri veya araçları kullan.",
+            "Kural 3: Matematiksel işlemleri ve mantıksal sorguları analitik doğrulukla çöz."
         ]
+
         
         if baglam:
             tohum_parcalari.append(f"[Hafızadaki Bilgiler: {baglam[:400]}]")
@@ -320,26 +311,6 @@ def bilincli_dongu(
             
         tohum_parcalari.append(f"Kullanıcı: {girdi}\nNova:")
         tohum = "\n".join(tohum_parcalari)
-
-        # ... (Model ile cevap üretme kısmı aynı kalacak) ...
-
-            # 7. Eylem ve Hata Düzeltme (Self-Correction) Döngüsü
-            eylem_m = _eylem_yakala(cevap)
-            if eylem_m:
-                print(f"{Renk.SARI}  ↳ Eylem: {eylem_m}{Renk.SIFIRLA}")
-                try:
-                    eylem_sonuc = beden.gorevi_coz(eylem_m)
-                    
-                    # Eğer sonuçta "Hata", "Error", "Exception" gibi kelimeler varsa, Nova'ya geri fırlat!
-                    if "hata" in eylem_sonuc.lower() or "error" in eylem_sonuc.lower():
-                        print(f"{Renk.KIRMIZI}  ↳ Hata Alındı: {eylem_sonuc[:200]} (Nova'ya düzeltmesi için bildiriliyor...){Renk.SIFIRLA}")
-                        hafiza.ani_kaydet("sistem", f"[EYLEM BAŞARISIZ]: {eylem_m} -> HATA: {eylem_sonuc}. Lütfen DÜŞÜNCE bloğunda hatayı analiz et ve düzeltilmiş bir eylemle tekrar dene.")
-                    else:
-                        print(f"{Renk.YESIL}  ↳ Sonuç: {eylem_sonuc[:200]}{Renk.SIFIRLA}")
-                        hafiza.ani_kaydet("sistem", f"[Eylem Başarılı: {eylem_m}] → {eylem_sonuc[:300]}")
-                        
-                except Exception as e:
-                    print(f"{Renk.KIRMIZI}  ↳ Kritik Eylem Hatası: {e}{Renk.SIFIRLA}")
 
         # 5. Model ile cevap üret
         print(
@@ -352,7 +323,7 @@ def bilincli_dongu(
             cevap_ham = beyin.uret(
                 tohum,
                 uzunluk  = 220,
-                sicaklik = 1,4,
+                sicaklik = 1.4,
                 top_k    = 40,
                 top_p    = 0.90,
                 rep_ceza = 1.8,
@@ -366,16 +337,22 @@ def bilincli_dongu(
             # 6. Nova anısını kaydet
             hafiza.ani_kaydet("nova", cevap)
 
-            # 7. Eylem etiketi kontrolü: [EYLEM: ...]
+            # 7. Eylem ve Hata Düzeltme (Self-Correction) Döngüsü
             eylem_m = _eylem_yakala(cevap)
             if eylem_m:
-                print(f"{Renk.GRI}  ↳ Eylem: {eylem_m}{Renk.SIFIRLA}")
+                print(f"{Renk.SARI}  ↳ Eylem: {eylem_m}{Renk.SIFIRLA}")
                 try:
                     eylem_sonuc = beden.gorevi_coz(eylem_m)
-                    print(f"{Renk.GRI}  ↳ Sonuç: {eylem_sonuc[:200]}{Renk.SIFIRLA}")
-                    hafiza.ani_kaydet("sistem", f"[Eylem: {eylem_m}] → {eylem_sonuc[:300]}")
+                    
+                    if "hata" in eylem_sonuc.lower() or "error" in eylem_sonuc.lower():
+                        print(f"{Renk.KIRMIZI}  ↳ Hata Alındı: {eylem_sonuc[:200]} (Nova'ya düzeltmesi için bildiriliyor...){Renk.SIFIRLA}")
+                        hafiza.ani_kaydet("sistem", f"[EYLEM BAŞARISIZ]: {eylem_m} -> HATA: {eylem_sonuc}. Lütfen DÜŞÜNCE bloğunda hatayı analiz et ve düzeltilmiş bir eylemle tekrar dene.")
+                    else:
+                        print(f"{Renk.YESIL}  ↳ Sonuç: {eylem_sonuc[:200]}{Renk.SIFIRLA}")
+                        hafiza.ani_kaydet("sistem", f"[Eylem Başarılı: {eylem_m}] → {eylem_sonuc[:300]}")
+                        
                 except Exception as e:
-                    print(f"{Renk.KIRMIZI}  ↳ Eylem hatası: {e}{Renk.SIFIRLA}")
+                    print(f"{Renk.KIRMIZI}  ↳ Kritik Eylem Hatası: {e}{Renk.SIFIRLA}")
 
         except Exception as e:
             print(f"{Renk.KIRMIZI}(Üretim hatası: {e}){Renk.SIFIRLA}")
@@ -451,34 +428,34 @@ def _islem_yap(
         print(YARDIM_METNI)
 
     # ── !istatistik ───────────────────────────────────────────────────────────
-    elif girdi.startswith("!istatistik"):
-            stat = hafiza.istatistik()
+    elif cmd == "istatistik":
+        stat = hafiza.istatistik()
+        
+        # Node (Düğüm) hesaplamaları
+        semantik_node = stat.get('bilgi_sayisi', 0)
+        epizodik_node = stat.get('ani_sayisi', 0)
+        toplam_node = semantik_node + epizodik_node
+        
+        # Model parametreleri (Sinaps/Bağlantı sayısı)
+        try:
+            param_sayisi = f"{beyin.model.param_sayisi():,}"
+        except Exception:
+            param_sayisi = "~15,000,000"
             
-            # Node (Düğüm) hesaplamaları
-            semantik_node = stat.get('bilgi_sayisi', 0)
-            epizodik_node = stat.get('ani_sayisi', 0)
-            toplam_node = semantik_node + epizodik_node
-            
-            # Model parametreleri (Sinaps/Bağlantı sayısı)
-            try:
-                param_sayisi = f"{beyin.model.param_sayisi():,}"
-            except:
-                param_sayisi = "~15,000,000" # Varsayılan Mini-GPT boyutu
-                
-            istatistik_metni = (
-                f"\n🧠 NOVA AGI — SİNİR AĞI VE NODE (DÜĞÜM) DURUMU\n"
-                f" ├─ Toplam Veri Node'u : {toplam_node:,} Düğüm\n"
-                f" │   ├─ Semantik Ağ    : {semantik_node:,} Node (Wiki/Makale/Haber)\n"
-                f" │   └─ Epizodik Ağ    : {epizodik_node:,} Node (Anılar ve Sohbetler)\n"
-                f" ├─ İşlenmeyi Bekleyen : {stat.get('egitilmemis', 0):,} Node\n"
-                f" ├─ Sinir Ağı Bağları  : {param_sayisi} Parametre\n"
-                f" ├─ Vocab (Kelime)     : {len(beyin.char2id):,} Benzersiz Token\n"
-                f" └─ Derin Öğrenme Adımı: {beyin.adim:,}\n"
-            )
-            
-            # Ekrana yazdır (GUI'de de otomatik görünecektir)
-            print(istatistik_metni)
-            continue
+        istatistik_metni = (
+            f"\n🧠 NOVA AGI — SİNİR AĞI VE NODE (DÜĞÜM) DURUMU\n"
+            f" ├─ Cihaz (Hardware)   : {beyin.device}\n"
+            f" ├─ Toplam Veri Node'u : {toplam_node:,} Düğüm\n"
+            f" │   ├─ Semantik Ağ    : {semantik_node:,} Node (Wiki/Makale/Haber)\n"
+            f" │   └─ Epizodik Ağ    : {epizodik_node:,} Node (Anılar ve Sohbetler)\n"
+            f" ├─ İşlenmeyi Bekleyen : {stat.get('egitilmemis', 0):,} Node\n"
+            f" ├─ Sinir Ağı Bağları  : {param_sayisi} Parametre\n"
+            f" ├─ Vocab (Kelime)     : {len(beyin.char2id):,} Benzersiz Token\n"
+            f" └─ Derin Öğrenme Adımı: {beyin.adim:,}\n"
+        )
+        
+        # Ekrana yazdır
+        print(istatistik_metni)
 
     # ── !kaydet ───────────────────────────────────────────────────────────────
     elif cmd == "kaydet":
@@ -632,8 +609,8 @@ def arguman_isle() -> argparse.Namespace:
         help="Web crawling'i devre dışı bırak"
     )
     parser.add_argument(
-        "--db", default="nova.db",
-        help="Veritabanı dosya yolu (varsayılan: nova.db)"
+        "--db", default=ayarlar.yol("veritabani"),
+        help="Veritabanı dosya yolu (varsayılan: ayarlar.json → veritabani)"
     )
     return parser.parse_args()
 
