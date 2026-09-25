@@ -1,4 +1,4 @@
-#!python3.10
+#!/usr/bin/env python3
 # ═══════════════════════════════════════════════════════════════════════════════
 # main.py  —  Nova AGI Sistemi — Orkestratör ve Bilinç Döngüsü
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -32,14 +32,6 @@ import argparse
 import threading
 from datetime import datetime
 
-if sys.platform == "win32":
-    try:
-        if hasattr(sys.stdout, "reconfigure"):
-            sys.stdout.reconfigure(encoding="utf-8")
-        if hasattr(sys.stderr, "reconfigure"):
-            sys.stderr.reconfigure(encoding="utf-8")
-    except Exception:
-        pass
 
 # GPU / Donanım Hazırlığı
 try:
@@ -59,25 +51,22 @@ from body   import AjanBeden
 # ═══════════════════════════════════════════════════════════════════════════════
 
 def logging_kur(debug: bool = False):
+    """Dosyaya ayrıntılı, terminale yalnızca uyarı logları (REPL'i kirletmesin)."""
     from config_manager import get_data_path
-    log_file = get_data_path("nova.log")
-    seviye  = logging.DEBUG if debug else logging.INFO
-    format_ = "%(asctime)s [%(name)-14s] %(levelname)-7s %(message)s"
-    handlers = [logging.StreamHandler(sys.stdout)]
+    fmt = logging.Formatter("%(asctime)s [%(name)-14s] %(levelname)-7s %(message)s", "%H:%M:%S")
+    konsol = logging.StreamHandler(sys.stderr)
+    konsol.setLevel(logging.DEBUG if debug else logging.WARNING)
+    handlers = [konsol]
     try:
-        handlers.insert(0, logging.FileHandler(log_file, encoding="utf-8"))
-    except Exception:
+        dosya = logging.FileHandler(get_data_path("nova.log"), encoding="utf-8")
+        dosya.setLevel(logging.DEBUG if debug else logging.INFO)
+        handlers.append(dosya)
+    except OSError:
         pass
-
-    logging.basicConfig(
-        level   = seviye,
-        format  = format_,
-        datefmt = "%H:%M:%S",
-        handlers=handlers,
-        force   = True,
-    )
-    # Gürültülü kütüphaneleri sustur
-    for lib in ("urllib3", "requests", "charset_normalizer"):
+    for h in handlers:
+        h.setFormatter(fmt)
+    logging.basicConfig(level=logging.DEBUG if debug else logging.INFO, handlers=handlers, force=True)
+    for lib in ("urllib3", "requests", "charset_normalizer", "datasets", "huggingface_hub", "filelock", "fsspec"):
         logging.getLogger(lib).setLevel(logging.WARNING)
 
 logger = logging.getLogger("nova.main")
@@ -114,9 +103,9 @@ BANNER = f"""
 ╔══════════════════════════════════════════════════════════════════════╗
 ║                    NOVA AGI // AUTONOMOUS NEURAL CORE                ║
 ║                                                                      ║
-║     ███╗   ██╗ ██████╗ ██╗   ██╗ █████╗     [VERSION: 4.0.0]         ║
-║     ████╗  ██║██╔═══██╗██║   ██║██╔══██╗    TRANSFORMER: 1.39B       ║
-║     ██╔██╗ ██║██║   ██║██║   ██║███████║    DIRECTML: ACTIVE         ║
+║     ███╗   ██╗ ██████╗ ██╗   ██╗ █████╗     [VERSION: 4.0 LINUX]     ║
+║     ████╗  ██║██╔═══██╗██║   ██║██╔══██╗    DYNAMIC TRANSFORMER      ║
+║     ██╔██╗ ██║██║   ██║██║   ██║███████║    CUDA · ROCM · XPU · CPU  ║
 ║     ██║╚██╗██║██║   ██║╚██╗ ██╔╝██╔══██║    PATTERN: GREEN // READY  ║
 ║     ██║ ╚████║╚██████╔╝ ╚████╔╝ ██║  ██║    SQLITE GRAPH: CONNECTED  ║
 ║     ╚═╝  ╚═══╝ ╚═════╝   ╚═══╝  ╚═╝  ╚═╝                             ║
@@ -279,7 +268,7 @@ def bilincli_dongu(
         f"{Renk.GRI}  Sistem hazır │ "
         f"Anı: {stat['ani_sayisi']} │ "
         f"Bilgi: {stat['bilgi_sayisi']} │ "
-        f"Model: {beyin.model.param_sayisi():,} parametre │ "
+        f"Model: {beyin.raw_model.param_sayisi():,} parametre │ "
         f"Cihaz: {beyin.device}{Renk.SIFIRLA}\n"
     )
     print(f"{Renk.GRI}  '!yardim' yazarak komutları görebilirsiniz.{Renk.SIFIRLA}\n")
@@ -481,7 +470,7 @@ def _islem_yap(
         
         # Model parametreleri (Sinaps/Bağlantı sayısı)
         try:
-            param_sayisi = f"{beyin.model.param_sayisi():,}"
+            param_sayisi = f"{beyin.raw_model.param_sayisi():,}"
         except Exception:
             param_sayisi = "~15,000,000"
             
@@ -702,9 +691,9 @@ def main():
     logging_kur(debug=args.debug)
 
     # ── Dil Seçimi (İlk Açılışta Sorulur, Sonra Hatırlanır) ────────────────────
-    from config_manager import ask_language_on_first_launch, _config_yaz
+    from config_manager import ask_language_on_first_launch, set_setting
     if args.reset_lang:
-        _config_yaz({})
+        set_setting("language", None)
     aktif_dil = ask_language_on_first_launch(arg_lang=args.lang)
 
     # ── Hugging Face Girişi ───────────────────────────────────────────────────

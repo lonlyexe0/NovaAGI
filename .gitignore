@@ -66,6 +66,7 @@ logs/
 *.bak
 scratch/
 
-# ── 8. InnoSetup ve Yükleyici Çıktıları ───────────────────────────────────────
-dist_installer/
-Output/
+# ── 8. Linux paketleme çıktıları ─────────────────────────────────────────────
+nova_env/
+NovaApp/bin/
+NovaApp/obj/

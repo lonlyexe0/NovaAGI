@@ -1,474 +1,347 @@
+using System.Collections.Concurrent;
 using System.Diagnostics;
-using System.IO;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using NovaApp.Models;
 
 namespace NovaApp.Services;
 
-public class BackendService : IDisposable
+/// <summary>
+/// nova_bridge.py sürecini başlatır ve JSON Lines protokolüyle konuşur.
+/// Yazma işlemleri kilitlidir (telemetri zamanlayıcısı ve sohbet aynı anda yazabilir).
+/// </summary>
+public sealed class BackendService : IDisposable
 {
     private Process? _process;
     private StreamWriter? _writer;
-    private readonly CancellationTokenSource _cts = new();
-    private bool _isDisposed;
+    private readonly SemaphoreSlim _writeLock = new(1, 1);
+    private readonly ConcurrentDictionary<int, TaskCompletionSource<JsonElement>> _pending = new();
+    private readonly ConcurrentQueue<string> _stderrTail = new();
     private int _requestId;
+    private bool _stopping;
 
-    private readonly Dictionary<int, TaskCompletionSource<JsonElement>> _pendingRequests = new();
-    private readonly object _lock = new();
-
+    public event Action<string, string>? ReadyReceived;                   // version, device
     public event Action<TelemetryPacket>? TelemetryReceived;
-    public event Action<string, string, string>? MessageReceived;
-    public event Action<string, string, bool, string>? ChunkReceived;
-    public event Action<string>? ReadyReceived;
+    public event Action<int, string, bool, string, string?>? ChunkReceived; // id, chunk, done, reply, action
     public event Action<string>? ErrorReceived;
     public event Action<bool>? ConnectionStateChanged;
 
-    public bool IsRunning => _process != null && !_process.HasExited;
+    public bool IsRunning => _process is { HasExited: false };
 
-    public static string ResolvePythonPath(string? preference = null)
+    /// <summary>Hata mesajlarının dili (arayüz dili değişince güncellenir).</summary>
+    public bool English { get; set; }
+
+    private string L(string tr, string en) => English ? en : tr;
+
+    public static string AppRoot
     {
-        if (!string.IsNullOrEmpty(preference) && File.Exists(preference))
-            return preference;
-
-        var localApp = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-        var p310 = Path.Combine(localApp, @"Programs\Python\Python310\python.exe");
-        if (File.Exists(p310)) return p310;
-
-        var p311 = Path.Combine(localApp, @"Programs\Python\Python311\python.exe");
-        if (File.Exists(p311)) return p311;
-
-        var p312 = Path.Combine(localApp, @"Programs\Python\Python312\python.exe");
-        if (File.Exists(p312)) return p312;
-
-        return "python";
-    }
-
-    public static string ResolveBridgePath()
-    {
-        var dir = new DirectoryInfo(AppContext.BaseDirectory);
-        while (dir != null)
+        get
         {
-            var target = Path.Combine(dir.FullName, "nova_bridge.py");
-            if (File.Exists(target)) return Path.GetFullPath(target);
-            dir = dir.Parent;
+            var env = Environment.GetEnvironmentVariable("NOVA_HOME");
+            if (!string.IsNullOrEmpty(env) && File.Exists(Path.Combine(env, "nova_bridge.py")))
+                return env;
+            for (var dir = new DirectoryInfo(AppContext.BaseDirectory); dir != null; dir = dir.Parent)
+                if (File.Exists(Path.Combine(dir.FullName, "nova_bridge.py")))
+                    return dir.FullName;
+            return Directory.GetCurrentDirectory();
         }
-
-        if (File.Exists(@"c:\NOVA\nova_bridge.py"))
-            return @"c:\NOVA\nova_bridge.py";
-
-        return Path.GetFullPath("nova_bridge.py");
     }
 
-    public async Task<bool> StartAsync(string? pythonExe = null)
+    public static string ResolvePython(string root)
+    {
+        var env = Environment.GetEnvironmentVariable("NOVA_PYTHON");
+        if (!string.IsNullOrEmpty(env) && File.Exists(env)) return env;
+        foreach (var venv in new[] { ".venv", "venv", "nova_env" })
+        {
+            var py = Path.Combine(root, venv, "bin", "python");
+            if (File.Exists(py)) return py;
+        }
+        return "python3";
+    }
+
+    public async Task<bool> StartAsync()
     {
         try
         {
-            var resolvedPython = ResolvePythonPath(pythonExe);
-            var bridgePath = ResolveBridgePath();
-            var workingDir = Path.GetDirectoryName(bridgePath) ?? Directory.GetCurrentDirectory();
-
-            var startInfo = new ProcessStartInfo
+            var root = AppRoot;
+            var psi = new ProcessStartInfo
             {
-                FileName = resolvedPython,
-                Arguments = $"\"{bridgePath}\"",
-                WorkingDirectory = workingDir,
+                FileName = ResolvePython(root),
+                WorkingDirectory = root,
                 RedirectStandardInput = true,
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
                 UseShellExecute = false,
                 CreateNoWindow = true,
                 StandardOutputEncoding = Encoding.UTF8,
-                StandardErrorEncoding = Encoding.UTF8
+                StandardErrorEncoding = Encoding.UTF8,
             };
+            psi.ArgumentList.Add("-u");
+            psi.ArgumentList.Add(Path.Combine(root, "nova_bridge.py"));
+            psi.Environment["PYTHONIOENCODING"] = "utf-8";
+            psi.Environment["PYTHONUNBUFFERED"] = "1";
 
-            _process = new Process { StartInfo = startInfo, EnableRaisingEvents = true };
-            _process.Exited += (s, e) =>
+            _stopping = false;
+            _process = new Process { StartInfo = psi, EnableRaisingEvents = true };
+            _process.Exited += (_, _) =>
             {
                 ConnectionStateChanged?.Invoke(false);
+                if (!_stopping)
+                    ErrorReceived?.Invoke(L("Nova motoru beklenmedik şekilde kapandı:", "The Nova engine stopped unexpectedly:") +
+                                          "\n" + string.Join("\n", _stderrTail.TakeLast(8)));
+                foreach (var tcs in _pending.Values) tcs.TrySetCanceled();
+                _pending.Clear();
             };
-
-
             _process.Start();
-            _writer = new StreamWriter(_process.StandardInput.BaseStream, new UTF8Encoding(false))
-            {
-                AutoFlush = true
-            };
+            _writer = new StreamWriter(_process.StandardInput.BaseStream, new UTF8Encoding(false)) { AutoFlush = true };
 
-            // Read output loop
-            _ = Task.Run(() => ReadOutputLoopAsync(_process.StandardOutput), _cts.Token);
-            _ = Task.Run(() => ReadErrorLoopAsync(_process.StandardError), _cts.Token);
-
+            _ = Task.Run(() => ReadStdoutAsync(_process.StandardOutput));
+            _ = Task.Run(() => ReadStderrAsync(_process.StandardError));
             ConnectionStateChanged?.Invoke(true);
-
-            // Send initial ping
-            await SendRawRequestAsync(new { action = "ping" });
+            await Task.CompletedTask;
             return true;
         }
         catch (Exception ex)
         {
-            ErrorReceived?.Invoke($"Backend başlatılamadı: {ex.Message}");
+            ErrorReceived?.Invoke(L($"Nova motoru başlatılamadı: {ex.Message}\nPython ortamını kurmak için: ./install.sh",
+                                    $"Could not start the Nova engine: {ex.Message}\nSet up the Python environment with: ./install.sh"));
             ConnectionStateChanged?.Invoke(false);
             return false;
         }
     }
 
-    private async Task ReadOutputLoopAsync(StreamReader reader)
+    private async Task ReadStdoutAsync(StreamReader reader)
     {
-        while (!_cts.IsCancellationRequested && _process != null && !_process.HasExited)
+        try
         {
-            try
+            while (await reader.ReadLineAsync() is { } line)
             {
-                var line = await reader.ReadLineAsync(_cts.Token);
-                if (line == null) break;
-                line = line.Trim();
-                if (string.IsNullOrEmpty(line)) continue;
-                if (!line.StartsWith("{") || !line.EndsWith("}")) continue;
-
-                ProcessIncomingJson(line);
-            }
-            catch (OperationCanceledException)
-            {
-                break;
-            }
-            catch (Exception ex)
-            {
-                ErrorReceived?.Invoke($"Read loop error: {ex.Message}");
+                if (line.Length > 1 && line[0] == '{')
+                    Dispatch(line);
             }
         }
+        catch (Exception ex) when (ex is IOException or ObjectDisposedException) { }
     }
 
-    private async Task ReadErrorLoopAsync(StreamReader reader)
+    private async Task ReadStderrAsync(StreamReader reader)
     {
-        while (!_cts.IsCancellationRequested && _process != null && !_process.HasExited)
+        try
         {
-            try
+            while (await reader.ReadLineAsync() is { } line)
             {
-                var line = await reader.ReadLineAsync(_cts.Token);
-                if (line == null) break;
-                if (!string.IsNullOrWhiteSpace(line))
-                {
-                    // Debug or warning from python
-                    Debug.WriteLine($"[Python Error/Log] {line}");
-                }
-            }
-            catch
-            {
-                break;
+                Debug.WriteLine($"[nova] {line}");
+                _stderrTail.Enqueue(line);
+                while (_stderrTail.Count > 60) _stderrTail.TryDequeue(out _);
             }
         }
+        catch (Exception ex) when (ex is IOException or ObjectDisposedException) { }
     }
 
-    private void ProcessIncomingJson(string json)
+    private void Dispatch(string json)
     {
         try
         {
             using var doc = JsonDocument.Parse(json);
             var root = doc.RootElement;
+            var type = root.TryGetProperty("type", out var t) ? t.GetString() : null;
 
             if (root.TryGetProperty("id", out var idProp) && idProp.ValueKind == JsonValueKind.Number)
             {
                 var id = idProp.GetInt32();
-                lock (_lock)
+                if (type == "chat_chunk")
                 {
-                    if (_pendingRequests.TryGetValue(id, out var tcs))
-                    {
-                        tcs.TrySetResult(root.Clone());
-                        _pendingRequests.Remove(id);
-                    }
+                    ChunkReceived?.Invoke(id,
+                        Str(root, "chunk"),
+                        root.TryGetProperty("done", out var d) && d.ValueKind == JsonValueKind.True,
+                        Str(root, "reply"),
+                        root.TryGetProperty("action", out var a) && a.ValueKind == JsonValueKind.String ? a.GetString() : null);
+                    return;
                 }
+                if (_pending.TryRemove(id, out var tcs))
+                    tcs.TrySetResult(root.Clone());
             }
-
-            if (!root.TryGetProperty("type", out var typeProp)) return;
-            var type = typeProp.GetString();
 
             switch (type)
             {
                 case "ready":
-                    var ver = root.TryGetProperty("version", out var v) ? v.GetString() : "3.5";
-                    ReadyReceived?.Invoke(ver ?? "3.5");
+                    ReadyReceived?.Invoke(Str(root, "version"), Str(root, "device"));
                     break;
-
                 case "telemetry":
-                    var packet = JsonSerializer.Deserialize<TelemetryPacket>(json);
-                    if (packet != null)
-                    {
+                    if (JsonSerializer.Deserialize<TelemetryPacket>(json) is { } packet)
                         TelemetryReceived?.Invoke(packet);
-                    }
                     break;
-
-                case "chat_chunk":
-                    var chunk = root.TryGetProperty("chunk", out var chProp) ? chProp.GetString() ?? "" : "";
-                    var cRole = root.TryGetProperty("role", out var crProp) ? crProp.GetString() ?? "nova" : "nova";
-                    var isDone = root.TryGetProperty("done", out var dProp) && dProp.GetBoolean();
-                    var finalRep = root.TryGetProperty("reply", out var frProp) ? frProp.GetString() ?? "" : "";
-                    ChunkReceived?.Invoke(cRole, chunk, isDone, finalRep);
-                    break;
-
-                case "chat_reply":
-                    var reply = root.TryGetProperty("reply", out var r) ? r.GetString() ?? "" : "";
-                    var role = root.TryGetProperty("role", out var ro) ? ro.GetString() ?? "nova" : "nova";
-                    var action = root.TryGetProperty("action", out var ac) ? ac.GetString() ?? "" : "";
-                    MessageReceived?.Invoke(role, reply, action);
-                    break;
-
-                case "command_reply":
-                    var cmdReply = root.TryGetProperty("reply", out var cr) ? cr.GetString() ?? "" : "";
-                    MessageReceived?.Invoke("system", cmdReply, "");
-                    break;
-
                 case "error":
-                    var errMsg = root.TryGetProperty("message", out var m) ? m.GetString() ?? "Bilinmeyen hata" : "Hata";
-                    ErrorReceived?.Invoke(errMsg);
+                    ErrorReceived?.Invoke(Str(root, "message"));
                     break;
             }
         }
-        catch (Exception ex)
+        catch (JsonException ex)
         {
-            Debug.WriteLine($"JSON parse exception: {ex.Message} -> {json}");
+            Debug.WriteLine($"JSON hatası: {ex.Message}");
         }
     }
 
-    public async Task<JsonElement?> SendRawRequestAsync(object payload, int timeoutMs = 8000)
+    private static string Str(JsonElement e, string name) =>
+        e.TryGetProperty(name, out var p) && p.ValueKind == JsonValueKind.String ? p.GetString() ?? "" : "";
+
+    private async Task<int> WriteAsync(JsonObject payload)
     {
-        if (_writer == null || _process == null || _process.HasExited)
-            return null;
+        var id = Interlocked.Increment(ref _requestId);
+        payload["id"] = id;
+        if (_writer == null || !IsRunning) return -1;
+        await _writeLock.WaitAsync();
+        try { await _writer.WriteLineAsync(payload.ToJsonString()); }
+        catch (IOException) { return -1; }
+        finally { _writeLock.Release(); }
+        return id;
+    }
 
-        int id = Interlocked.Increment(ref _requestId);
-        var tcs = new TaskCompletionSource<JsonElement>();
-
-        lock (_lock)
-        {
-            _pendingRequests[id] = tcs;
-        }
-
+    /// <summary>İstek gönderir ve aynı id'li ilk yanıtı bekler.</summary>
+    public async Task<JsonElement?> RequestAsync(JsonObject payload, int timeoutMs = 10000)
+    {
+        if (!IsRunning) return null;
+        var id = Interlocked.Increment(ref _requestId);
+        var tcs = new TaskCompletionSource<JsonElement>(TaskCreationOptions.RunContinuationsAsynchronously);
+        _pending[id] = tcs;
+        payload["id"] = id;
         try
         {
-            var dict = JsonSerializer.Deserialize<Dictionary<string, object>>(JsonSerializer.Serialize(payload)) ?? new();
-            dict["id"] = id;
-
-            var jsonLine = JsonSerializer.Serialize(dict);
-            await _writer.WriteLineAsync(jsonLine);
-
-            using var ctsTimeout = new CancellationTokenSource(timeoutMs);
-            ctsTimeout.Token.Register(() => tcs.TrySetCanceled());
-
-            return await tcs.Task;
+            await _writeLock.WaitAsync();
+            try { await _writer!.WriteLineAsync(payload.ToJsonString()); }
+            finally { _writeLock.Release(); }
+            return await tcs.Task.WaitAsync(TimeSpan.FromMilliseconds(timeoutMs));
         }
-        catch
-        {
-            lock (_lock)
-            {
-                _pendingRequests.Remove(id);
-            }
-            return null;
-        }
+        catch (Exception) { return null; }
+        finally { _pending.TryRemove(id, out _); }
     }
 
-    public async Task SendMessageAsync(string prompt)
-    {
-        if (_writer == null) return;
-        var json = JsonSerializer.Serialize(new { action = "chat", prompt });
-        await _writer.WriteLineAsync(json);
-    }
+    private static JsonObject Act(string action) => new() { ["action"] = action };
 
-    public async Task SendCommandAsync(string command)
-    {
-        if (_writer == null) return;
-        var json = JsonSerializer.Serialize(new { action = "command", command });
-        await _writer.WriteLineAsync(json);
-    }
+    // ── Kısayollar ───────────────────────────────────────────────────────────
+    public Task<int> SendChatAsync(string prompt) => WriteAsync(new JsonObject { ["action"] = "chat", ["prompt"] = prompt });
+    public Task<int> RequestTelemetryAsync() => WriteAsync(Act("telemetry"));
 
-    public async Task RequestTelemetryAsync()
+    public async Task<string> CommandAsync(string command, int timeoutMs = 30000)
     {
-        if (_writer == null) return;
-        var json = JsonSerializer.Serialize(new { action = "telemetry" });
-        await _writer.WriteLineAsync(json);
+        var res = await RequestAsync(new JsonObject { ["action"] = "command", ["command"] = command }, timeoutMs);
+        return res is { } r ? Str(r, "reply") : "";
     }
 
     public async Task<List<ChatMessage>> GetHistoryAsync(int limit = 40)
     {
-        var res = await SendRawRequestAsync(new { action = "get_history", limit }, timeoutMs: 8000);
         var list = new List<ChatMessage>();
-        if (res.HasValue && res.Value.TryGetProperty("messages", out var mProp) && mProp.ValueKind == JsonValueKind.Array)
+        var res = await RequestAsync(new JsonObject { ["action"] = "get_history", ["limit"] = limit });
+        if (res is { } r && r.TryGetProperty("messages", out var arr) && arr.ValueKind == JsonValueKind.Array)
         {
-            foreach (var item in mProp.EnumerateArray())
+            foreach (var m in arr.EnumerateArray())
             {
-                var role = item.TryGetProperty("rol", out var r) ? r.GetString() ?? "nova" : "nova";
-                var content = item.TryGetProperty("icerik", out var c) ? c.GetString() ?? "" : "";
-                var zaman = item.TryGetProperty("zaman", out var z) ? z.GetString() ?? "" : "";
-
-                bool isUser = role.Equals("kullanici", StringComparison.OrdinalIgnoreCase) || role.Equals("user", StringComparison.OrdinalIgnoreCase);
-                bool isNova = role.Equals("nova", StringComparison.OrdinalIgnoreCase);
-                bool isSystem = role.Equals("sistem", StringComparison.OrdinalIgnoreCase) || role.Equals("system", StringComparison.OrdinalIgnoreCase);
-
+                var zaman = Str(m, "zaman");
                 list.Add(new ChatMessage
                 {
-                    Role = role,
-                    Text = content,
-                    Timestamp = zaman
+                    Role = Str(m, "rol") switch { "kullanici" => "user", "nova" => "nova", _ => "system" },
+                    Text = Str(m, "icerik"),
+                    Timestamp = zaman.Length >= 16 ? zaman[11..16] : zaman,
                 });
             }
         }
         return list;
     }
 
-    public async Task ReadHistoryAsync(int count = 3)
+    public Task SpeakAsync(string text) => RequestAsync(new JsonObject { ["action"] = "speak", ["text"] = text });
+    public Task StopSpeakingAsync() => RequestAsync(Act("stop_speaking"));
+    public Task ReadHistoryAsync(int count = 3) => RequestAsync(new JsonObject { ["action"] = "read_history", ["count"] = count });
+
+    public async Task<string> ListenAsync(int timeout = 7)
     {
-        await SendRawRequestAsync(new { action = "read_history", count });
+        var res = await RequestAsync(new JsonObject { ["action"] = "listen", ["timeout"] = timeout }, (timeout + 20) * 1000);
+        return res is { } r ? Str(r, "text") : "";
     }
 
-    public async Task SpeakAsync(string text)
+    public async Task<string> ObserveScreenAsync(string prompt, bool speak)
     {
-        if (string.IsNullOrWhiteSpace(text)) return;
-        await SendRawRequestAsync(new { action = "speak", text });
+        var res = await RequestAsync(new JsonObject { ["action"] = "observe_screen", ["prompt"] = prompt, ["speak"] = speak }, 60000);
+        return res is { } r ? Str(r, "text") : "";
     }
 
-    public async Task<string> ListenAsync(int timeout = 6, string? language = null)
+    public async Task<(NovaSettings Settings, string WebToken)> GetSettingsAsync()
     {
-        var res = await SendRawRequestAsync(new { action = "listen", timeout, language }, timeoutMs: (timeout + 6) * 1000);
-        if (res.HasValue && res.Value.TryGetProperty("text", out var tProp))
-        {
-            return tProp.GetString() ?? "";
-        }
-        return string.Empty;
+        var res = await RequestAsync(Act("get_settings"));
+        if (res is { } r && r.TryGetProperty("settings", out var s))
+            return (JsonSerializer.Deserialize<NovaSettings>(s.GetRawText()) ?? new(), Str(r, "web_token"));
+        return (new NovaSettings(), "");
     }
 
-    public async Task<string> ObserveScreenAsync(string prompt = "", bool speak = true)
+    public async Task<bool> SaveSettingsAsync(NovaSettings settings)
     {
-        var res = await SendRawRequestAsync(new { action = "observe_screen", prompt, speak }, timeoutMs: 15000);
-        if (res.HasValue && res.Value.TryGetProperty("text", out var tProp))
-        {
-            return tProp.GetString() ?? "";
-        }
-        return string.Empty;
+        var node = JsonSerializer.SerializeToNode(settings);
+        var res = await RequestAsync(new JsonObject { ["action"] = "save_settings", ["settings"] = node });
+        return res is { } r && r.TryGetProperty("restart_required", out var rr) && rr.ValueKind == JsonValueKind.True;
     }
 
-    public async Task<NovaSettings> GetSettingsAsync()
+    public async Task<bool> SetTrainingAsync(bool active) =>
+        await RequestAsync(Act(active ? "resume_training" : "pause_training")) != null;
+
+    public async Task<string> GrowAsync()
     {
-        var res = await SendRawRequestAsync(new { action = "get_settings" });
-        if (res.HasValue && res.Value.TryGetProperty("settings", out var sProp))
-        {
-            return JsonSerializer.Deserialize<NovaSettings>(sProp.GetRawText()) ?? new();
-        }
-        return new NovaSettings();
+        var res = await RequestAsync(Act("grow_brain"), 60000);
+        return res is { } r ? Str(r, "message") : "";
     }
 
-    public async Task SaveSettingsAsync(NovaSettings settings)
-    {
-        await SendRawRequestAsync(new { action = "save_settings", settings });
-    }
+    public Task SaveCheckpointAsync() => RequestAsync(Act("save_checkpoint"), 60000);
 
-    public async Task<bool> PauseTrainingAsync()
+    public async Task<MemoryGraphData> GetMemoryGraphAsync(int limitAni, int limitBilgi)
     {
-        var res = await SendRawRequestAsync(new { action = "pause_training" });
-        return res.HasValue;
-    }
-
-    public async Task<bool> ResumeTrainingAsync()
-    {
-        var res = await SendRawRequestAsync(new { action = "resume_training" });
-        return res.HasValue;
-    }
-
-    public async Task TriggerGrowthAsync()
-    {
-        await SendRawRequestAsync(new { action = "grow_brain" });
-    }
-
-    public async Task SaveCheckpointAsync()
-    {
-        await SendRawRequestAsync(new { action = "save_checkpoint" });
-    }
-
-    public async Task<MemoryGraphData> GetMemoryGraphAsync(int limitAni = 100, int limitBilgi = 250)
-    {
-        var res = await SendRawRequestAsync(new { action = "graph", limit_ani = limitAni, limit_bilgi = limitBilgi }, timeoutMs: 6000);
-        if (res.HasValue && res.Value.TryGetProperty("data", out var dProp))
-        {
-            return JsonSerializer.Deserialize<MemoryGraphData>(dProp.GetRawText()) ?? new();
-        }
+        var res = await RequestAsync(new JsonObject { ["action"] = "graph", ["limit_ani"] = limitAni, ["limit_bilgi"] = limitBilgi }, 15000);
+        if (res is { } r && r.TryGetProperty("data", out var d))
+            return JsonSerializer.Deserialize<MemoryGraphData>(d.GetRawText()) ?? new();
         return new MemoryGraphData();
     }
 
-    public async Task<(bool Success, string Message)> FetchWikiTopicAsync(string topic, string? lang = null)
+    public async Task<(bool Ok, string Message)> FetchWikiTopicAsync(string topic)
     {
-        var res = await SendRawRequestAsync(new { action = "fetch_wiki_topic", topic, lang }, timeoutMs: 12000);
-        if (res.HasValue)
-        {
-            var status = res.Value.TryGetProperty("status", out var sProp) ? sProp.GetString() : "error";
-            if (status == "ok")
-            {
-                var summary = res.Value.TryGetProperty("summary", out var smProp) ? smProp.GetString() ?? "" : "";
-                return (true, summary);
-            }
-            var msg = res.Value.TryGetProperty("message", out var mProp) ? mProp.GetString() ?? "Bulunamadı" : "Hata";
-            return (false, msg);
-        }
-        return (false, "Sunucudan yanıt alınamadı.");
+        var res = await RequestAsync(new JsonObject { ["action"] = "fetch_wiki_topic", ["topic"] = topic }, 20000);
+        if (res is not { } r) return (false, L("Motor yanıt vermedi.", "The engine did not respond."));
+        return Str(r, "status") == "ok" ? (true, Str(r, "summary")) : (false, Str(r, "message"));
     }
 
-    public async Task<bool> BulkWikiIngestAsync(int limit = 500, string? lang = null)
+    public async Task<bool> BulkWikiIngestAsync(int limit, string lang)
     {
-        var res = await SendRawRequestAsync(new { action = "bulk_wiki_ingest", limit, lang }, timeoutMs: 8000);
-        if (res.HasValue && res.Value.TryGetProperty("status", out var sProp))
-        {
-            return sProp.GetString() == "started";
-        }
-        return false;
+        var res = await RequestAsync(new JsonObject { ["action"] = "bulk_wiki_ingest", ["limit"] = limit, ["lang"] = lang });
+        return res is { } r && Str(r, "status") == "started";
     }
 
-    public async Task<string> ExportOnnxAsync()
+    public async Task<string> ExportAsync(bool onnx)
     {
-        var res = await SendRawRequestAsync(new { action = "export_onnx" }, timeoutMs: 15000);
-        if (res.HasValue && res.Value.TryGetProperty("path", out var pProp))
-        {
-            return pProp.GetString() ?? "nova_model.onnx";
-        }
-        return string.Empty;
+        var res = await RequestAsync(Act(onnx ? "export_onnx" : "export_package"), 180000);
+        return res is { } r ? Str(r, "path") : "";
     }
-
-    public async Task<string> ExportPackageAsync()
-    {
-        var res = await SendRawRequestAsync(new { action = "export_package" }, timeoutMs: 15000);
-        if (res.HasValue && res.Value.TryGetProperty("path", out var pProp))
-        {
-            return pProp.GetString() ?? "nova_model_paketi.zip";
-        }
-        return string.Empty;
-    }
-
 
     public void Stop()
-
     {
+        _stopping = true;
         try
         {
-            _cts.Cancel();
-            if (_writer != null)
+            if (IsRunning)
             {
-                try { _writer.WriteLine(JsonSerializer.Serialize(new { action = "exit" })); } catch { }
-            }
-            if (_process != null && !_process.HasExited)
-            {
-                _process.WaitForExit(1000);
-                if (!_process.HasExited) _process.Kill();
+                // stdin kapanınca motor ağırlıkları kaydedip kendiliğinden çıkar
+                try { _writer?.Close(); } catch (IOException) { }
+                if (!_process!.WaitForExit(8000))
+                    _process.Kill(entireProcessTree: true);
             }
         }
-        catch { }
+        catch (InvalidOperationException) { }
         finally
         {
+            _process?.Dispose();
             _process = null;
             _writer = null;
-            ConnectionStateChanged?.Invoke(false);
         }
     }
 
     public void Dispose()
     {
-        if (_isDisposed) return;
-        _isDisposed = true;
         Stop();
-        _cts.Dispose();
+        _writeLock.Dispose();
     }
 }

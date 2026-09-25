@@ -10,17 +10,21 @@
 # ═══════════════════════════════════════════════════════════════════════════════
 
 import os
+import ast
 import math
 import json
-import datetime
-import platform
-import hashlib
-import random
 import string
+import random
+import hashlib
+import datetime
+import operator
+import platform
+import builtins
+import functools
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# TEMEL YETENEKLERs
+# TEMEL YETENEKLER
 # ══════════════════════════════════════════════════════════════════════════════
 
 def merhaba() -> str:
@@ -46,18 +50,32 @@ def nova_hakkinda() -> str:
 # ZAMAN VE TARİH
 # ══════════════════════════════════════════════════════════════════════════════
 
+_AYLAR_TR = ("Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran",
+             "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık")
+_AYLAR_EN = ("January", "February", "March", "April", "May", "June",
+             "July", "August", "September", "October", "November", "December")
+
+
+def _dil() -> str:
+    try:
+        from config_manager import get_language
+        return get_language() or "tr"
+    except Exception:
+        return "tr"
+
+
 def tarih_saat() -> str:
-    """Güncel tarih ve saati döndür."""
-    simdi = datetime.datetime.now()
-    return simdi.strftime("%d %B %Y, %H:%M:%S")
+    """Güncel tarih ve saati (sistem yerelinden bağımsız) döndür."""
+    s = datetime.datetime.now()
+    ay = (_AYLAR_EN if _dil() == "en" else _AYLAR_TR)[s.month - 1]
+    return f"{s.day} {ay} {s.year}, {s:%H:%M:%S}"
 
 
 def bugun_gun() -> str:
-    """Bugünün gününü Türkçe olarak döndür."""
-    gunler = {
-        0: "Pazartesi", 1: "Salı",     2: "Çarşamba",
-        3: "Perşembe",  4: "Cuma",     5: "Cumartesi",  6: "Pazar"
-    }
+    """Bugünün adı (ayarlı dilde)."""
+    gunler = (("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday")
+              if _dil() == "en" else
+              ("Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cumartesi", "Pazar"))
     return gunler[datetime.datetime.now().weekday()]
 
 
@@ -70,23 +88,54 @@ def unix_zamani() -> int:
 # MATEMATİK VE HESAPLAMA
 # ══════════════════════════════════════════════════════════════════════════════
 
+_MATH_ADLAR = {k: getattr(math, k) for k in dir(math) if not k.startswith("_")}
+_MATH_ADLAR.update({"abs": abs, "round": round, "int": int, "float": float,
+                    "min": min, "max": max, "sum": sum})
+_OPERATORLER = {
+    ast.Add: operator.add, ast.Sub: operator.sub, ast.Mult: operator.mul,
+    ast.Div: operator.truediv, ast.FloorDiv: operator.floordiv, ast.Mod: operator.mod,
+    ast.Pow: operator.pow, ast.USub: operator.neg, ast.UAdd: operator.pos,
+}
+
+
+def _degerlendir(dugum):
+    """Yalnızca sayılar, aritmetik ve math fonksiyonlarına izin veren AST değerlendirici."""
+    if isinstance(dugum, ast.Expression):
+        return _degerlendir(dugum.body)
+    if isinstance(dugum, ast.Constant) and isinstance(dugum.value, (int, float)):
+        return dugum.value
+    if isinstance(dugum, ast.Name) and dugum.id in _MATH_ADLAR:
+        return _MATH_ADLAR[dugum.id]
+    if isinstance(dugum, (ast.Tuple, ast.List)):
+        return [_degerlendir(e) for e in dugum.elts]
+    if isinstance(dugum, ast.UnaryOp) and type(dugum.op) in _OPERATORLER:
+        return _OPERATORLER[type(dugum.op)](_degerlendir(dugum.operand))
+    if isinstance(dugum, ast.BinOp) and type(dugum.op) in _OPERATORLER:
+        sol, sag = _degerlendir(dugum.left), _degerlendir(dugum.right)
+        if isinstance(dugum.op, ast.Pow) and abs(sag) > 1000:
+            raise ValueError("Üs çok büyük")
+        return _OPERATORLER[type(dugum.op)](sol, sag)
+    if isinstance(dugum, ast.Call) and isinstance(dugum.func, ast.Name) and dugum.func.id in _MATH_ADLAR:
+        return _MATH_ADLAR[dugum.func.id](*[_degerlendir(a) for a in dugum.args])
+    raise ValueError(f"İzin verilmeyen ifade: {type(dugum).__name__}")
+
+
 def hesapla(ifade: str) -> str:
     """
-    Güvenli matematiksel ifade hesaplar.
+    Güvenli matematiksel ifade hesaplar (eval kullanmaz).
     Örnek: hesapla("2 ** 10 + sqrt(144)")
     """
-    izin_verilenler = {
-        k: getattr(math, k) for k in dir(math) if not k.startswith("_")
-    }
-    izin_verilenler.update({
-        "abs": abs, "round": round, "int": int,
-        "float": float, "min": min, "max": max, "sum": sum,
-    })
     try:
-        sonuc = eval(ifade, {"__builtins__": {}}, izin_verilenler)
+        sonuc = _degerlendir(ast.parse(ifade.replace("^", "**"), mode="eval"))
         return str(round(sonuc, 10) if isinstance(sonuc, float) else sonuc)
     except Exception as e:
         return f"Hesaplama hatası: {e}"
+
+
+def basarili_mi(sonuc: str) -> bool:
+    """Bir yetenek çıktısının hata mesajı olmadığını ve yeterince içerik taşıdığını kontrol eder."""
+    s = (sonuc or "").lower()
+    return bool(s) and not any(k in s for k in ("hata", "error", "bulunamadı")) and len(s) > 1
 
 
 def faktoriyel(n: int) -> str:
@@ -276,40 +325,44 @@ def json_degerle(json_str: str, anahtar: str) -> str:
 # İNTERNET, WIKIPEDIA VE BİLGİ ARAMA
 # ══════════════════════════════════════════════════════════════════════════════
 
+_UA = {"User-Agent": "NovaAGI/4.0 (Linux; research assistant)"}
+
+
+@functools.lru_cache(maxsize=256)
 def wiki_ara(konu: str, lang: str = "tr") -> str:
-    """Wikipedia'dan belirli bir konu hakkında özet bilgi çeker."""
+    """Wikipedia'dan konu özeti çeker (sonuçlar önbelleklenir)."""
     import urllib.request
     import urllib.parse
     try:
         encoded = urllib.parse.quote(konu.strip().replace(" ", "_"))
         url = f"https://{lang}.wikipedia.org/api/rest_v1/page/summary/{encoded}"
-        req = urllib.request.Request(url, headers={"User-Agent": "NovaAGI/3.5 (AI Research Assistant)"})
-        with urllib.request.urlopen(req, timeout=5) as resp:
+        req = urllib.request.Request(url, headers=_UA)
+        with urllib.request.urlopen(req, timeout=6) as resp:
             data = json.loads(resp.read().decode("utf-8"))
-            baslik = data.get("title", konu)
-            ozet = data.get("extract", "Özet bulunamadı.")
-            return f"📖 **{baslik}**:\n{ozet}"
+        ozet = data.get("extract")
+        if not ozet:
+            raise ValueError("özet yok")
+        return f"📖 **{data.get('title', konu)}**:\n{ozet}"
     except Exception as e:
-        # Fallback to English if Turkish fails
         if lang == "tr":
             return wiki_ara(konu, lang="en")
         return f"Wikipedia arama hatası: {e}"
 
 
-def web_ara(sorgu: str) -> str:
-    """Web üzerinde anlık bilgi araması yapar (Wikipedia & DDG)."""
+def web_ara(sorgu: str, lang: str = "tr") -> str:
+    """Web üzerinde anlık bilgi araması yapar (Wikipedia & DuckDuckGo)."""
     import urllib.request
     import urllib.parse
     try:
         # 1. Önce doğrudan Wikipedia'da ara
-        wiki_res = wiki_ara(sorgu, lang="tr")
-        if "hata" not in wiki_res.lower() and len(wiki_res) > 30:
+        wiki_res = wiki_ara(sorgu, lang=lang)
+        if basarili_mi(wiki_res) and len(wiki_res) > 30:
             return wiki_res
 
         # 2. DuckDuckGo Instant Answer API
         encoded = urllib.parse.quote(sorgu)
         url = f"https://api.duckduckgo.com/?q={encoded}&format=json&no_html=1&skip_disambig=1"
-        req = urllib.request.Request(url, headers={"User-Agent": "NovaAGI/3.5"})
+        req = urllib.request.Request(url, headers=_UA)
         with urllib.request.urlopen(req, timeout=5) as resp:
             data = json.loads(resp.read().decode("utf-8"))
             answer = data.get("AbstractText") or data.get("Answer")
@@ -329,10 +382,12 @@ def dosya_oku(dosya_yolu: str, max_karakter: int = 4000) -> str:
     """Yerel bir metin, python veya veri dosyasını güvenle okur."""
     try:
         # Güvenlik kontrolü: sadece belirli uzantılara izin ver
-        gecerli_uzantilar = (".txt", ".py", ".md", ".json", ".csv", ".log", ".xaml", ".cs", ".iss", ".bat")
+        gecerli_uzantilar = (".txt", ".py", ".md", ".json", ".csv", ".log", ".axaml", ".cs",
+                             ".sh", ".desktop", ".conf", ".ini", ".toml", ".yaml", ".yml")
         if not any(dosya_yolu.lower().endswith(u) for u in gecerli_uzantilar):
             return f"Güvenlik Uyarısı: Sadece metin dosyaları ({', '.join(gecerli_uzantilar)}) okunabilir."
 
+        dosya_yolu = os.path.expanduser(dosya_yolu)
         if not os.path.exists(dosya_yolu):
             return f"Dosya bulunamadı: '{dosya_yolu}'"
 
@@ -345,26 +400,21 @@ def dosya_oku(dosya_yolu: str, max_karakter: int = 4000) -> str:
 
 
 def python_calistir(kod: str) -> str:
-    """Güvenli kum havuzunda (sandbox) kısa Python kodu çalıştırır ve çıktısını döndürür."""
-    import sys
+    """Kısa Python kodu çalıştırır; print çıktısı yakalanır (sys.stdout değiştirilmez)."""
     import io
-    # Tehlikeli işlemleri filtrele
-    yasakli = ["rmtree", "system(", "popen(", "remove(", "unlink(", "shutdown", "format "]
+    yasakli = ["rmtree", "system(", "popen(", "remove(", "unlink(", "subprocess", "shutdown", "__import__(\"os\")"]
     if any(y in kod.lower() for y in yasakli):
         return "⚠️ Güvenlik: Bu işlem izin verilmeyen bir sistem komutu içeriyor."
 
-    eski_stdout = sys.stdout
     tampon = io.StringIO()
-    sys.stdout = tampon
+    alan = {"__builtins__": builtins, "print": functools.partial(print, file=tampon),
+            "math": math, "json": json, "datetime": datetime, "random": random}
     try:
-        yerel_alan = {"math": math, "json": json, "datetime": datetime, "random": random}
-        exec(kod, {"__builtins__": __builtins__}, yerel_alan)
+        exec(kod, alan)
         cikti = tampon.getvalue().strip()
-        return f"🐍 **Kod Çıktısı**:\n```\n{cikti if cikti else '(Kod başarıyla çalıştı, çıktı üretmedi)'}\n```"
+        return f"🐍 **Kod Çıktısı**:\n```\n{cikti or '(Kod çalıştı, çıktı üretmedi)'}\n```"
     except Exception as e:
         return f"Python çalıştırma hatası: {e}"
-    finally:
-        sys.stdout = eski_stdout
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -391,18 +441,21 @@ def selamla(): return "Komutanım, sistemler tam kapasite calisiyor!"
 # ══════════════════════════════════════════════════════════════════════════════
 
 def aktif_pencere_basligi() -> str:
-    """Windows'ta şu an odakta olan ön pencerenin başlığını döner."""
+    """Odaktaki pencerenin başlığı (X11); bulunamazsa 'Masaüstü'."""
     try:
-        import ctypes
-        hwnd = ctypes.windll.user32.GetForegroundWindow()
-        length = ctypes.windll.user32.GetWindowTextLengthW(hwnd)
-        if length > 0:
-            buff = ctypes.create_unicode_buffer(length + 1)
-            ctypes.windll.user32.GetWindowTextW(hwnd, buff, length + 1)
-            return buff.value
+        import linux_desktop
+        return linux_desktop.aktif_pencere_basligi() or "Masaüstü"
     except Exception:
-        pass
-    return "Masaüstü"
+        return "Masaüstü"
+
+
+def _hizlandirici() -> str:
+    try:
+        import hardware
+        g = hardware.get_gpu_info()
+        return f"{g['backend']} · {g['name']}" if g["is_gpu"] else f"CPU · {hardware.get_cpu_info()['short_name']}"
+    except Exception:
+        return "CPU"
 
 
 def nova_sistem_durum() -> str:
@@ -416,7 +469,7 @@ def nova_sistem_durum() -> str:
         "║            NOVA AGI // SİSTEM TELEMETRİSİ & SAĞLIK RAPORU        ║\n"
         "╠══════════════════════════════════════════════════════════════════╣\n"
         "║  [NÖRAL ÇEKİRDEK]   : 1.39B / 400M Dinamik Transformer         ║\n"
-        "║  [İŞLEMCİ MOTORU]   : DirectML GPU & Çoklu İş Parçacığı         ║\n"
+        f"║  [HIZLANDIRICI]     : {_hizlandirici()[:42]:<42} ║\n"
         "║  [BELLEK GRAFİĞİ]   : SQLite Epizodik + Semantik Vektör Ağı     ║\n"
         "╠══════════════════════════════════════════════════════════════════╣\n"
         f"║  • SİSTEM DURUMU    : OPERASYONEL (PATTERN GREEN // HAZIR)       ║\n"
@@ -474,7 +527,7 @@ def gunluk_brifing() -> str:
         f"🌟 **[NOVA AGI // GÜNLÜK SİSTEM BRİFİNGİ]**\n"
         f"{hitap} Saat: {tarih_str}, {gun}.\n"
         f"• **İşlemci Yükü**: %{cpu_yuzde} | **Bellek Kullanımı**: %{ram_yuzde}\n"
-        f"• **Sinir Ağı**: 400M / 1.39B Dinamik NovaLM Modeli Hazır\n"
+        f"• **Hızlandırıcı**: {_hizlandirici()}\n"
     )
     if pencere and pencere != "Masaüstü":
         pencere_kisa = pencere[:35]
@@ -490,49 +543,11 @@ evangelion_senkron = nova_senkron
 
 
 def sistem_eylemi(eylem: str) -> str:
-    """Bilgisayar üzerinde sistem seviyesinde eylemler yürütür (kilitle, ses vb)."""
-    eylem = eylem.lower().strip()
+    """Sistem eylemleri: lock, mute, vol_up, vol_down, desktop, taskmgr (Linux)."""
+    import linux_desktop
     try:
-        import ctypes
-        user32 = ctypes.windll.user32
-        if eylem in ("lock", "kilitle"):
-            user32.LockWorkStation()
-            return "🔒 Bilgisayar ekranı kilitlendi."
-        elif eylem in ("mute", "sessiz"):
-            # VK_VOLUME_MUTE = 0xAD
-            user32.keybd_event(0xAD, 0, 0, 0)
-            user32.keybd_event(0xAD, 0, 2, 0)
-            return "🔇 Ses durumu değiştirildi (Açık/Kapalı)."
-        elif eylem in ("vol_up", "ses_artir"):
-            # VK_VOLUME_UP = 0xAF
-            for _ in range(3):
-                user32.keybd_event(0xAF, 0, 0, 0)
-                user32.keybd_event(0xAF, 0, 2, 0)
-            return "🔊 Ses artırıldı."
-        elif eylem in ("vol_down", "ses_azalt"):
-            # VK_VOLUME_DOWN = 0xAE
-            for _ in range(3):
-                user32.keybd_event(0xAE, 0, 0, 0)
-                user32.keybd_event(0xAE, 0, 2, 0)
-            return "🔉 Ses azaltıldı."
-        elif eylem in ("desktop", "masaustu", "minimize_all"):
-            # Win + D
-            user32.keybd_event(0x5B, 0, 0, 0)
-            user32.keybd_event(0x44, 0, 0, 0)
-            user32.keybd_event(0x44, 0, 2, 0)
-            user32.keybd_event(0x5B, 0, 2, 0)
-            return "🪟 Masaüstüne geçildi."
-        elif eylem in ("taskmgr", "gorev_yoneticisi"):
-            # Ctrl + Shift + Esc
-            user32.keybd_event(0x11, 0, 0, 0)
-            user32.keybd_event(0x10, 0, 0, 0)
-            user32.keybd_event(0x1B, 0, 0, 0)
-            user32.keybd_event(0x1B, 0, 2, 0)
-            user32.keybd_event(0x10, 0, 2, 0)
-            user32.keybd_event(0x11, 0, 2, 0)
-            return "⚙️ Görev Yöneticisi açıldı."
-        else:
-            return f"Bilinmeyen eylem: {eylem}"
-    except Exception as e:
-        return f"Sistem eylem hatası: {e}"
-
+        from config_manager import is_english
+        en = is_english()
+    except Exception:
+        en = False
+    return linux_desktop.sistem_eylemi(eylem, en=en)

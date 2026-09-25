@@ -1,0 +1,25 @@
+[Desktop Entry]
+Type=Application
+Name=Nova AGI
+GenericName=Self-growing AI assistant
+GenericName[tr]=Kendi kendine büyüyen yapay zeka
+Comment=Autonomous, continuously learning neural assistant
+Comment[tr]=Sürekli öğrenen otonom sinir ağı asistanı
+Exec=@APP_DIR@/nova.sh gui
+Path=@APP_DIR@
+Icon=nova-agi
+Terminal=false
+Categories=Utility;Science;ArtificialIntelligence;
+Keywords=AI;assistant;neural;chat;yapay zeka;
+StartupWMClass=nova-agi
+Actions=Terminal;Web;
+
+[Desktop Action Terminal]
+Name=Terminal mode
+Name[tr]=Terminal modu
+Exec=x-terminal-emulator -e @APP_DIR@/nova.sh term
+
+[Desktop Action Web]
+Name=Start web server (phone access)
+Name[tr]=Web sunucusunu başlat (telefon erişimi)
+Exec=x-terminal-emulator -e @APP_DIR@/nova.sh web

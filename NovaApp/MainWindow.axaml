@@ -1,0 +1,200 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:m="using:NovaApp.Models"
+        xmlns:c="using:NovaApp.Controls"
+        x:Class="NovaApp.MainWindow"
+        Title="Nova AGI"
+        Icon="avares://nova-agi/Assets/nova_icon.png"
+        Width="1440" Height="880" MinWidth="980" MinHeight="600"
+        WindowStartupLocation="CenterScreen">
+
+  <Grid RowDefinitions="60,*,30">
+
+    <!-- ═══ Üst çubuk ═══ -->
+    <Border Grid.Row="0" Background="{StaticResource PanelBrush}" BorderBrush="{StaticResource LineBrush}" BorderThickness="0,0,0,1">
+      <Grid ColumnDefinitions="Auto,*,Auto" Margin="18,0">
+        <StackPanel Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
+          <Image Source="avares://nova-agi/Assets/nova_icon.png" Width="34" Height="34" />
+          <StackPanel VerticalAlignment="Center">
+            <StackPanel Orientation="Horizontal" Spacing="6">
+              <TextBlock Text="Nova" FontSize="17" FontWeight="Bold" />
+              <TextBlock Text="AGI" FontSize="17" FontWeight="Bold" Foreground="{StaticResource AccentBrush}" />
+              <Border Background="#1F2A44" CornerRadius="6" Padding="6,1" VerticalAlignment="Center" Margin="4,0,0,0">
+                <TextBlock Text="Linux" FontSize="10" FontWeight="SemiBold" Foreground="#9DB6FF" />
+              </Border>
+            </StackPanel>
+            <TextBlock x:Name="TxtSubtitle" FontSize="11" Classes="muted" />
+          </StackPanel>
+        </StackPanel>
+
+        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" HorizontalAlignment="Center" VerticalAlignment="Center">
+          <Ellipse x:Name="StatusDot" Width="8" Height="8" Fill="{StaticResource WarnBrush}" />
+          <TextBlock x:Name="StatusText" Classes="muted" FontSize="12" />
+        </StackPanel>
+
+        <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+          <Border x:Name="DeviceBadge" CornerRadius="999" Padding="12,5" BorderThickness="1"
+                  BorderBrush="{StaticResource LineBrush}" Background="{StaticResource SurfaceBrush}">
+            <TextBlock x:Name="DeviceBadgeText" Text="…" FontSize="12" FontWeight="SemiBold" />
+          </Border>
+          <Button x:Name="BtnWeb" Classes="ghost" Click="BtnWeb_Click">
+            <TextBlock x:Name="TxtWeb" Text="📱 Web" />
+          </Button>
+          <Button x:Name="BtnGraph" Classes="ghost" Click="BtnGraph_Click" />
+          <Button x:Name="BtnSave" Classes="ghost" Click="BtnSave_Click" />
+          <Button x:Name="BtnGrow" Classes="ghost" Click="BtnGrow_Click" />
+          <Button x:Name="BtnSettings" Classes="primary" Click="BtnSettings_Click" />
+        </StackPanel>
+      </Grid>
+    </Border>
+
+    <!-- ═══ İçerik ═══ -->
+    <Grid Grid.Row="1" ColumnDefinitions="*,14,360" Margin="16,14">
+
+      <!-- Sohbet -->
+      <Border Classes="panel" ClipToBounds="True">
+        <Grid RowDefinitions="Auto,*,Auto">
+          <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
+            <StackPanel x:Name="ChipsPanel" Orientation="Horizontal" Spacing="8" Margin="14,12,14,10" />
+          </ScrollViewer>
+
+          <ScrollViewer x:Name="ChatScroll" Grid.Row="1" Padding="18,6,18,6" HorizontalScrollBarVisibility="Disabled">
+            <ItemsControl x:Name="ChatList">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="m:ChatMessage">
+                  <Panel Margin="0,7">
+                    <!-- Kullanıcı -->
+                    <StackPanel IsVisible="{Binding IsUser}" HorizontalAlignment="Right" MaxWidth="660" Spacing="4">
+                      <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
+                        <TextBlock Text="{Binding Timestamp}" FontSize="11" Foreground="{StaticResource FaintBrush}" />
+                      </StackPanel>
+                      <Border Background="{StaticResource UserBubbleBrush}" BorderBrush="{StaticResource UserBubbleLineBrush}"
+                              BorderThickness="1" CornerRadius="16,16,4,16" Padding="14,10">
+                        <SelectableTextBlock Text="{Binding DisplayText}" TextWrapping="Wrap" FontSize="14" LineHeight="21" />
+                      </Border>
+                    </StackPanel>
+
+                    <!-- Nova -->
+                    <StackPanel IsVisible="{Binding IsNova}" HorizontalAlignment="Left" MaxWidth="700" Spacing="4">
+                      <StackPanel Orientation="Horizontal" Spacing="8">
+                        <TextBlock Text="Nova" FontSize="11.5" FontWeight="SemiBold" Foreground="{StaticResource AccentBrush}" VerticalAlignment="Center" />
+                        <TextBlock Text="{Binding Timestamp}" FontSize="11" Foreground="{StaticResource FaintBrush}" VerticalAlignment="Center" />
+                        <Button Classes="speak" Content="🔊" Tag="{Binding Text}" Click="SpeakMessage_Click" />
+                      </StackPanel>
+                      <Border Background="{StaticResource SurfaceBrush}" BorderBrush="{StaticResource LineBrush}"
+                              BorderThickness="1" CornerRadius="16,16,16,4" Padding="14,10">
+                        <StackPanel Spacing="8">
+                          <Panel>
+                            <SelectableTextBlock Text="{Binding DisplayText}" TextWrapping="Wrap" FontSize="14" LineHeight="21" />
+                          </Panel>
+                          <TextBlock Text="▍" IsVisible="{Binding IsStreaming}" Foreground="{StaticResource AccentBrush}" />
+                          <Border IsVisible="{Binding HasAction}" Background="#1A7AA2FF" CornerRadius="999" Padding="10,3" HorizontalAlignment="Left">
+                            <TextBlock Text="{Binding ActionText}" FontSize="11.5" Foreground="{StaticResource AccentBrush}" />
+                          </Border>
+                        </StackPanel>
+                      </Border>
+                    </StackPanel>
+
+                    <!-- Sistem -->
+                    <Border IsVisible="{Binding IsSystem}" HorizontalAlignment="Center" MaxWidth="720"
+                            BorderBrush="{StaticResource LineBrush}" BorderThickness="1" CornerRadius="12" Padding="14,9">
+                      <SelectableTextBlock Text="{Binding DisplayText}" TextWrapping="Wrap" FontSize="12.5"
+                                           FontFamily="{StaticResource MonoFont}" Foreground="#C7CDE0" />
+                    </Border>
+                  </Panel>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </ScrollViewer>
+
+          <!-- Yazma alanı -->
+          <Border Grid.Row="2" Margin="14,6,14,14" Background="{StaticResource SurfaceBrush}"
+                  BorderBrush="{StaticResource LineBrush}" BorderThickness="1" CornerRadius="18" Padding="6">
+            <Grid ColumnDefinitions="*,Auto">
+              <TextBox x:Name="TxtInput" Classes="bare" AcceptsReturn="True" TextWrapping="Wrap"
+                       MaxHeight="140" MinHeight="40" FontSize="14" VerticalContentAlignment="Center" />
+              <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4" VerticalAlignment="Bottom">
+                <Button x:Name="BtnVoice" Classes="icon" Content="🔊" Click="BtnVoice_Click" />
+                <Button x:Name="BtnMic" Classes="icon" Content="🎤" Click="BtnMic_Click" />
+                <Button x:Name="BtnSend" Classes="primary" Height="38" MinWidth="44" Click="BtnSend_Click">
+                  <TextBlock Text="➤" FontSize="15" />
+                </Button>
+              </StackPanel>
+            </Grid>
+          </Border>
+        </Grid>
+      </Border>
+
+      <!-- Telemetri -->
+      <ScrollViewer Grid.Column="2" HorizontalScrollBarVisibility="Disabled">
+        <StackPanel Spacing="14">
+          <StackPanel>
+            <TextBlock x:Name="SecHardware" Classes="section" />
+            <Border Classes="card">
+              <StackPanel Spacing="10">
+                <Grid ColumnDefinitions="*,Auto">
+                  <TextBlock x:Name="TxtGpuName" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                  <TextBlock x:Name="TxtVram" Grid.Column="1" FontFamily="{StaticResource MonoFont}" FontSize="11.5"
+                             Foreground="{StaticResource AccentBrush}" />
+                </Grid>
+                <ProgressBar x:Name="PbVram" Minimum="0" Maximum="100" />
+                <ItemsControl x:Name="GpuList">
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="m:GpuDevice">
+                      <Grid ColumnDefinitions="*,Auto" Margin="0,3">
+                        <TextBlock Text="{Binding Name}" FontSize="12" TextTrimming="CharacterEllipsis" Classes="muted" />
+                        <TextBlock Grid.Column="1" Text="{Binding Summary}" FontSize="11.5" Classes="muted" />
+                      </Grid>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+                <TextBlock x:Name="TxtTier" FontSize="11.5" Classes="muted" />
+              </StackPanel>
+            </Border>
+          </StackPanel>
+
+          <StackPanel>
+            <TextBlock x:Name="SecLoss" Classes="section" />
+            <Border Classes="card" Padding="10">
+              <Grid RowDefinitions="Auto,110">
+                <Grid ColumnDefinitions="*,Auto" Margin="4,0,4,6">
+                  <TextBlock x:Name="TxtLossNow" Classes="metric" Foreground="#FF9B9B" />
+                  <TextBlock x:Name="TxtLossRange" Grid.Column="1" FontSize="11" Classes="muted" VerticalAlignment="Center" />
+                </Grid>
+                <c:LossChart x:Name="LossChart" Grid.Row="1" />
+              </Grid>
+            </Border>
+          </StackPanel>
+
+          <StackPanel>
+            <TextBlock x:Name="SecMetrics" Classes="section" />
+            <UniformGrid Columns="2">
+              <Border Classes="card" Margin="0,0,5,10"><StackPanel Spacing="2"><TextBlock x:Name="LblStep" FontSize="11.5" Classes="muted" /><TextBlock x:Name="TxtStep" Classes="metric" Text="0" /></StackPanel></Border>
+              <Border Classes="card" Margin="5,0,0,10"><StackPanel Spacing="2"><TextBlock x:Name="LblParams" FontSize="11.5" Classes="muted" /><TextBlock x:Name="TxtParams" Classes="metric" Foreground="#FFD166" Text="—" /></StackPanel></Border>
+              <Border Classes="card" Margin="0,0,5,10"><StackPanel Spacing="2"><TextBlock x:Name="LblLr" FontSize="11.5" Classes="muted" /><TextBlock x:Name="TxtLr" Classes="metric" Foreground="#8CE99A" Text="—" /></StackPanel></Border>
+              <Border Classes="card" Margin="5,0,0,10"><StackPanel Spacing="2"><TextBlock x:Name="LblArch" FontSize="11.5" Classes="muted" /><TextBlock x:Name="TxtArch" Classes="metric" FontSize="13" Text="—" /></StackPanel></Border>
+              <Border Classes="card" Margin="0,0,5,0"><StackPanel Spacing="2"><TextBlock x:Name="LblEpisodic" FontSize="11.5" Classes="muted" /><TextBlock x:Name="TxtEpisodic" Classes="metric" Foreground="#C4B5FD" Text="0" /></StackPanel></Border>
+              <Border Classes="card" Margin="5,0,0,0"><StackPanel Spacing="2"><TextBlock x:Name="LblSemantic" FontSize="11.5" Classes="muted" /><TextBlock x:Name="TxtSemantic" Classes="metric" Foreground="#FDE68A" Text="0" /></StackPanel></Border>
+            </UniformGrid>
+          </StackPanel>
+
+          <StackPanel>
+            <TextBlock x:Name="SecSystem" Classes="section" />
+            <Border Classes="card">
+              <SelectableTextBlock x:Name="TxtSystem" FontFamily="{StaticResource MonoFont}" FontSize="11.5"
+                                   Foreground="{StaticResource MutedBrush}" TextWrapping="Wrap" LineHeight="18" />
+            </Border>
+          </StackPanel>
+        </StackPanel>
+      </ScrollViewer>
+    </Grid>
+
+    <!-- ═══ Durum çubuğu ═══ -->
+    <Border Grid.Row="2" Background="{StaticResource PanelBrush}" BorderBrush="{StaticResource LineBrush}" BorderThickness="0,1,0,0" Padding="18,0">
+      <Grid ColumnDefinitions="*,Auto" VerticalAlignment="Center">
+        <TextBlock x:Name="TxtBottom" FontSize="11.5" Foreground="{StaticResource FaintBrush}" TextTrimming="CharacterEllipsis" />
+        <TextBlock x:Name="TxtClock" Grid.Column="1" FontSize="11.5" FontFamily="{StaticResource MonoFont}" Foreground="{StaticResource FaintBrush}" />
+      </Grid>
+    </Border>
+  </Grid>
+</Window>

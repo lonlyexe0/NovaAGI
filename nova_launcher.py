@@ -1,4 +1,4 @@
-#!python3.10
+#!/usr/bin/env python3
 from __future__ import annotations
 # ═══════════════════════════════════════════════════════════════════════════════
 # nova_launcher.py  —  Nova AGI Ana Başlatıcı v3  [Python 3.10]
@@ -34,27 +34,13 @@ if sys.stdout is None:
 if sys.stderr is None:
     sys.stderr = _NullWriter()
 
-if sys.platform == "win32":
-    try:
-        if hasattr(sys.stdout, "reconfigure"):
-            sys.stdout.reconfigure(encoding="utf-8")
-        if hasattr(sys.stderr, "reconfigure"):
-            sys.stderr.reconfigure(encoding="utf-8")
-    except Exception:
-        pass
 
-# GPU / DirectML ve Donanım Optimizasyonu
-try:
-    import gpu_setup
-    gpu_setup.gpu_hazirla()
-except Exception:
-    pass
+# GPU (CUDA / ROCm / XPU) ve CPU iş parçacığı ayarları gpu_setup içinde yapılır
+import gpu_setup
+gpu_setup.gpu_hazirla()
 
 import torch
 import hardware
-_cpu_threads = hardware.get_optimal_cpu_threads()
-torch.set_num_threads(_cpu_threads)
-torch.set_num_interop_threads(max(1, min(4, _cpu_threads // 2)))
 
 
 
@@ -62,22 +48,22 @@ torch.set_num_interop_threads(max(1, min(4, _cpu_threads // 2)))
 # LOGGING
 # ═══════════════════════════════════════════════════════════════════════════════
 def logging_kur(debug: bool = False):
+    """Dosyaya ayrıntılı, terminale yalnızca uyarı logları (REPL'i kirletmesin)."""
     from config_manager import get_data_path
-    log_file = get_data_path("nova.log")
-    seviye  = logging.DEBUG if debug else logging.INFO
-    fmt     = "%(asctime)s [%(name)-18s] %(levelname)-7s %(message)s"
-    handlers = [logging.StreamHandler(sys.stdout)]
+    fmt = logging.Formatter("%(asctime)s [%(name)-18s] %(levelname)-7s %(message)s", "%H:%M:%S")
+    konsol = logging.StreamHandler(sys.stderr)
+    konsol.setLevel(logging.DEBUG if debug else logging.WARNING)
+    handlers = [konsol]
     try:
-        handlers.insert(0, logging.FileHandler(log_file, encoding="utf-8"))
-    except Exception:
+        dosya = logging.FileHandler(get_data_path("nova.log"), encoding="utf-8")
+        dosya.setLevel(logging.DEBUG if debug else logging.INFO)
+        handlers.append(dosya)
+    except OSError:
         pass
-    logging.basicConfig(
-        level=seviye, format=fmt, datefmt="%H:%M:%S",
-        handlers=handlers,
-        force=True,
-    )
-    for lib in ("urllib3","requests","charset_normalizer",
-                "datasets","huggingface_hub","filelock","fsspec","aiohttp"):
+    for h in handlers:
+        h.setFormatter(fmt)
+    logging.basicConfig(level=logging.DEBUG if debug else logging.INFO, handlers=handlers, force=True)
+    for lib in ("urllib3", "requests", "charset_normalizer", "datasets", "huggingface_hub", "filelock", "fsspec"):
         logging.getLogger(lib).setLevel(logging.WARNING)
 
 logger = logging.getLogger("nova.launcher")
@@ -370,7 +356,7 @@ def _komut_isle(girdi, hafiza, beyin, beden, dur, hf_akisi):
         print(f"\n{R.CYAN}{'━'*60}  BÜYÜME GEÇMİŞİ  {'━'*60}{R.SIFIR}")
         print(beyin.model.buyume_tablosu())
         print(f"\n  Toplam büyüme: {beyin.model._toplam_buyume}x")
-        print(f"  Mevcut parametre: {beyin.model.param_sayisi():,}")
+        print(f"  Mevcut parametre: {beyin.raw_model.param_sayisi():,}")
         print(f"{R.CYAN}{'━'*60}{R.SIFIR}\n")
 
     elif cmd == "mimari":
@@ -380,7 +366,7 @@ def _komut_isle(girdi, hafiza, beyin, beden, dur, hf_akisi):
         print(f"  Kafa sayısı  : {beyin.model._h}")
         print(f"  Blok sayısı  : {len(beyin.model.bloklar)}")
         print(f"  FF nöron     : {beyin.model._ff}")
-        print(f"  Parametre    : {beyin.model.param_sayisi():,}")
+        print(f"  Parametre    : {beyin.raw_model.param_sayisi():,}")
         print(f"  Büyüme sayısı: {beyin.model._toplam_buyume}x\n")
 
     elif cmd == "kaydet":
@@ -594,9 +580,9 @@ def main():
     logging_kur(debug=args.debug)
 
     # ── Dil Seçimi (İlk Açılışta Sorulur, Sonra Hatırlanır) ────────────────────
-    from config_manager import ask_language_on_first_launch, _config_yaz
+    from config_manager import ask_language_on_first_launch, set_setting
     if args.reset_lang:
-        _config_yaz({})
+        set_setting("language", None)
     aktif_dil = ask_language_on_first_launch(arg_lang=args.lang)
 
     # ── Hugging Face Girişi ───────────────────────────────────────────────────
@@ -650,7 +636,7 @@ def main():
     # Mod seçimi
     mod = "gui" if not (args.term or args.both) else ("term" if args.term else "both")
     print(f"\n{R.YESIL}✅ Hazır. Mod: {mod.upper()} | "
-          f"Parametre: {beyin.model.param_sayisi():,} | "
+          f"Parametre: {beyin.raw_model.param_sayisi():,} | "
           f"Büyüme: {beyin.model._toplam_buyume}x{R.SIFIR}\n", flush=True)
 
     if mod == "gui":
@@ -680,7 +666,7 @@ def main():
         print(f"{R.YESIL}Kapatıldı — "
               f"HF: {hf['eklenen']:,} makale | "
               f"Eğitim: {beyin.adim:,} adım | "
-              f"Parametre: {beyin.model.param_sayisi():,} | "
+              f"Parametre: {beyin.raw_model.param_sayisi():,} | "
               f"Büyüme: {beyin.model._toplam_buyume}x 🌟{R.SIFIR}")
 
 

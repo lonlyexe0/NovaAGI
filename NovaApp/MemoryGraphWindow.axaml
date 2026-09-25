@@ -1,0 +1,82 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:c="using:NovaApp.Controls"
+        x:Class="NovaApp.MemoryGraphWindow"
+        Width="1280" Height="820" MinWidth="900" MinHeight="560"
+        WindowStartupLocation="CenterOwner"
+        Icon="avares://nova-agi/Assets/nova_icon.png">
+
+  <Grid RowDefinitions="58,*">
+    <Border Background="{StaticResource PanelBrush}" BorderBrush="{StaticResource LineBrush}" BorderThickness="0,0,0,1">
+      <Grid ColumnDefinitions="*,Auto" Margin="18,0">
+        <StackPanel Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
+          <TextBlock x:Name="TxtTitle" FontSize="16" FontWeight="Bold" />
+          <Border CornerRadius="999" Padding="10,3" Background="{StaticResource SurfaceBrush}" BorderBrush="{StaticResource LineBrush}" BorderThickness="1">
+            <TextBlock x:Name="TxtBadge" FontSize="12" Foreground="{StaticResource AccentBrush}" />
+          </Border>
+        </StackPanel>
+        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+          <CheckBox x:Name="ChkLive" IsChecked="True" />
+          <ComboBox x:Name="CmbLimit" Width="110" SelectedIndex="1" SelectionChanged="CmbLimit_SelectionChanged">
+            <ComboBoxItem Content="100" Tag="100" />
+            <ComboBoxItem Content="250" Tag="250" />
+            <ComboBoxItem Content="500" Tag="500" />
+          </ComboBox>
+          <Button x:Name="BtnReset" Classes="ghost" Click="BtnReset_Click" />
+          <Button x:Name="BtnRefresh" Classes="ghost" Click="BtnRefresh_Click" />
+          <Button x:Name="BtnExport" Classes="primary" Click="BtnExport_Click" />
+        </StackPanel>
+      </Grid>
+    </Border>
+
+    <Grid Grid.Row="1" ColumnDefinitions="*,320" Margin="14">
+      <Border Classes="panel" ClipToBounds="True">
+        <Panel>
+          <c:GraphView x:Name="Graph" />
+          <StackPanel Orientation="Horizontal" Spacing="14" Margin="14" VerticalAlignment="Bottom" HorizontalAlignment="Left">
+            <StackPanel Orientation="Horizontal" Spacing="6"><Ellipse Width="9" Height="9" Fill="#34D399" /><TextBlock x:Name="LegUser" FontSize="11.5" Classes="muted" /></StackPanel>
+            <StackPanel Orientation="Horizontal" Spacing="6"><Ellipse Width="9" Height="9" Fill="#7AA2FF" /><TextBlock x:Name="LegNova" FontSize="11.5" Classes="muted" /></StackPanel>
+            <StackPanel Orientation="Horizontal" Spacing="6"><Ellipse Width="9" Height="9" Fill="#A78BFA" /><TextBlock x:Name="LegFact" FontSize="11.5" Classes="muted" /></StackPanel>
+          </StackPanel>
+          <TextBlock x:Name="TxtLoading" HorizontalAlignment="Center" VerticalAlignment="Center" Classes="muted" />
+        </Panel>
+      </Border>
+
+      <ScrollViewer Grid.Column="1" Margin="14,0,0,0">
+        <StackPanel Spacing="14">
+          <Border Classes="card">
+            <StackPanel Spacing="8">
+              <TextBlock x:Name="LblFetch" FontWeight="SemiBold" />
+              <Grid ColumnDefinitions="*,Auto">
+                <TextBox x:Name="TxtFetch" KeyDown="TxtFetch_KeyDown" />
+                <Button x:Name="BtnFetch" Grid.Column="1" Classes="primary" Margin="6,0,0,0" Click="BtnFetch_Click" />
+              </Grid>
+              <WrapPanel x:Name="QuickTopics" />
+            </StackPanel>
+          </Border>
+
+          <TextBox x:Name="TxtSearch" TextChanged="TxtSearch_TextChanged" />
+
+          <Border Classes="card">
+            <StackPanel Spacing="6">
+              <SelectableTextBlock x:Name="TxtNodeTitle" FontWeight="SemiBold" TextWrapping="Wrap" />
+              <TextBlock x:Name="TxtNodeMeta" FontSize="11.5" Classes="muted" />
+              <SelectableTextBlock x:Name="TxtNodeBody" FontSize="12.5" TextWrapping="Wrap" Foreground="#C7CDE0" LineHeight="19" />
+            </StackPanel>
+          </Border>
+
+          <Border Classes="card">
+            <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto,Auto" >
+              <TextBlock x:Name="LblNodes" Classes="muted" Margin="0,2" />
+              <TextBlock x:Name="TxtNodes" Grid.Column="1" Classes="metric" FontSize="13" />
+              <TextBlock x:Name="LblLinks" Grid.Row="1" Classes="muted" Margin="0,2" />
+              <TextBlock x:Name="TxtLinks" Grid.Row="1" Grid.Column="1" Classes="metric" FontSize="13" />
+              <TextBlock x:Name="LblFacts" Grid.Row="2" Classes="muted" Margin="0,2" />
+              <TextBlock x:Name="TxtFacts" Grid.Row="2" Grid.Column="1" Classes="metric" FontSize="13" />
+            </Grid>
+          </Border>
+        </StackPanel>
+      </ScrollViewer>
+    </Grid>
+  </Grid>
+</Window>

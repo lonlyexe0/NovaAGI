@@ -10,7 +10,7 @@ Bu sistem bağımsız bir sunucuda, kümede (cluster) veya yerel terminalde çal
 
 ```
 nova_headless_trainer/
-├── config.py               ← Model hiperparametreleri ve cihaz (GPU/DirectML/CPU) yapılandırması
+├── config.py               ← Model hiperparametreleri ve cihaz (GPU (CUDA · ROCm · XPU)/CPU) yapılandırması
 ├── model.py                ← Dinamik Transformer mimarisi ve sıfır kayıpla büyüme (Network Morphism)
 ├── tokenizer.py            ← Dinamik karakter sözlüğü ve token dönüştürücü
 ├── db_manager.py           ← SQLite nova.db okuma, toplu veri yazma ve durum takip yöneticisi
@@ -56,10 +56,10 @@ python spark_data_pipeline.py --demo
 ---
 
 ### Adım 3: Headless Antrenörü Başlatın (Eğitim)
-Veritabanındaki eğitilmemiş verileri GPU/DirectML/CPU ile eğitin:
+Veritabanındaki eğitilmemiş verileri GPU (CUDA · ROCm · XPU)/CPU ile eğitin:
 
 ```bash
-# Otomatik en iyi donanım (CUDA / DirectML / CPU) ile eğitim
+# Otomatik en iyi donanım (CUDA / ROCm / XPU / CPU) ile eğitim
 python train.py --db nova.db --batch_size 32
 
 # Sürekli mod (Spark veya dış kaynaklardan DB'ye yeni veri geldikçe durmadan eğitsin)

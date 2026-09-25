@@ -1,0 +1,198 @@
+<Application xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="NovaApp.App"
+             RequestedThemeVariant="Dark">
+
+  <Application.Resources>
+    <ResourceDictionary>
+      <!-- Palet (web arayüzüyle aynı) -->
+      <Color x:Key="BgColor">#0B0E16</Color>
+      <Color x:Key="PanelColor">#10141F</Color>
+      <Color x:Key="SurfaceColor">#151A27</Color>
+      <Color x:Key="Surface2Color">#1B2132</Color>
+      <Color x:Key="LineColor">#242B3D</Color>
+      <Color x:Key="TextColor">#E8EBF3</Color>
+      <Color x:Key="MutedColor">#8B93A8</Color>
+      <Color x:Key="FaintColor">#5F6880</Color>
+      <Color x:Key="AccentColor">#7AA2FF</Color>
+      <Color x:Key="Accent2Color">#A78BFA</Color>
+      <Color x:Key="OkColor">#34D399</Color>
+      <Color x:Key="WarnColor">#FBBF24</Color>
+      <Color x:Key="DangerColor">#F87171</Color>
+
+      <SolidColorBrush x:Key="BgBrush" Color="{StaticResource BgColor}" />
+      <SolidColorBrush x:Key="PanelBrush" Color="{StaticResource PanelColor}" />
+      <SolidColorBrush x:Key="SurfaceBrush" Color="{StaticResource SurfaceColor}" />
+      <SolidColorBrush x:Key="Surface2Brush" Color="{StaticResource Surface2Color}" />
+      <SolidColorBrush x:Key="LineBrush" Color="{StaticResource LineColor}" />
+      <SolidColorBrush x:Key="TextBrush" Color="{StaticResource TextColor}" />
+      <SolidColorBrush x:Key="MutedBrush" Color="{StaticResource MutedColor}" />
+      <SolidColorBrush x:Key="FaintBrush" Color="{StaticResource FaintColor}" />
+      <SolidColorBrush x:Key="AccentBrush" Color="{StaticResource AccentColor}" />
+      <SolidColorBrush x:Key="Accent2Brush" Color="{StaticResource Accent2Color}" />
+      <SolidColorBrush x:Key="OkBrush" Color="{StaticResource OkColor}" />
+      <SolidColorBrush x:Key="WarnBrush" Color="{StaticResource WarnColor}" />
+      <SolidColorBrush x:Key="DangerBrush" Color="{StaticResource DangerColor}" />
+      <SolidColorBrush x:Key="UserBubbleBrush" Color="#1D2A4A" />
+      <SolidColorBrush x:Key="UserBubbleLineBrush" Color="#2D3F6B" />
+
+      <LinearGradientBrush x:Key="AccentGradient" StartPoint="0%,0%" EndPoint="100%,100%">
+        <GradientStop Color="#7AA2FF" Offset="0" />
+        <GradientStop Color="#A78BFA" Offset="1" />
+      </LinearGradientBrush>
+
+      <FontFamily x:Key="MonoFont">JetBrains Mono, Fira Code, DejaVu Sans Mono, Noto Sans Mono, monospace</FontFamily>
+    </ResourceDictionary>
+  </Application.Resources>
+
+  <Application.Styles>
+    <FluentTheme />
+
+    <Style Selector="Window">
+      <Setter Property="Background" Value="{StaticResource BgBrush}" />
+      <Setter Property="Foreground" Value="{StaticResource TextBrush}" />
+      <Setter Property="FontSize" Value="13" />
+    </Style>
+
+    <!-- Kartlar -->
+    <Style Selector="Border.card">
+      <Setter Property="Background" Value="{StaticResource SurfaceBrush}" />
+      <Setter Property="BorderBrush" Value="{StaticResource LineBrush}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="14" />
+      <Setter Property="Padding" Value="14" />
+    </Style>
+    <Style Selector="Border.panel">
+      <Setter Property="Background" Value="{StaticResource PanelBrush}" />
+      <Setter Property="BorderBrush" Value="{StaticResource LineBrush}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="16" />
+    </Style>
+
+    <!-- Metin sınıfları -->
+    <Style Selector="TextBlock.section">
+      <Setter Property="FontSize" Value="11" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="LetterSpacing" Value="0.6" />
+      <Setter Property="Foreground" Value="{StaticResource MutedBrush}" />
+      <Setter Property="Margin" Value="2,0,0,8" />
+    </Style>
+    <Style Selector="TextBlock.muted">
+      <Setter Property="Foreground" Value="{StaticResource MutedBrush}" />
+    </Style>
+    <Style Selector="TextBlock.label">
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="Margin" Value="0,0,0,6" />
+    </Style>
+    <Style Selector="TextBlock.metric">
+      <Setter Property="FontFamily" Value="{StaticResource MonoFont}" />
+      <Setter Property="FontSize" Value="15" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+
+    <!-- Düğmeler -->
+    <Style Selector="Button">
+      <Setter Property="CornerRadius" Value="10" />
+      <Setter Property="Cursor" Value="Hand" />
+    </Style>
+    <Style Selector="Button.ghost">
+      <Setter Property="Background" Value="{StaticResource SurfaceBrush}" />
+      <Setter Property="BorderBrush" Value="{StaticResource LineBrush}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="Foreground" Value="{StaticResource TextBrush}" />
+      <Setter Property="Padding" Value="12,7" />
+    </Style>
+    <Style Selector="Button.ghost:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{StaticResource Surface2Brush}" />
+      <Setter Property="BorderBrush" Value="#3A4A78" />
+      <Setter Property="Foreground" Value="{StaticResource TextBrush}" />
+    </Style>
+    <Style Selector="Button.primary">
+      <Setter Property="Background" Value="{StaticResource AccentGradient}" />
+      <Setter Property="Foreground" Value="#0B0E16" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="Padding" Value="16,8" />
+    </Style>
+    <Style Selector="Button.primary:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{StaticResource AccentGradient}" />
+      <Setter Property="Foreground" Value="#0B0E16" />
+      <Setter Property="Opacity" Value="0.9" />
+    </Style>
+    <Style Selector="Button.chip">
+      <Setter Property="Background" Value="{StaticResource SurfaceBrush}" />
+      <Setter Property="BorderBrush" Value="{StaticResource LineBrush}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="999" />
+      <Setter Property="Padding" Value="12,5" />
+      <Setter Property="FontSize" Value="12.5" />
+      <Setter Property="Foreground" Value="#C9D0E2" />
+    </Style>
+    <Style Selector="Button.chip:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{StaticResource Surface2Brush}" />
+      <Setter Property="BorderBrush" Value="{StaticResource AccentBrush}" />
+      <Setter Property="Foreground" Value="{StaticResource TextBrush}" />
+    </Style>
+    <Style Selector="Button.icon">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="Width" Value="38" />
+      <Setter Property="Height" Value="38" />
+      <Setter Property="Padding" Value="0" />
+      <Setter Property="FontSize" Value="16" />
+      <Setter Property="HorizontalContentAlignment" Value="Center" />
+      <Setter Property="VerticalContentAlignment" Value="Center" />
+    </Style>
+    <Style Selector="Button.icon:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{StaticResource Surface2Brush}" />
+    </Style>
+    <Style Selector="Button.icon.active /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="#33F87171" />
+    </Style>
+    <Style Selector="Button.speak">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="Padding" Value="6,1" />
+      <Setter Property="FontSize" Value="11" />
+      <Setter Property="Foreground" Value="{StaticResource MutedBrush}" />
+      <Setter Property="CornerRadius" Value="999" />
+    </Style>
+
+    <!-- Giriş alanları -->
+    <Style Selector="TextBox">
+      <Setter Property="Background" Value="{StaticResource SurfaceBrush}" />
+      <Setter Property="BorderBrush" Value="{StaticResource LineBrush}" />
+      <Setter Property="CornerRadius" Value="10" />
+      <Setter Property="Padding" Value="10,8" />
+    </Style>
+    <Style Selector="TextBox.bare, TextBox.bare:pointerover, TextBox.bare:focus">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+    </Style>
+    <Style Selector="TextBox.bare:focus /template/ Border#PART_BorderElement, TextBox.bare:pointerover /template/ Border#PART_BorderElement">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+    </Style>
+    <Style Selector="ComboBox">
+      <Setter Property="CornerRadius" Value="10" />
+      <Setter Property="HorizontalAlignment" Value="Stretch" />
+    </Style>
+    <Style Selector="ProgressBar">
+      <Setter Property="Foreground" Value="{StaticResource AccentGradient}" />
+      <Setter Property="Background" Value="{StaticResource Surface2Brush}" />
+      <Setter Property="CornerRadius" Value="4" />
+      <Setter Property="MinHeight" Value="6" />
+      <Setter Property="Height" Value="6" />
+    </Style>
+
+    <!-- Ayarlar sekmeleri -->
+    <Style Selector="ListBox.tabs">
+      <Setter Property="Background" Value="Transparent" />
+    </Style>
+    <Style Selector="ListBox.tabs ListBoxItem">
+      <Setter Property="CornerRadius" Value="10" />
+      <Setter Property="Padding" Value="12,9" />
+      <Setter Property="Margin" Value="0,0,0,4" />
+    </Style>
+    <Style Selector="ListBox.tabs ListBoxItem:selected /template/ ContentPresenter">
+      <Setter Property="Background" Value="#227AA2FF" />
+    </Style>
+  </Application.Styles>
+</Application>

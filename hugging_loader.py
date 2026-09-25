@@ -1,10 +1,16 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+# hugging_loader.py  —  Otonom merak motoru ve Hugging Face Wikipedia içe aktarıcı
+# ═══════════════════════════════════════════════════════════════════════════════
 import time
 import json
 import random
+import logging
 import urllib.request
 import urllib.parse
-from typing import Optional, Dict, Any, List
+from typing import Optional
 from memory import HafizaYoneticisi
+
+logger = logging.getLogger("nova.hf_loader")
 
 
 
@@ -69,7 +75,7 @@ class OtonomMerakMotoru:
             # 2. Wikipedia API'den özet çek
             encoded = urllib.parse.quote(aday_konu.strip().replace(" ", "_"))
             url = f"https://{lang}.wikipedia.org/api/rest_v1/page/summary/{encoded}"
-            req = urllib.request.Request(url, headers={"User-Agent": "NovaAGI/3.5 (Autonomous Research Engine)"})
+            req = urllib.request.Request(url, headers={"User-Agent": "NovaAGI/4.0 (Linux; autonomous research)"})
 
             with urllib.request.urlopen(req, timeout=6) as resp:
                 data = json.loads(resp.read().decode("utf-8"))
@@ -85,53 +91,51 @@ class OtonomMerakMotoru:
         return None
 
 
-def veri_enjekte_et(limit=500000):
-    hafiza = HafizaYoneticisi()
+def veri_enjekte_et(limit: int = 500000, lang: Optional[str] = None) -> int:
+    """
+    Hugging Face 'wikimedia/wikipedia' veri setini akış halinde okuyup hafızaya ekler.
+    Çıktı stdout yerine loglara yazılır (masaüstü köprüsünün JSON kanalını bozmaz).
+    """
     from hf_auth import hf_token_al
     from config_manager import get_language
-    lang = get_language() or "en"
+    hafiza = HafizaYoneticisi()
+    lang = lang or get_language() or "en"
     ds_config = "20231101.en" if lang == "en" else "20231101.tr"
-    lang_name = "English" if lang == "en" else "Türkçe"
     token = hf_token_al()
-    print(f"🚀 Hugging Face Hub üzerinden Resmi {lang_name} Wikipedia çekiliyor ({ds_config})... (Kimlik: {'Tokenli' if token else 'Anonim'})")
+    logger.info(f"[Wiki] {ds_config} akışı başlıyor ({'tokenli' if token else 'anonim'}), hedef: {limit:,}")
+    sayac = 0
     try:
         from datasets import load_dataset
         kwargs = {"split": "train", "streaming": True}
         if token:
             kwargs["token"] = token
         dataset = load_dataset("wikimedia/wikipedia", ds_config, **kwargs)
-
-
-        
-        sayac = 0
         baslangic = time.time()
-        print("🔥 İşlemci ziyafeti başlıyor, veritabanına taze bilgiler akıyor...")
-        
-        url_base = "https://en.wikipedia.org/wiki/article_" if lang == "en" else "https://tr.wikipedia.org/wiki/madde_"
         for veri in dataset:
             if sayac >= limit:
                 break
-            
-            metin = veri['text']
-            url_gercek = veri.get('url', f"{url_base}{sayac}")
-            konu_gercek = veri.get('title', "General Knowledge (Wiki)" if lang == "en" else "Genel Kültür (Wiki)")
-            
-            if len(metin) > 300:
-                hafiza.bilgi_kaydet(url=url_gercek, konu=konu_gercek, icerik=metin)
-                sayac += 1
-                
-                if sayac % 50 == 0:
-                    print(f"✅ {sayac} makale hafızaya eklendi (Hız: {sayac/(time.time()-baslangic):.1f} mb/sn)...")
-
-        print(f"\n🌟 MÜKEMMEL! {sayac} makale başarıyla yüklendi.")
+            metin = veri["text"]
+            if len(metin) <= 300:
+                continue
+            hafiza.bilgi_kaydet(url=veri.get("url") or f"https://{lang}.wikipedia.org/wiki/?curid={veri.get('id', sayac)}",
+                                konu=veri.get("title") or "Wikipedia", icerik=metin)
+            sayac += 1
+            if sayac % 100 == 0:
+                logger.info(f"[Wiki] {sayac:,} makale eklendi ({sayac / (time.time() - baslangic):.1f} makale/sn)")
+        logger.info(f"[Wiki] ✅ {sayac:,} makale yüklendi.")
+    except ImportError:
+        logger.error("[Wiki] 'datasets' paketi kurulu değil → pip install datasets")
     except Exception as e:
-        print(f"🛑 Bir hata oluştu: {e}")
+        logger.error(f"[Wiki] Hata: {e}")
+    return sayac
 
 
 if __name__ == "__main__":
+    import sys
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(message)s", datefmt="%H:%M:%S")
     from config_manager import ask_language_on_first_launch
     ask_language_on_first_launch()
     from hf_auth import hf_giris_sor
     hf_giris_sor()
-    veri_enjekte_et(limit=500000)
+    veri_enjekte_et(limit=int(sys.argv[1]) if len(sys.argv) > 1 else 500000)
 

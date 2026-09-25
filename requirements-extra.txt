@@ -1,0 +1,12 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+# requirements-extra.txt — İsteğe bağlı modüller (./install.sh tek tek dener)
+# ═══════════════════════════════════════════════════════════════════════════════
+SpeechRecognition>=3.10   # mikrofon ile dinleme
+pyaudio>=0.2.13           # sistem paketi gerekir: portaudio19-dev / portaudio-devel
+pyautogui>=0.9.54         # fare/klavye kontrolü (X11)
+pyperclip>=1.8            # pano (xclip / wl-clipboard gerekir)
+opencv-python-headless>=4.8
+pytesseract>=0.3.10       # OCR (tesseract-ocr tesseract-ocr-tur)
+datasets>=2.14            # Hugging Face Wikipedia akışı
+huggingface-hub>=0.20
+onnx>=1.15                # ONNX dışa aktarma

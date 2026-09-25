@@ -6,20 +6,14 @@ Arayüz ve masaüstü bağımlılıklarından arındırılmış bağımsız konf
 import os
 import torch
 
-try:
-    import torch_directml
-    _DIRECTML_MEVCUT = True
-except Exception:
-    _DIRECTML_MEVCUT = False
-
 def varsayilan_cihaz() -> str:
     """Kullanılabilir en iyi donanım hızlandırma cihazını seçer."""
     if "NOVA_DEVICE" in os.environ:
         return os.environ["NOVA_DEVICE"]
-    if torch.cuda.is_available():
+    if torch.cuda.is_available():          # NVIDIA CUDA veya AMD ROCm
         return "cuda"
-    if _DIRECTML_MEVCUT:
-        return "privateuseone"
+    if getattr(torch, "xpu", None) is not None and torch.xpu.is_available():   # Intel Arc
+        return "xpu"
     return "cpu"
 
 class TrainerConfig:

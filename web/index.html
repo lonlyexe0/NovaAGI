@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0b0e16">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>Nova AGI</title>
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icon-192.png">
+  <link rel="manifest" href="manifest.json">
+  <link rel="stylesheet" href="app.css">
+</head>
+<body>
+  <audio id="player" preload="none" playsinline></audio>
+
+  <header class="topbar">
+    <div class="brand">
+      <img src="icon.svg" alt="" class="brand-logo">
+      <div>
+        <h1>Nova <span>AGI</span></h1>
+        <p class="status"><i class="dot" id="status-dot"></i><span id="status-text" data-i18n="connecting"></span></p>
+      </div>
+    </div>
+    <div class="top-actions">
+      <span class="badge" id="stat-badge" title="Model">—</span>
+      <button class="icon-btn" id="btn-sound" data-i18n-title="soundTitle" aria-pressed="true">🔊</button>
+      <button class="icon-btn" id="btn-live" data-i18n-title="liveTitle">🎙️</button>
+      <button class="icon-btn" id="btn-pc" data-i18n-title="pcTitle">🖥️</button>
+    </div>
+  </header>
+
+  <div class="live-banner" id="live-banner" hidden>
+    <span class="pulse"></span><span id="live-status" data-i18n="liveListening"></span>
+    <button class="chip" id="btn-live-stop" data-i18n="stop"></button>
+  </div>
+
+  <main id="chat" aria-live="polite"></main>
+
+  <div class="composer">
+    <div class="chips" id="chips"></div>
+    <div class="preview" id="img-preview" hidden>
+      <img id="img-thumb" alt="">
+      <button class="icon-btn small" id="btn-img-clear" aria-label="Kaldır">✕</button>
+    </div>
+    <form class="input-row" id="form">
+      <input type="file" id="file" accept="image/*" hidden>
+      <button type="button" class="icon-btn" id="btn-cam" data-i18n-title="photoTitle">📷</button>
+      <textarea id="input" rows="1" autocomplete="off" data-i18n-placeholder="placeholder"></textarea>
+      <button type="button" class="icon-btn" id="btn-mic" data-i18n-title="micTitle">🎤</button>
+      <button type="button" class="lang-btn" id="btn-stt-lang" title="STT">TR</button>
+      <button type="submit" class="send-btn" id="btn-send" aria-label="Gönder">➤</button>
+    </form>
+  </div>
+
+  <!-- PC paneli -->
+  <dialog id="pc-dialog">
+    <div class="dialog-head">
+      <h3 data-i18n="pcTitle"></h3>
+      <button class="icon-btn small" id="btn-pc-close" aria-label="Kapat">✕</button>
+    </div>
+    <div class="screen">
+      <img id="screen-img" alt="">
+      <div class="screen-bar">
+        <button class="chip" id="btn-screen-refresh" data-i18n="refresh"></button>
+        <label class="toggle"><input type="checkbox" id="chk-auto"> <span data-i18n="live3s"></span></label>
+      </div>
+    </div>
+    <div class="actions">
+      <button class="act" data-action="lock">🔒 <span data-i18n="actLock"></span></button>
+      <button class="act" data-action="mute">🔇 <span data-i18n="actMute"></span></button>
+      <button class="act" data-action="vol_down">🔉 <span data-i18n="actVolDown"></span></button>
+      <button class="act" data-action="vol_up">🔊 <span data-i18n="actVolUp"></span></button>
+      <button class="act" data-action="desktop">🗔 <span data-i18n="actDesktop"></span></button>
+      <button class="act" data-action="taskmgr">📊 <span data-i18n="actMonitor"></span></button>
+      <button class="act wide" id="btn-brief">☕ <span data-i18n="briefing"></span></button>
+    </div>
+  </dialog>
+
+  <!-- Erişim anahtarı -->
+  <dialog id="token-dialog">
+    <form method="dialog" id="token-form">
+      <h3 data-i18n="tokenTitle"></h3>
+      <p class="muted" data-i18n="tokenHelp"></p>
+      <input id="token-input" autocomplete="off" spellcheck="false" placeholder="••••••••">
+      <button class="send-btn wide" type="submit" data-i18n="connect"></button>
+    </form>
+  </dialog>
+
+  <script src="app.js"></script>
+</body>
+</html>

@@ -187,18 +187,18 @@ class NovaGUI:
 
         # Logo ve isim
         logo = tk.Label(baslik_frame, text="🌟 NOVA",
-                        font=("Consolas", 20, "bold"),
+                        font=("Monospace", 20, "bold"),
                         bg=Palet.PANEL, fg="#a0c0ff")
         logo.pack(side="left", padx=16, pady=10)
 
         alt = tk.Label(baslik_frame, text="Otonom Öğrenen AGI Prototipi",
-                       font=("Segoe UI", 9),
+                       font=("Sans", 9),
                        bg=Palet.PANEL, fg=Palet.ALTYAZI)
         alt.pack(side="left", pady=14)
 
         # GPU durum badge
         self._gpu_etiket = tk.Label(baslik_frame, text="⚙ Başlatılıyor...",
-                                    font=("Consolas", 9, "bold"),
+                                    font=("Monospace", 9, "bold"),
                                     bg="#1a2a1a", fg=Palet.DURUM_BEKLE,
                                     padx=10, pady=4)
         self._gpu_etiket.pack(side="right", padx=16, pady=12)
@@ -224,7 +224,7 @@ class NovaGUI:
             state="disabled",
             bg=Palet.ARKAPLAN,
             fg=Palet.BASLIK,
-            font=("Consolas", 11),
+            font=("Monospace", 11),
             relief="flat",
             wrap="word",
             padx=14,
@@ -239,21 +239,21 @@ class NovaGUI:
 
         # Renk etiketleri
         self._sohbet.tag_configure("kullanici_isim",
-            foreground=Palet.KULLANICI_METIN, font=("Consolas", 10, "bold"))
+            foreground=Palet.KULLANICI_METIN, font=("Monospace", 10, "bold"))
         self._sohbet.tag_configure("kullanici_metin",
-            foreground="#d0e8ff",             font=("Consolas", 11))
+            foreground="#d0e8ff",             font=("Monospace", 11))
         self._sohbet.tag_configure("nova_isim",
-            foreground=Palet.NOVA_METIN,      font=("Consolas", 10, "bold"))
+            foreground=Palet.NOVA_METIN,      font=("Monospace", 10, "bold"))
         self._sohbet.tag_configure("nova_metin",
-            foreground="#d0ffd0",             font=("Consolas", 11))
+            foreground="#d0ffd0",             font=("Monospace", 11))
         self._sohbet.tag_configure("sistem_isim",
-            foreground=Palet.SISTEM_METIN,    font=("Consolas", 10, "bold"))
+            foreground=Palet.SISTEM_METIN,    font=("Monospace", 10, "bold"))
         self._sohbet.tag_configure("sistem_metin",
-            foreground="#e8d0ff",             font=("Consolas", 10, "italic"))
+            foreground="#e8d0ff",             font=("Monospace", 10, "italic"))
         self._sohbet.tag_configure("zaman",
-            foreground=Palet.ZAMAN_METIN,     font=("Consolas", 8))
+            foreground=Palet.ZAMAN_METIN,     font=("Monospace", 8))
         self._sohbet.tag_configure("bekliyor",
-            foreground=Palet.DURUM_BEKLE,     font=("Consolas", 10, "italic"))
+            foreground=Palet.DURUM_BEKLE,     font=("Monospace", 10, "italic"))
         self._sohbet.tag_configure("ayirac",
             foreground=Palet.KENAR)
 
@@ -337,7 +337,7 @@ class NovaGUI:
                 bg=Palet.KOMUT_DUGME,
                 fg=Palet.KOMUT_METIN,
                 relief="flat",
-                font=("Segoe UI", 8),
+                font=("Sans", 8),
                 padx=8, pady=3,
                 cursor="hand2",
                 command=lambda c=cmd: self._hizli_gonder(c),
@@ -355,7 +355,7 @@ class NovaGUI:
             height=3,
             bg=Palet.GIRIS_BG,
             fg=Palet.BASLIK,
-            font=("Consolas", 12),
+            font=("Monospace", 12),
             relief="flat",
             wrap="word",
             padx=10, pady=8,
@@ -382,7 +382,7 @@ class NovaGUI:
             text="➤ Gönder",
             bg=Palet.GONDER_DUGME,
             fg="white",
-            font=("Segoe UI", 10, "bold"),
+            font=("Sans", 10, "bold"),
             relief="flat",
             padx=14, pady=8,
             cursor="hand2",
@@ -397,7 +397,7 @@ class NovaGUI:
             text="🗑 Temizle",
             bg=Palet.TEMIZLE_DUGME,
             fg="white",
-            font=("Segoe UI", 9),
+            font=("Sans", 9),
             relief="flat",
             padx=10, pady=5,
             cursor="hand2",
@@ -465,7 +465,7 @@ class NovaGUI:
     def _durum_paneli_olustur(self, parent: tk.Frame):
         # Başlık
         tk.Label(parent, text="⚡ CANLI DURUM",
-                 font=("Consolas", 10, "bold"),
+                 font=("Monospace", 10, "bold"),
                  bg=Palet.PANEL, fg=Palet.ALTYAZI,
                  pady=10).pack(fill="x")
         tk.Frame(parent, bg=Palet.KENAR, height=1).pack(fill="x")
@@ -491,18 +491,18 @@ class NovaGUI:
             satir.pack(fill="x", pady=2)
             tk.Label(satir, text=etiket + ":", width=16, anchor="w",
                      bg=Palet.PANEL, fg=Palet.ALTYAZI,
-                     font=("Segoe UI", 9)).pack(side="left")
+                     font=("Sans", 9)).pack(side="left")
             var = tk.StringVar(value=varsayilan)
             self._metrikler[anahtar] = var
             tk.Label(satir, textvariable=var, anchor="e",
                      bg=Palet.PANEL, fg="#aad4ff",
-                     font=("Consolas", 9, "bold")).pack(side="right")
+                     font=("Monospace", 9, "bold")).pack(side="right")
 
         tk.Frame(parent, bg=Palet.KENAR, height=1).pack(fill="x", pady=4)
 
         # ── GPU Bellek Çubuğu ─────────────────────────────────────────────────
         tk.Label(parent, text="GPU VRAM",
-                 font=("Segoe UI", 8), bg=Palet.PANEL,
+                 font=("Sans", 8), bg=Palet.PANEL,
                  fg=Palet.ALTYAZI).pack(padx=12, anchor="w")
 
         self._vram_cubuk = ttk.Progressbar(
@@ -512,7 +512,7 @@ class NovaGUI:
         self._vram_cubuk.pack(padx=12, pady=(2, 6), fill="x")
 
         self._vram_etiket = tk.Label(parent, text="— / — MB",
-                                     font=("Consolas", 8),
+                                     font=("Monospace", 8),
                                      bg=Palet.PANEL, fg=Palet.ALTYAZI)
         self._vram_etiket.pack(anchor="center")
 
@@ -520,7 +520,7 @@ class NovaGUI:
 
         # ── Loss Mini Grafik ──────────────────────────────────────────────────
         tk.Label(parent, text="LOSS GRAFİĞİ",
-                 font=("Segoe UI", 8), bg=Palet.PANEL,
+                 font=("Sans", 8), bg=Palet.PANEL,
                  fg=Palet.ALTYAZI).pack(padx=12, anchor="w", pady=(4, 2))
 
         self._grafik = tk.Canvas(
@@ -534,7 +534,7 @@ class NovaGUI:
         tk.Frame(parent, bg=Palet.KENAR, height=1).pack(fill="x")
         self._sistem_etiket = tk.Label(
             parent, text="Sistem bilgisi yükleniyor...",
-            font=("Segoe UI", 8), bg=Palet.PANEL,
+            font=("Sans", 8), bg=Palet.PANEL,
             fg=Palet.ZAMAN_METIN, wraplength=260, justify="left"
         )
         self._sistem_etiket.pack(padx=12, pady=8, anchor="w")
@@ -566,7 +566,7 @@ class NovaGUI:
         if len(g) < 2:
             canvas.create_text(
                 130, 45, text="Veri bekleniyor...",
-                fill=Palet.ZAMAN_METIN, font=("Consolas", 8)
+                fill=Palet.ZAMAN_METIN, font=("Monospace", 8)
             )
             return
 
@@ -606,10 +606,10 @@ class NovaGUI:
         # Etiketler
         canvas.create_text(pad, pad, text=f"{mx:.3f}",
                             anchor="nw", fill=Palet.ZAMAN_METIN,
-                            font=("Consolas", 7))
+                            font=("Monospace", 7))
         canvas.create_text(pad, h - pad, text=f"{mn:.3f}",
                             anchor="sw", fill=Palet.ZAMAN_METIN,
-                            font=("Consolas", 7))
+                            font=("Monospace", 7))
 
     # ══════════════════════════════════════════════════════════════════════════
     # ALT DURUM ÇUBUĞU
@@ -622,12 +622,12 @@ class NovaGUI:
 
         self._durum_str = tk.StringVar(value="Sistem başlatılıyor...")
         tk.Label(cubuk, textvariable=self._durum_str,
-                 font=("Segoe UI", 8), bg=Palet.PANEL,
+                 font=("Sans", 8), bg=Palet.PANEL,
                  fg=Palet.ALTYAZI).pack(side="left", padx=10)
 
         self._zaman_str = tk.StringVar()
         tk.Label(cubuk, textvariable=self._zaman_str,
-                 font=("Consolas", 8), bg=Palet.PANEL,
+                 font=("Monospace", 8), bg=Palet.PANEL,
                  fg=Palet.ZAMAN_METIN).pack(side="right", padx=10)
 
     # ══════════════════════════════════════════════════════════════════════════
@@ -712,7 +712,7 @@ class NovaGUI:
             toplam_node = semantik_node + epizodik_node
             
             try:
-                param_sayisi = f"{self.beyin.model.param_sayisi():,}"
+                param_sayisi = f"{self.beyin.raw_model.param_sayisi():,}"
             except:
                 param_sayisi = "~15,000,000"
 
@@ -882,57 +882,29 @@ class NovaGUI:
             pass
 
     def _vram_guncelle(self):
-        """GPU VRAM ve cihaz durumunu dinamik güncelle (CUDA + DirectML + MPS + CPU)."""
+        """GPU VRAM ve cihaz durumunu güncelle (CUDA / ROCm / XPU / CPU)."""
         try:
-            import torch
             import hardware
-            dev = getattr(self.beyin, "device", None)
-            dev_type = getattr(dev, "type", str(dev)) if dev else ""
-
-            if torch.cuda.is_available():
-                toplam    = torch.cuda.get_device_properties(0).total_memory // (1024**2)
-                kullanilan = torch.cuda.memory_allocated(0) // (1024**2)
-                yuzde     = (kullanilan / toplam) * 100 if toplam else 0
+            gpu = hardware.get_gpu_info()
+            if gpu["is_gpu"] and gpu["vram_mb"]:
+                toplam = gpu["vram_mb"]
+                kullanilan = sum(g.get("vram_allocated_mb", 0) for g in hardware.get_all_gpus())
+                yuzde = kullanilan / toplam * 100
                 self._vram_cubuk["value"] = min(yuzde, 100)
-                self._vram_etiket.configure(
-                    text=f"{kullanilan} / {toplam} MB  ({yuzde:.1f}%)"
-                )
-                renk = Palet.DURUM_GPU if yuzde < 80 else Palet.TEMIZLE_DUGME
-                gpu_name = torch.cuda.get_device_name(0).strip("\x00 \t\n\r")
+                self._vram_etiket.configure(text=f"{kullanilan} / {toplam} MB  ({yuzde:.1f}%)")
                 self._gpu_etiket.configure(
-                    text=f"🔥 {gpu_name}  {kullanilan}/{toplam} MB",
-                    fg=renk
-                )
-            elif dev_type in ("privateuseone", "directml") or "privateuseone" in str(dev).lower():
-                try:
-                    import torch_directml
-                    gpu_name = torch_directml.device_name(0).strip("\x00 \t\n\r")
-                except Exception:
-                    gpu_info = hardware.get_gpu_info()
-                    gpu_name = gpu_info.get("name", "DirectML GPU")
-                self._vram_cubuk["value"] = 100
-                self._vram_etiket.configure(text=f"DirectML ({gpu_name})")
-                self._gpu_etiket.configure(
-                    text=f"⚡ {gpu_name} (DirectML)",
-                    fg=Palet.DURUM_GPU
-                )
-            elif hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
-                self._vram_cubuk["value"] = 100
-                self._vram_etiket.configure(text="Apple Silicon (MPS)")
-                self._gpu_etiket.configure(
-                    text="⚡ Apple Metal (MPS)",
-                    fg=Palet.DURUM_GPU
-                )
+                    text=f"🔥 {gpu['short_name']} [{gpu['backend']}]  {kullanilan}/{toplam} MB",
+                    fg=Palet.DURUM_GPU if yuzde < 80 else Palet.TEMIZLE_DUGME)
+            elif gpu["is_gpu"]:
+                self._vram_cubuk["value"] = 0
+                self._vram_etiket.configure(text=f"{gpu['backend']} ({gpu['name']})")
+                self._gpu_etiket.configure(text=f"⚡ {gpu['short_name']} [{gpu['backend']}]", fg=Palet.DURUM_GPU)
             else:
-                cpu_info = hardware.get_cpu_info()
-                short_cpu = cpu_info["short_name"]
-                threads = cpu_info["threads"]
+                cpu = hardware.get_cpu_info()
                 self._vram_cubuk["value"] = 0
                 self._vram_etiket.configure(text="GPU yok (CPU modu)")
-                self._gpu_etiket.configure(
-                    text=f"💻 CPU — {short_cpu} ({threads}T)",
-                    fg=Palet.DURUM_CPU
-                )
+                self._gpu_etiket.configure(text=f"💻 CPU — {cpu['short_name']} ({cpu['threads']}T)",
+                                           fg=Palet.DURUM_CPU)
         except Exception:
             pass
 

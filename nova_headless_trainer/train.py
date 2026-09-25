@@ -23,16 +23,10 @@ from torch.optim import AdamW
 from torch.optim.lr_scheduler import CosineAnnealingWarmRestarts
 
 from config import TrainerConfig, varsayilan_cihaz
-from model import DinamikNovaLM, PlatoAlgilayici, DirectMLAdamW
+from model import DinamikNovaLM, PlatoAlgilayici
 from tokenizer import NovaTokenizer
 from db_manager import TrainerDBManager
 
-if sys.platform == "win32":
-    try:
-        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
-        sys.stderr.reconfigure(encoding="utf-8", errors="replace")
-    except Exception:
-        pass
 
 logging.basicConfig(
     level=logging.INFO,
@@ -124,15 +118,7 @@ class HeadlessTrainer:
         self.web_interval = getattr(args, "web_interval", 2.0)
 
         # Cihaz belirleme
-        dev_str = self.cfg.device or varsayilan_cihaz()
-        if str(dev_str).lower() in ("privateuseone", "directml"):
-            try:
-                import torch_directml
-                self.device = torch_directml.device()
-            except Exception:
-                self.device = torch.device(dev_str)
-        else:
-            self.device = torch.device(dev_str)
+        self.device = torch.device(self.cfg.device or varsayilan_cihaz())
 
         logger.info(f"⚡ Donanım Cihazı: {self.device}")
 
@@ -178,10 +164,8 @@ class HeadlessTrainer:
             {"params": decay, "weight_decay": self.cfg.weight_decay},
             {"params": no_decay, "weight_decay": 0.0},
         ]
-        if "privateuseone" in str(self.device).lower():
-            opt = DirectMLAdamW(param_groups, lr=self.cfg.lr, betas=(0.9, 0.95), eps=1e-8)
-        else:
-            opt = AdamW(param_groups, lr=self.cfg.lr, betas=(0.9, 0.95), eps=1e-8)
+        opt = AdamW(param_groups, lr=self.cfg.lr, betas=(0.9, 0.95), eps=1e-8,
+                    fused=self.device.type == "cuda" or None)
 
         sch = CosineAnnealingWarmRestarts(opt, T_0=self.cfg.t_max, T_mult=2, eta_min=5e-6)
         return opt, sch
@@ -424,7 +408,7 @@ def main():
     parser.add_argument("--vocab", type=str, default="nova_vocab.json", help="Sözlük dosya yolu")
     parser.add_argument("--batch_size", type=int, default=32, help="Mini-batch boyutu")
     parser.add_argument("--lr", type=float, default=3e-4, help="Öğrenme oranı")
-    parser.add_argument("--device", type=str, default=None, help="Cihaz (cuda, privateuseone, cpu)")
+    parser.add_argument("--device", type=str, default=None, help="Cihaz (cuda [NVIDIA/ROCm], xpu, cpu)")
     parser.add_argument("--save_every", type=int, default=50, help="Kaç adımda bir kaydedilsin")
     parser.add_argument("--steps", type=int, default=None, help="Kaç adım eğitilsin (örn: 50)")
     parser.add_argument("--max_steps", type=int, default=None, help="Maksimum adım sayısı (örn: 500)")

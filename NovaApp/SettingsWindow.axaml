@@ -1,0 +1,153 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="NovaApp.SettingsWindow"
+        Width="860" Height="620" MinWidth="720" MinHeight="520"
+        WindowStartupLocation="CenterOwner"
+        Icon="avares://nova-agi/Assets/nova_icon.png">
+
+  <Grid RowDefinitions="*,Auto" ColumnDefinitions="220,*">
+    <Border Grid.RowSpan="2" Background="{StaticResource PanelBrush}" BorderBrush="{StaticResource LineBrush}" BorderThickness="0,0,1,0" Padding="12,18">
+      <StackPanel Spacing="14">
+        <TextBlock x:Name="TxtTitle" FontSize="16" FontWeight="Bold" Margin="8,0" />
+        <ListBox x:Name="Tabs" Classes="tabs" SelectionChanged="Tabs_SelectionChanged" />
+      </StackPanel>
+    </Border>
+
+    <ScrollViewer Grid.Column="1" Padding="28,22,28,10">
+      <Panel>
+        <!-- Genel -->
+        <StackPanel x:Name="PanelGeneral" Spacing="6">
+          <TextBlock x:Name="LblLanguage" Classes="label" />
+          <ComboBox x:Name="CmbLanguage">
+            <ComboBoxItem Content="English" Tag="en" />
+            <ComboBoxItem Content="Türkçe" Tag="tr" />
+          </ComboBox>
+          <TextBlock x:Name="HintLanguage" Classes="muted" FontSize="12" TextWrapping="Wrap" Margin="0,4,0,0" />
+        </StackPanel>
+
+        <!-- Donanım -->
+        <StackPanel x:Name="PanelHardware" Spacing="6" IsVisible="False">
+          <TextBlock x:Name="LblDevice" Classes="label" />
+          <ComboBox x:Name="CmbDevice">
+            <ComboBoxItem x:Name="DevAuto" Tag="auto" />
+            <ComboBoxItem Content="NVIDIA CUDA / AMD ROCm" Tag="cuda" />
+            <ComboBoxItem Content="Intel XPU (Arc)" Tag="xpu" />
+            <ComboBoxItem x:Name="DevCpu" Tag="cpu" />
+          </ComboBox>
+          <TextBlock x:Name="HintDevice" Classes="muted" FontSize="12" TextWrapping="Wrap" Margin="0,4,0,14" />
+          <CheckBox x:Name="ChkMultiGpu" />
+          <TextBlock x:Name="LblWorkers" Classes="label" Margin="0,14,0,6" />
+          <Grid ColumnDefinitions="*,48">
+            <Slider x:Name="SliderWorkers" Minimum="1" Maximum="16" TickFrequency="1" IsSnapToTickEnabled="True" />
+            <TextBlock Grid.Column="1" Text="{Binding #SliderWorkers.Value, StringFormat={}{0:0}}" x:CompileBindings="False"
+                       HorizontalAlignment="Center" VerticalAlignment="Center" FontWeight="SemiBold" Foreground="{StaticResource AccentBrush}" />
+          </Grid>
+        </StackPanel>
+
+        <!-- Sinir ağı -->
+        <StackPanel x:Name="PanelNeural" Spacing="6" IsVisible="False">
+          <Border Classes="card" Margin="0,0,0,12">
+            <StackPanel Spacing="4">
+              <CheckBox x:Name="ChkTraining" FontWeight="SemiBold" />
+              <TextBlock x:Name="HintTraining" Classes="muted" FontSize="12" TextWrapping="Wrap" Margin="28,0,0,0" />
+            </StackPanel>
+          </Border>
+          <TextBlock x:Name="LblLr" Classes="label" />
+          <TextBox x:Name="TxtLr" />
+          <TextBlock x:Name="LblBatch" Classes="label" Margin="0,10,0,6" />
+          <NumericUpDown x:Name="NumBatch" Minimum="1" Maximum="1024" Increment="4" FormatString="0" />
+          <TextBlock x:Name="LblGrowth" Classes="label" Margin="0,10,0,6" />
+          <TextBox x:Name="TxtGrowth" />
+        </StackPanel>
+
+        <!-- Veri -->
+        <StackPanel x:Name="PanelData" Spacing="6" IsVisible="False">
+          <Border Classes="card" Margin="0,0,0,12">
+            <StackPanel Spacing="8">
+              <TextBlock x:Name="LblBulk" FontWeight="SemiBold" />
+              <TextBlock x:Name="HintBulk" Classes="muted" FontSize="12" TextWrapping="Wrap" />
+              <Grid ColumnDefinitions="*,Auto">
+                <ComboBox x:Name="CmbBulk" SelectedIndex="1">
+                  <ComboBoxItem Content="100" Tag="100" />
+                  <ComboBoxItem Content="500" Tag="500" />
+                  <ComboBoxItem Content="1,000" Tag="1000" />
+                  <ComboBoxItem Content="5,000" Tag="5000" />
+                  <ComboBoxItem Content="10,000" Tag="10000" />
+                </ComboBox>
+                <Button x:Name="BtnBulk" Grid.Column="1" Classes="primary" Margin="8,0,0,0" Click="BtnBulk_Click" />
+              </Grid>
+              <TextBlock x:Name="TxtBulkStatus" FontSize="12" Foreground="{StaticResource AccentBrush}" TextWrapping="Wrap" />
+            </StackPanel>
+          </Border>
+          <CheckBox x:Name="ChkCuriosity" />
+          <TextBlock x:Name="LblTopics" Classes="label" Margin="0,10,0,6" />
+          <TextBox x:Name="TxtTopics" AcceptsReturn="True" TextWrapping="Wrap" Height="64" />
+          <TextBlock x:Name="LblInterval" Classes="label" Margin="0,10,0,6" />
+          <ComboBox x:Name="CmbInterval">
+            <ComboBoxItem Content="10 s" Tag="10" />
+            <ComboBoxItem Content="20 s" Tag="20" />
+            <ComboBoxItem Content="45 s" Tag="45" />
+            <ComboBoxItem Content="90 s" Tag="90" />
+          </ComboBox>
+          <TextBlock x:Name="LblHf" Classes="label" Margin="0,10,0,6" />
+          <TextBox x:Name="TxtHf" PasswordChar="•" Watermark="hf_…" />
+        </StackPanel>
+
+        <!-- Web -->
+        <StackPanel x:Name="PanelWeb" Spacing="6" IsVisible="False">
+          <Border Classes="card" Margin="0,0,0,12">
+            <StackPanel Spacing="10">
+              <CheckBox x:Name="ChkWeb" FontWeight="SemiBold" IsCheckedChanged="Web_Changed" />
+              <StackPanel Orientation="Horizontal" Spacing="10">
+                <TextBlock Text="Port" VerticalAlignment="Center" Classes="muted" />
+                <TextBox x:Name="TxtPort" Width="110" TextChanged="Web_Changed" />
+              </StackPanel>
+            </StackPanel>
+          </Border>
+          <Border Classes="card">
+            <StackPanel Spacing="8">
+              <TextBlock x:Name="LblPhone" FontWeight="SemiBold" />
+              <SelectableTextBlock x:Name="TxtUrl" FontFamily="{StaticResource MonoFont}" FontSize="12.5"
+                                   Foreground="{StaticResource AccentBrush}" TextWrapping="Wrap" />
+              <StackPanel Orientation="Horizontal" Spacing="8">
+                <Button x:Name="BtnCopyUrl" Classes="ghost" Click="BtnCopyUrl_Click" />
+                <Button x:Name="BtnOpenUrl" Classes="ghost" Click="BtnOpenUrl_Click" />
+              </StackPanel>
+              <TextBlock x:Name="HintWeb" Classes="muted" FontSize="12" TextWrapping="Wrap" />
+            </StackPanel>
+          </Border>
+        </StackPanel>
+
+        <!-- Dışa aktar -->
+        <StackPanel x:Name="PanelExport" Spacing="12" IsVisible="False">
+          <Border Classes="card">
+            <Grid ColumnDefinitions="*,Auto">
+              <StackPanel Spacing="3">
+                <TextBlock Text="ONNX (.onnx)" FontWeight="SemiBold" />
+                <TextBlock x:Name="HintOnnx" Classes="muted" FontSize="12" TextWrapping="Wrap" />
+              </StackPanel>
+              <Button x:Name="BtnOnnx" Grid.Column="1" Classes="primary" VerticalAlignment="Center" Click="BtnExport_Click" Tag="onnx" />
+            </Grid>
+          </Border>
+          <Border Classes="card">
+            <Grid ColumnDefinitions="*,Auto">
+              <StackPanel Spacing="3">
+                <TextBlock Text="ZIP" FontWeight="SemiBold" />
+                <TextBlock x:Name="HintZip" Classes="muted" FontSize="12" TextWrapping="Wrap" />
+              </StackPanel>
+              <Button x:Name="BtnZip" Grid.Column="1" Classes="ghost" VerticalAlignment="Center" Click="BtnExport_Click" Tag="zip" />
+            </Grid>
+          </Border>
+          <SelectableTextBlock x:Name="TxtExport" FontSize="12" Foreground="{StaticResource AccentBrush}" TextWrapping="Wrap" />
+        </StackPanel>
+      </Panel>
+    </ScrollViewer>
+
+    <Border Grid.Row="1" Grid.Column="1" BorderBrush="{StaticResource LineBrush}" BorderThickness="0,1,0,0" Padding="28,12">
+      <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="10">
+        <Button x:Name="BtnCancel" Classes="ghost" Click="BtnCancel_Click" />
+        <Button x:Name="BtnSave" Classes="primary" Click="BtnSave_Click" />
+      </StackPanel>
+    </Border>
+  </Grid>
+</Window>

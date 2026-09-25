@@ -28,6 +28,9 @@ class HafizaYoneticisi:
     def __init__(self, db_yolu: Optional[str] = None):
         if db_yolu is None or db_yolu == "nova.db":
             self.db_yolu = get_data_path("nova.db")
+        elif db_yolu == ":memory:":
+            # Thread-local bağlantılar aynı bellek içi veritabanını paylaşsın
+            self.db_yolu = f"file:nova_mem_{id(self)}?mode=memory&cache=shared"
         else:
             self.db_yolu = db_yolu
         self._local  = threading.local()   # Her thread'e özel bağlantı
@@ -39,12 +42,15 @@ class HafizaYoneticisi:
     def _baglanti(self) -> sqlite3.Connection:
         """Thread-local SQLite bağlantısı döndür."""
         if not hasattr(self._local, "conn") or self._local.conn is None:
-            conn = sqlite3.connect(self.db_yolu, check_same_thread=False)
-            conn.row_factory    = sqlite3.Row
-            conn.isolation_level = None          # autocommit kapalı
-            conn.execute("PRAGMA journal_mode = WAL")   # Eşzamanlı okuma/yazma
+            conn = sqlite3.connect(self.db_yolu, check_same_thread=False, timeout=10,
+                                   uri=self.db_yolu.startswith("file:"))
+            conn.row_factory     = sqlite3.Row
+            conn.isolation_level = None                # autocommit
+            conn.execute("PRAGMA journal_mode = WAL")  # Eşzamanlı okuma/yazma
             conn.execute("PRAGMA synchronous  = NORMAL")
             conn.execute("PRAGMA foreign_keys = ON")
+            conn.execute("PRAGMA temp_store   = MEMORY")
+            conn.execute("PRAGMA cache_size   = -32000")   # ~32 MB sayfa önbelleği
             self._local.conn = conn
         return self._local.conn
 
@@ -93,6 +99,8 @@ class HafizaYoneticisi:
                     ON bilgi_agaci(islendi, id DESC);
                 CREATE INDEX IF NOT EXISTS idx_gorev_durum
                     ON gorevler(durum, oncelik ASC, id ASC);
+                CREATE INDEX IF NOT EXISTS idx_bilgi_url
+                    ON bilgi_agaci(kaynak_url);
 
                 COMMIT;
             """)
@@ -156,17 +164,20 @@ class HafizaYoneticisi:
             return " | ".join(a['icerik'][:200] for a in son)
 
         puanli: list[tuple[float, str]] = []
+        filtre = " OR ".join("icerik LIKE ?" for _ in kelimeler[:6])
+        parametreler = [f"%{kw}%" for kw in kelimeler[:6]]
 
-        for tablo, col in [('anilar', 'icerik'), ('bilgi_agaci', 'icerik')]:
+        # Ön filtreleme SQLite içinde yapılır; Python'a sadece eşleşen satırlar gelir.
+        for tablo in ("anilar", "bilgi_agaci"):
             rows = conn.execute(
-                f"SELECT {col} FROM {tablo} ORDER BY id DESC LIMIT 300"
+                f"SELECT icerik FROM (SELECT icerik FROM {tablo} ORDER BY id DESC LIMIT 2000) "
+                f"WHERE {filtre} LIMIT 60",
+                parametreler,
             ).fetchall()
             for row in rows:
-                metin  = row[0] or ""
-                lower  = metin.lower()
-                # TF: her kelimenin kaç kez geçtiği / toplam uzunluk
-                tf     = sum(lower.count(kw) for kw in kelimeler)
-                # Uzunluk penaltısı: çok kısa pasajlar düşük puan
+                metin = row[0] or ""
+                lower = metin[:8000].lower()
+                tf = sum(lower.count(kw) for kw in kelimeler)
                 agirlik = tf * (1 + min(len(metin) / 500, 1))
                 if agirlik > 0:
                     puanli.append((agirlik, metin))
@@ -252,13 +263,16 @@ class HafizaYoneticisi:
 
     def bilgiyi_isle(self, bilgi_id: int):
         """Bilgiyi eğitilmiş olarak işaretle."""
+        self.bilgileri_isle([bilgi_id])
+
+    def bilgileri_isle(self, bilgi_idleri: list[int]):
+        """Birden çok bilgiyi tek sorguda eğitilmiş olarak işaretle."""
+        if not bilgi_idleri:
+            return
         with self._lock:
             conn = self._baglanti()
-            with conn:
-                conn.execute(
-                    "UPDATE bilgi_agaci SET islendi = 1 WHERE id = ?",
-                    (bilgi_id,)
-                )
+            conn.executemany("UPDATE bilgi_agaci SET islendi = 1 WHERE id = ?",
+                             [(i,) for i in bilgi_idleri])
 
     # ══════════════════════════════════════════════════════════════════════════
     # GÖREV KUYRUĞU
@@ -315,13 +329,16 @@ class HafizaYoneticisi:
     # ══════════════════════════════════════════════════════════════════════════
 
     def istatistik(self) -> dict:
-        conn = self._baglanti()
+        row = self._baglanti().execute("""
+            SELECT (SELECT COUNT(*) FROM anilar),
+                   (SELECT COUNT(*) FROM bilgi_agaci),
+                   (SELECT COUNT(*) FROM bilgi_agaci WHERE islendi = 0),
+                   (SELECT COUNT(*) FROM gorevler WHERE durum = 'bekliyor'),
+                   (SELECT COUNT(*) FROM gorevler WHERE durum = 'tamamlandi')
+        """).fetchone()
         return {
-            "ani_sayisi":        conn.execute("SELECT COUNT(*) FROM anilar").fetchone()[0],
-            "bilgi_sayisi":      conn.execute("SELECT COUNT(*) FROM bilgi_agaci").fetchone()[0],
-            "egitilmemis":       conn.execute("SELECT COUNT(*) FROM bilgi_agaci WHERE islendi=0").fetchone()[0],
-            "gorev_bekleyen":    conn.execute("SELECT COUNT(*) FROM gorevler WHERE durum='bekliyor'").fetchone()[0],
-            "gorev_tamamlandi":  conn.execute("SELECT COUNT(*) FROM gorevler WHERE durum='tamamlandi'").fetchone()[0],
+            "ani_sayisi": row[0], "bilgi_sayisi": row[1], "egitilmemis": row[2],
+            "gorev_bekleyen": row[3], "gorev_tamamlandi": row[4],
         }
 
     # ══════════════════════════════════════════════════════════════════════════
@@ -338,8 +355,10 @@ class HafizaYoneticisi:
             (limit_ani,)
         ).fetchall()
 
+        # Grafik için içerik kısaltılır (tam makaleler MB'larca JSON üretir)
         bilgiler = conn.execute(
-            "SELECT id, kaynak_url, konu, icerik, zaman FROM bilgi_agaci ORDER BY id DESC LIMIT ?",
+            "SELECT id, kaynak_url, konu, substr(icerik, 1, 1500) AS icerik, zaman "
+            "FROM bilgi_agaci ORDER BY id DESC LIMIT ?",
             (limit_bilgi,)
         ).fetchall()
 

@@ -1,211 +1,153 @@
 <div align="right">
-  <strong>Languages:</strong> 
-  <b>English</b> | <a href="README.tr.md">Türkçe</a>
+  <strong>Languages:</strong> <b>English</b> | <a href="README.tr.md">Türkçe</a>
 </div>
 
 <div align="center">
 
-# 🌟 NOVA AGI v3.5
-### *Autonomous Growing Neural Intelligence & Consciousness Architecture*
+<img src="assets/nova_icon.png" width="96" alt="Nova AGI">
 
-[![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20Linux-blue?style=for-the-badge&logo=windows)](https://github.com/lonlyexe0/NovaAGI)
-[![Runtime](https://img.shields.io/badge/.NET-9.0%20WPF-purple?style=for-the-badge&logo=dotnet)](https://dotnet.microsoft.com/)
-[![Python](https://img.shields.io/badge/Python-3.10%2B-yellow?style=for-the-badge&logo=python)](https://www.python.org/)
-[![PyTorch](https://img.shields.io/badge/PyTorch-DirectML%20%7C%20CUDA-red?style=for-the-badge&logo=pytorch)](https://pytorch.org/)
-[![FlashAttention](https://img.shields.io/badge/FlashAttention-2%20Enabled-orange?style=for-the-badge)](https://pytorch.org/)
-[![Voice Engine](https://img.shields.io/badge/Voice-F.R.I.D.A.Y.%20Neural%20TTS-brightgreen?style=for-the-badge)](https://github.com/rany2/edge-tts)
+# Nova AGI — Linux Edition
+
+*A self-growing neural network with memory, voice, screen awareness and a native desktop app.*
+
+[![Platform](https://img.shields.io/badge/Platform-Linux-blue?style=for-the-badge&logo=linux&logoColor=white)](#quick-start)
+[![Python](https://img.shields.io/badge/Python-3.10%2B-yellow?style=for-the-badge&logo=python&logoColor=white)](https://www.python.org/)
+[![PyTorch](https://img.shields.io/badge/PyTorch-CUDA%20%7C%20ROCm%20%7C%20XPU%20%7C%20CPU-red?style=for-the-badge&logo=pytorch&logoColor=white)](https://pytorch.org/)
+[![UI](https://img.shields.io/badge/UI-Avalonia%20.NET%209-purple?style=for-the-badge&logo=dotnet)](https://avaloniaui.net/)
 [![License](https://img.shields.io/badge/License-GPL--3.0-green?style=for-the-badge)](LICENSE)
 
-```
-███╗   ██╗ ██████╗ ██╗   ██╗ █████╗     █████╗  ██████╗ ██╗
-████╗  ██║██╔═══██╗██║   ██║██╔══██╗   ██╔══██╗██╔════╝ ██║
-██╔██╗ ██║██║   ██║██║   ██║███████║   ███████║██║  ███╗██║
-██║╚██╗██║██║   ██║╚██╗ ██╔╝██╔══██║   ██╔══██║██║   ██║██║
-██║ ╚████║╚██████╔╝ ╚████╔╝ ██║  ██║   ██║  ██║╚██████╔╝██║
-╚═╝  ╚═══╝ ╚═════╝   ╚═══╝  ╚═╝  ╚═╝   ╚═╝  ╚═╝ ╚═════╝ ╚═╝
-```
-
-*Nova is an autonomous, self-expanding artificial general intelligence system featuring dynamic network morphism, F.R.I.D.A.Y. neural voice interaction, ChatGPT-style real-time typewriter streaming, continuous background training, and an ultra-modern native desktop experience.*
+<img src="docs/screenshot.png" width="880" alt="Nova AGI desktop app">
 
 </div>
 
 > [!NOTE]
-> ### 📌 Project Status: Final Version (Archived / Shelved)
-> **"Yapay zeka eğitilebilir, sadece elimde yeterince kaynak yok. Bu yüzden bu projeyi rafa kaldırıyorum."**
-> *(The AI can be trained; I just don't have enough resources at hand. Therefore, I am archiving / shelving this project.)*
-> 
-> *Nova AGI is completed as a fully functional and technically validated prototype featuring autonomous growth (Network Morphism), two-way IPC bridge, F.R.I.D.A.Y. neural voice system, and a modern C# .NET 9 WPF desktop interface. However, training a language model from scratch requires massive supercomputing resources; thus, the project is preserved in this final state.*
+> **Project status: archived.** *"The AI can be trained; I just don't have enough resources."*
+> Nova is a working prototype — the architecture, growth, memory and interfaces all run — but training a
+> useful language model from scratch needs far more compute than a desktop PC. Expect gibberish from an
+> untrained model; tool answers (Wikipedia, calculator, time, screen analysis…) work immediately.
 
----
+This branch is the **Linux port of the `windows-part` branch**: every Windows-only piece
+(WPF, DirectML, `winreg`, `winsound`, GDI, Windows OCR, `.bat` scripts, Inno Setup) has been replaced
+with a native Linux equivalent, and the code has been optimized along the way.
 
-## 🚀 Key Flagship Features
-
-### 🌟 1. Native C# .NET 9.0 WPF Desktop Interface & Live Streaming
-- **Real-Time Typewriter Streaming**: Instantaneous character/token streaming straight from the neural network to the WPF chat bubbles (`chat_chunk`). No frozen screens or waiting for full paragraphs; words appear in real-time just like ChatGPT.
-- **Ultra-Responsive GUI**: Built with .NET 9.0 and C# WPF using asynchronous inter-process communication (IPC) to the PyTorch neural backend.
-- **Bilingual On-The-Fly Localization**: Instant real-time UI switching between **English** and **Turkish** without restarting.
-- **Hardware Telemetry HUD**: Real-time monitoring of VRAM usage, loss curves, training steps, and parameter growth count.
-
-### 🎙️ 2. F.R.I.D.A.Y. Neural Voice Engine (Speech & Audio)
-- **Neural Text-to-Speech (TTS)**: Integrated high-fidelity Microsoft Edge Neural TTS voice modeled after Marvel's F.R.I.D.A.Y. (Irish Neural / Turkish Emel Neural) with zero-latency speech queuing and Windows SAPI offline fallback.
-- **Voice Dictation (STT)**: Direct hands-free voice input via microphone using dynamic energy-threshold speech recognition.
-- **Voice Commands**: Say `"Read history"` or `"Geçmişi oku"` to have Nova read your recent conversation history aloud.
-- **One-Click Audio Toggles**: Dedicated microphone (record) and speaker (mute/unmute) controls embedded directly in the chat bar.
-
-### 🧠 3. Dynamically Growing Neural Architecture (Network Morphism)
-- **Zero-Loss Growth**: When training loss plateaus, the neural network autonomously expands its layers, hidden embedding dimensions, and Feed-Forward (FF) neurons without forgetting previously learned weights.
-- **From 400M to 1.4B+ Parameters**: Dynamically scales from a compact 32-layer model to an ultra-large multi-billion class architecture.
-- **Checkpoint Persistence**: Neural model architecture and weights are saved atomically with Windows lock protection, perfectly preserving grown parameter counts across restarts.
-
-### ⚡ 4. Cloud & Headless Cluster Trainer (`nova_headless_trainer`)
-- **FlashAttention-2 & BFloat16**: Accelerated with `F.scaled_dot_product_attention` (saving 70% VRAM and providing 3x speedup) and mixed-precision BFloat16/FP16 for NVIDIA A100/H100 and RTX Tensor Cores.
-- **Autonomous Big Data Ingestion**: Pre-loaded with over 600,000 records including official Wikipedia articles, CodeAlpaca programming datasets, Python instructions, and Turkish daily dialogues.
-- **Multi-GPU Parallelism**: Automatically distributes training across multiple GPUs using PyTorch `DataParallel`.
-- **AMD DirectML & CPU Optimization**: Custom `DirectMLAdamW` zero-CPU fallback optimizer for AMD Radeon graphics cards.
-
-### 🕸️ 5. Interactive Visual Knowledge & Memory Graph Explorer
-- **2D Dynamic Cluster Graph**: Interactive force-directed visualization of episodic memories (user conversations) and semantic knowledge (Wikipedia nodes).
-- **Live Background Auto-Refresh**: Automatically detects newly ingested concepts and renders them in real time without UI flicker.
-- **Instant Search & Topic Downloader**: Download any Wikipedia article straight into the knowledge graph with one click.
-
-### 🌐 6. Web Server & Cloudflare Remote Access
-- **Mobile & Web UI**: Built-in responsive web dashboard running on port 8080/9090 (`baslat_web.bat`).
-- **Cloudflare Tunnel**: Instant secure public URL generation (`baslat_tunnel.bat`) to chat with Nova securely from your phone or tablet away from home.
-
----
-
-## 🎙️ How to Use the Voice Engine
-
-Nova comes with a complete neural voice pipeline out of the box:
-
-### 1. Speaking to Nova (Voice Input / Microphone)
-1. In the modern desktop GUI (`NovaAGI.exe`), click the **Microphone (🎤)** icon located next to the message input box.
-2. The mic button will glow active. Speak clearly into your microphone.
-3. Nova will automatically transcribe your speech using noise-filtering speech recognition and send it to the neural engine.
-
-### 2. Hearing Nova Speak (Neural TTS)
-1. Click the **Speaker (🔊)** icon next to the send button to toggle voice output on/off.
-2. When enabled, Nova speaks responses aloud using high-definition neural voices:
-   * **Turkish Mode**: High-clarity `tr-TR-EmelNeural`
-   * **English Mode**: F.R.I.D.A.Y. Irish Neural `en-IE-EmilyNeural`
-3. If an internet connection is unavailable, it automatically falls back to offline Windows SAPI voices without crashing.
-
-### 3. Voice Commands
-You can speak or type:
-* `"Geçmişi oku"` / `"Read history"`: Nova will summarize and read aloud recent conversation memories.
-
----
-
-## 🏛️ System Architecture
-
-```
-c:/NOVA/
-├── NovaApp/                 ← C# .NET 9.0 WPF Native Desktop GUI
-│   ├── MainWindow.xaml      ← Primary chat interface, live typewriter streaming & HUD
-│   ├── MemoryGraphWindow    ← Interactive 2D Knowledge Graph Explorer
-│   ├── SettingsWindow       ← Hardware, neural hyperparameter & data configuration
-│   └── Services/            ← Low-latency asynchronous JSON-Lines IPC bridge
-│
-├── brain.py                 ← PyTorch Transformer + Network Morphism + uret_stream generator
-├── memory.py                ← SQLite3 Dual Memory (Episodic Chats + Semantic Bilgi Ağacı)
-├── body.py                  ← F.R.I.D.A.Y. Neural Voice Engine + Intent Parser + Python Sandbox
-├── yetenekler.py            ← Dynamic Live Wikipedia REST API & DuckDuckGo Web Engine
-├── web_server.py            ← Asynchronous HTTP & Mobile Web Dashboard
-├── hardware.py              ← Multi-GPU, DirectML, CPU thread & VRAM telemetry scanner
-├── gpu_setup.py             ← Adaptive hardware environment optimizer
-├── nova_bridge.py           ← IPC Server coordinating C# WPF and Python backends
-│
-├── nova_headless_trainer/   ← Standalone Cloud / Cluster Training System
-│   ├── train.py             ← FlashAttention-2 + BFloat16 Headless Training Loop
-│   ├── model.py             ← Scalable DinamikNovaLM architecture
-│   ├── db_manager.py        ← Priority dialogue & knowledge data loader
-│   └── sync_manager.py      ← Cloud & local weights/database synchronization
-│
-├── baslat_cs_gui.bat        ← 1-Click Launch Desktop GUI (.NET 9 Release)
-├── baslat_web.bat           ← 1-Click Launch Web & Mobile Server
-├── baslat_tunnel.bat        ← 1-Click Launch Cloudflare Mobile Tunnel
-├── install.bat              ← Automated Python & dependency installer
-└── requirements.txt         ← Core Python dependencies
-```
-
----
-
-## ⚡ Quick Start & Installation
-
-### Prerequisites
-- **Operating System**: Windows 10 / 11 (64-bit) or Linux
-- **Python**: Python 3.10 or higher
-- **.NET SDK**: [.NET 9.0 SDK](https://dotnet.microsoft.com/download/dotnet/9.0) (for building the native GUI)
-- **Audio (Optional for Voice)**: Microphone and working speaker/headset
-
-### 1. Automated Installation
-Run the installer script:
-```powershell
-.\install.bat
-```
-*Or install dependencies manually:*
-```powershell
-pip install -r requirements.txt
-pip install edge-tts speechrecognition pyaudio
-```
-
-### 2. Launch Nova Desktop GUI
-Start the desktop application with 1 click:
-```powershell
-.\baslat_cs_gui.bat
-```
-
-### 3. Launch Web & Mobile Interface (Optional)
-```powershell
-.\baslat_web.bat
-```
-Access via your browser at `http://localhost:8080` (or over your local Wi-Fi via your PC's IP address).
-
----
-
-## ☁️ Cloud & Headless Training (Google Colab / Clusters)
-
-If you wish to train Nova on cloud GPUs (such as NVIDIA A100 / H100):
+## Quick start
 
 ```bash
-cd nova_headless_trainer
-python train.py --db nova.db --weights nova_weights.pth --batch_size 32 --continuous
+git clone -b claude-verison https://github.com/lonlyexe0/NovaAGI.git
+cd NovaAGI
+./install.sh          # system packages, Python venv, the right PyTorch build, desktop app, menu entry
+./nova.sh             # launch
 ```
 
-- **Speed**: FlashAttention-2 and BFloat16 enabled automatically.
-- **Model Scalability**: Models automatically expand using Network Morphism as they learn.
-- **Sync Back to PC**: Once training is complete, copy `nova_weights.pth` and `nova.db` into `c:\NOVA` to immediately run the updated brain locally.
+`install.sh` detects your GPU and installs the matching PyTorch build. Override it with
+`--gpu=cuda|rocm|xpu|cpu`. Useful flags: `--no-system` (no sudo), `--no-desktop`, `--with-dotnet`
+(installs the .NET SDK into `~/.dotnet` so the modern UI can be built), `-y`.
 
----
+| Command | What it does |
+|---|---|
+| `./nova.sh` | Avalonia desktop app (falls back to the Tk UI if .NET is missing) |
+| `./nova.sh term` | Terminal chat (`main.py`) |
+| `./nova.sh launcher` | Advanced terminal launcher with Hugging Face streaming |
+| `./nova.sh web` | Web/phone server, prints the access link |
+| `./nova.sh tunnel` | Exposes the web server through a Cloudflare tunnel |
+| `./nova.sh doctor` | GPU, tool and Python package check |
+| `./nova.sh build` | Rebuild the desktop app |
+| `./uninstall.sh` | Remove the menu entry, builds and (optionally) data |
 
-## 💬 In-App Commands & Shortcuts
+## What changed from the Windows version
 
-You can type direct commands in the chat interface or use the quick action chips:
+**Platform**
+- **Desktop UI:** WPF → **Avalonia 11** (.NET 9). Redesigned dark theme, streaming chat, telemetry
+  cards, loss chart and a force-directed memory graph with zoom/pan — drawn in a single render pass
+  instead of thousands of UI elements.
+- **GPU:** DirectML → **CUDA, ROCm (AMD) and XPU (Intel Arc)**. Consumer Radeon cards that ROCm does not
+  officially list (e.g. RX 6500 XT / RX 7600) get `HSA_OVERRIDE_GFX_VERSION` set automatically.
+- **Hardware detection:** registry → `/proc`, `/sys/class/drm`, `nvidia-smi`, `lspci`; cached, so
+  telemetry polling is cheap.
+- **Audio:** winsound/MCI → PipeWire, PulseAudio, ALSA, ffplay or mpv. Offline TTS fallback:
+  **espeak-ng** (SAPI is gone).
+- **Screen and OCR:** GDI/Windows OCR → `mss` (X11), Pillow, `grim`, `gnome-screenshot`, `spectacle`
+  and **Tesseract**.
+- **System actions:** `user32` key events → `loginctl`, `wpctl`/`pactl`/`amixer`, `wmctrl`/`xdotool`, and
+  the system monitor of your desktop.
+- **Scripts and packaging:** `.bat`/Inno Setup → `install.sh`, `nova.sh`, a `.desktop` entry and
+  `packaging/build_release.sh`.
+- **Data** lives in `~/.local/share/nova-agi` (XDG); set `NOVA_DATA_DIR` to override.
 
-| Command | Description |
-| :--- | :--- |
-| `!istatistik` / `!stats` | Displays live neural network parameters, memory node count, and training steps. |
-| `!wiki <topic>` | Searches Wikipedia live and stores the full article in the knowledge base. |
-| `!ara <query>` | Queries DuckDuckGo / web search and summarizes findings. |
-| `!hesapla <math>` | Computes mathematical equations (e.g. `2^10 + sqrt(144)`). |
-| `!python <code>` | Executes Python code safely in the sandbox. |
-| `!anilar [N]` | Retrieves the last `N` episodic conversation memories. |
-| `!kaydet` / `!save` | Forces an immediate atomic checkpoint save of model weights. |
-| `!buyut` / `!grow` | Triggers immediate neural network growth and layer expansion. |
-| `!lang <tr/en>` | Switches active language between Turkish and English. |
+**Speed**
+- Generation uses a **KV-cache** and vectorized sampling instead of re-running the whole context and
+  looping in Python for every token.
+- Attention runs on **`scaled_dot_product_attention`**, which picks Flash or memory-efficient kernels.
+  CUDA uses the fused AdamW.
+- Training samples windows from **every** queued record. Before, only the first document was learned
+  and all 40 were marked as done.
+- SQLite: an index on source URLs so imports no longer get slower as the database grows, RAG
+  pre-filtering inside SQL, batched updates and a single-query stats call. The memory graph payload is
+  truncated to avoid multi-MB JSON every refresh.
 
----
+**Fixes**
+- Embedding growth no longer scrambles the Q/K/V weights (network morphism is now actually
+  function-preserving for Q/K/V).
+- The desktop bridge's stdout is **protocol-only**. Stray `print()`s used to corrupt the JSON stream.
+- The engine saves and exits when the UI closes. It used to spin forever on a closed stdin.
+- Slow actions (screen watch, export, listening) run on a worker pool instead of blocking the bridge.
+- Concurrent writes from the UI are serialized.
+- Settings are merged instead of overwritten, and the device setting actually applies.
+- The calculator uses a safe AST evaluator instead of `eval`, and `!python` no longer hijacks
+  `sys.stdout`.
+- The web server requires an **access key**. Before, anyone on the Wi-Fi could run code or view your
+  screen. The server also serves static files from `web/`, streams replies (NDJSON) and caps request
+  sizes.
+- The celebrity voice-clone samples and XTTS scripts were removed. Nova now uses standard neural voices
+  (`en-IE-EmilyNeural`, `tr-TR-EmelNeural`).
 
-## 🛠️ Hardware Compatibility
+## Phone and web access
 
-| Tier | Hardware | Acceleration Engine |
-| :--- | :--- | :--- |
-| **Budget / Laptop** | Quad-core CPU, 8 GB RAM | Multi-threaded CPU BLAS |
-| **Standard Desktop** | Ryzen 5 5600X / Intel i5, 16 GB RAM, 4GB+ GPU | AMD Radeon (DirectML), NVIDIA GTX/RTX (CUDA) |
-| **Workstation / Cloud** | NVIDIA A100 / H100 / Multi-RTX, 32GB+ RAM | FlashAttention-2 + BFloat16 Tensor Cores + PyTorch DataParallel |
+Turn it on in **Settings → Mobile & Web** (or run `./nova.sh web`). The app shows a link like
+`http://192.168.1.20:8080/?token=…`. Open it on a device on the same Wi-Fi and use **Add to Home Screen**
+for an app-like experience. The token is stored on the device after the first visit. For access over
+the internet, run `./nova.sh tunnel` and append `?token=…` to the `trycloudflare.com` URL.
 
----
+## Chat commands
 
-## 📄 License
+`!help` lists everything. Highlights: `!stats`, `!train stop|start`, `!wiki <topic>`, `!search <q>`,
+`!calc 2^10+sqrt(144)`, `!python <code>`, `!read <file>`, `!watch` (screen analysis), `!briefing`,
+`!memories 5`, `!save`, `!grow`, `!hf <token>`, `!lang en|tr`.
 
-This project is licensed under the **GNU General Public License v3.0 (GPL-3.0)**. See the [LICENSE](LICENSE) file for details.
+## Desktop capability matrix
+
+| Feature | X11 | Wayland |
+|---|---|---|
+| Chat, voice, memory, training, web | ✅ | ✅ |
+| Screen watch / screenshot | ✅ `mss` | ✅ `grim` (wlroots), `gnome-screenshot`, `spectacle` |
+| Mouse and keyboard control (`pyautogui`) | ✅ | XWayland windows only |
+| Active window title, "show desktop" | ✅ `xdotool` / `wmctrl` | — |
+
+## Project layout
+
+```
+nova_engine.py      core engine: chat pipeline, ! commands, telemetry, settings
+nova_bridge.py      JSON-lines IPC for the desktop app (stdout = protocol only)
+brain.py            self-growing transformer (KV-cache, SDPA, network morphism)
+memory.py           SQLite episodic + semantic memory, RAG, graph data
+body.py             agent body: web crawler, voice, vision, skills
+linux_desktop.py    audio / screenshot / system actions on Linux
+hardware.py         CPU/GPU/RAM detection and training profile
+gpu_setup.py        CUDA · ROCm · XPU · CPU setup (run before importing torch)
+web_server.py       REST API + web app (web/)
+NovaApp/            Avalonia desktop app (C#)
+main.py · nova_launcher.py · gui.py   terminal REPL, launcher, Tk fallback UI
+nova_headless_trainer/                cloud/Colab trainer
+```
+
+## Troubleshooting
+
+- **AMD GPU not used:** run `./nova.sh doctor`. You need the ROCm PyTorch build (`./install.sh --gpu=rocm`)
+  and your user must be in the `render` and `video` groups.
+- **No microphone input:** `pyaudio` needs `portaudio19-dev` (Debian/Ubuntu) or `portaudio-devel` (Fedora).
+- **No voice output:** install `espeak-ng` (offline) or check your internet connection (edge-tts).
+- **Desktop app does not start:** `./install.sh --with-dotnet` builds it. `./nova.sh tk` always works.
+
+## License
+
+GPL-3.0 — see [LICENSE](LICENSE).
