@@ -3,7 +3,8 @@
 # install.sh — Nova AGI Linux kurulumu
 # ═══════════════════════════════════════════════════════════════════════════════
 #   ./install.sh                 # her şeyi otomatik kur
-#   ./install.sh --gpu=rocm      # PyTorch arka ucunu zorla (auto|cuda|rocm|xpu|cpu)
+#   ./install.sh --gpu=cuda      # GPU'lu PyTorch indir (auto|cuda|rocm|xpu|cpu)
+#                                # varsayılan: CPU paketi (~175 MB); CUDA ~1.8 GB, ROCm 3+ GB indirir
 #   ./install.sh --no-system     # sudo ile sistem paketi kurma
 #   ./install.sh --no-desktop    # masaüstü uygulamasını derleme / menüye ekleme
 #   ./install.sh --with-dotnet   # .NET SDK yoksa ~/.dotnet altına kur
@@ -88,7 +89,13 @@ python3 - <<'PY' || die "Python 3.10 veya üstü gerekli."
 import sys; sys.exit(0 if sys.version_info >= (3, 10) else 1)
 PY
 if [[ ! -x "$VENV/bin/python" ]]; then
-  python3 -m venv "$VENV" || die "venv oluşturulamadı (python3-venv paketini kurun)."
+  # Sistemde PyTorch zaten varsa (dağıtım paketi vb.) onu kullan → tekrar indirilmez
+  VENV_ARGS=()
+  if python3 -c "import torch" 2>/dev/null; then
+    VENV_ARGS=(--system-site-packages)
+    ok "Sistemdeki PyTorch kullanılacak (indirme yok)"
+  fi
+  python3 -m venv "${VENV_ARGS[@]}" "$VENV" || die "venv oluşturulamadı (python3-venv paketini kurun)."
 fi
 PY="$VENV/bin/python"
 "$PY" -m pip install -q --no-cache-dir --upgrade pip wheel
@@ -96,16 +103,27 @@ ok "$("$PY" --version) → $VENV"
 
 # ── 3. PyTorch (GPU'ya göre) ─────────────────────────────────────────────────
 step "PyTorch"
+FOUND="cpu"
+PCI="$(lspci 2>/dev/null | grep -Ei 'vga|3d|display' || true)"
+if have nvidia-smi && nvidia-smi -L >/dev/null 2>&1 || grep -qi nvidia <<<"$PCI"; then
+  FOUND="cuda"
+elif grep -qiE 'amd|ati|radeon' <<<"$PCI" && [[ -e /dev/kfd ]]; then
+  FOUND="rocm"
+elif grep -qiE 'intel.*(arc|dg2|battlemage)' <<<"$PCI"; then
+  FOUND="xpu"
+fi
+declare -A SIZE=([cpu]="~175 MB" [cuda]="~1.8 GB" [rocm]="3+ GB" [xpu]="~1 GB")
 if [[ "$GPU" == "auto" ]]; then
-  PCI="$(lspci 2>/dev/null | grep -Ei 'vga|3d|display' || true)"
-  if have nvidia-smi && nvidia-smi -L >/dev/null 2>&1 || grep -qi nvidia <<<"$PCI"; then
-    GPU="cuda"
-  elif grep -qiE 'amd|ati|radeon' <<<"$PCI" && [[ -e /dev/kfd ]]; then
-    GPU="rocm"
-  elif grep -qiE 'intel.*(arc|dg2|battlemage)' <<<"$PCI"; then
-    GPU="xpu"
-  else
-    GPU="cpu"
+  GPU="cpu"
+  # Nova'nın modeli küçük; CPU yeterli. GPU paketi çok büyük olduğu için yalnızca istenirse indirilir.
+  if [[ "$FOUND" != "cpu" ]]; then
+    answer="c"
+    if (( ! YES )); then
+      echo -e "  ${FOUND^^} ekran kartı bulundu."
+      echo -e "  ${c_dim}CPU paketi ${SIZE[cpu]}, $FOUND paketi ${SIZE[$FOUND]} indirir. Küçük model için CPU yeterlidir.${c_0}"
+      read -r -p "  Hangisi kurulsun? [C]PU / [g]pu: " answer || answer="c"
+    fi
+    [[ "$answer" =~ ^[Gg] ]] && GPU="$FOUND"
   fi
 fi
 case "$GPU" in
@@ -115,18 +133,28 @@ case "$GPU" in
   cpu)  INDEX="https://download.pytorch.org/whl/cpu" ;;
   *) die "Geçersiz --gpu değeri: $GPU (auto|cuda|rocm|xpu|cpu)" ;;
 esac
-echo -e "  ${c_dim}Arka uç: $GPU${INDEX:+ ($INDEX)}${c_0}"
-if "$PY" -c "import torch" 2>/dev/null; then
-  ok "PyTorch zaten kurulu: $("$PY" -c 'import torch; print(torch.__version__)')"
+echo -e "  ${c_dim}Arka uç: $GPU (paket boyutu ${SIZE[$GPU]})${c_0}"
+
+# Kurulu PyTorch istenen arka uçla uyuşuyorsa yeniden indirme
+CURRENT="$("$PY" - 2>/dev/null <<'PY' || true
+import torch
+v = torch.version
+print("rocm" if getattr(v, "hip", None) else "cuda" if v.cuda else
+      "xpu" if "xpu" in torch.__version__ else "cpu")
+PY
+)"
+if [[ -n "$CURRENT" && "$CURRENT" == "$GPU" ]]; then
+  ok "PyTorch zaten kurulu: $("$PY" -c 'import torch; print(torch.__version__)') (indirme yok)"
 else
+  [[ -n "$CURRENT" && -d "$VENV/lib" ]] && "$PY" -m pip uninstall -y -q torch 2>/dev/null || true
   # --no-cache-dir: tekerlek pip önbelleğinde ikinci kez yer kaplamasın
   "$PY" -m pip install --no-cache-dir ${INDEX:+--index-url "$INDEX"} torch numpy || die "PyTorch kurulamadı."
   ok "PyTorch $("$PY" -c 'import torch; print(torch.__version__)')"
 fi
 # PyTorch parça parça kurulamaz; Nova yalnızca torch.nn / optim kullandığı için
 # çalışma zamanında gerekmeyen C++ test ikilileri ve başlık dosyaları silinir (~200 MB).
-if (( STRIP_TORCH )); then
-  TORCH_DIR="$("$PY" -c 'import torch, os; print(os.path.dirname(torch.__file__))')"
+TORCH_DIR="$("$PY" -c 'import torch, os; print(os.path.dirname(torch.__file__))')"
+if (( STRIP_TORCH )) && [[ "$TORCH_DIR" == "$VENV"/* ]]; then   # sistem PyTorch'una dokunma
   before=$(du -sm "$TORCH_DIR" | cut -f1)
   find "$TORCH_DIR/bin" -type f ! -name torch_shm_manager -delete 2>/dev/null || true   # C++ test ikilileri
   rm -rf "$TORCH_DIR/test" "$TORCH_DIR/include" "$TORCH_DIR/share/cmake" \

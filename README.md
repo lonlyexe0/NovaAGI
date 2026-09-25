@@ -39,8 +39,10 @@ cd NovaAGI
 ./nova.sh             # launch
 ```
 
-`install.sh` detects your GPU and installs the matching PyTorch build. Override it with
-`--gpu=cuda|rocm|xpu|cpu`. Useful flags: `--no-system` (no sudo), `--no-desktop`, `--with-dotnet`
+`install.sh` installs the **CPU build of PyTorch by default (~175 MB download)**. Nova's model is small, so
+the CPU is enough. If a GPU is found it asks first, because the CUDA build downloads ~1.8 GB and ROCm 3+ GB.
+Force a build with `--gpu=cuda|rocm|xpu|cpu`. A PyTorch that is already installed on the system, or
+in the venv with the right backend, is reused and not downloaded again. Useful flags: `--no-system` (no sudo), `--no-desktop`, `--with-dotnet`
 (installs the .NET SDK into `~/.dotnet` so the modern UI can be built), `-y`.
 
 **Lean install.** PyTorch can't be installed piece by piece, so `install.sh` removes what Nova never

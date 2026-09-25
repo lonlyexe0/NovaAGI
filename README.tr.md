@@ -39,8 +39,10 @@ cd NovaAGI
 ./nova.sh             # başlat
 ```
 
-`install.sh` GPU'nuzu algılayıp uygun PyTorch derlemesini kurar. Zorlamak için
-`--gpu=cuda|rocm|xpu|cpu` kullanın. Diğer seçenekler: `--no-system` (sudo yok), `--no-desktop`,
+`install.sh` varsayılan olarak **PyTorch'un CPU paketini kurar (~175 MB indirme)**. Nova'nın modeli küçük
+olduğu için CPU yeterlidir. Ekran kartı bulunursa önce sorar, çünkü CUDA paketi ~1.8 GB, ROCm 3+ GB
+indirir. Belirli bir paketi zorlamak için `--gpu=cuda|rocm|xpu|cpu` kullanın. Sistemde veya venv'de
+uygun PyTorch zaten kuruluysa tekrar indirilmez. Diğer seçenekler: `--no-system` (sudo yok), `--no-desktop`,
 `--with-dotnet` (modern arayüz için .NET SDK'yı `~/.dotnet` altına kurar), `-y`.
 
 **Hafif kurulum.** PyTorch parça parça kurulamaz. Bu yüzden `install.sh`, Nova'nın çalışırken hiç
