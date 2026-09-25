@@ -7,13 +7,17 @@
 #   ./install.sh --no-system     # sudo ile sistem paketi kurma
 #   ./install.sh --no-desktop    # masaüstü uygulamasını derleme / menüye ekleme
 #   ./install.sh --with-dotnet   # .NET SDK yoksa ~/.dotnet altına kur
+#   ./install.sh --extras=vision,data,export   # ağır isteğe bağlı gruplar (varsayılan: voice,control,ocr)
+#   ./install.sh --full          # tüm isteğe bağlı gruplar
+#   ./install.sh --keep-torch-dev  # PyTorch başlık/test dosyalarını silme (C++ eklentisi / torch.compile için)
 #   ./install.sh -y              # soru sorma
 # ═══════════════════════════════════════════════════════════════════════════════
 set -euo pipefail
 
 APP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 VENV="$APP_DIR/.venv"
-GPU="auto"; SYSTEM=1; DESKTOP=1; WITH_DOTNET=0; YES=0
+GPU="auto"; SYSTEM=1; DESKTOP=1; WITH_DOTNET=0; YES=0; STRIP_TORCH=1
+EXTRAS="voice,control,ocr"
 
 for arg in "$@"; do
   case "$arg" in
@@ -21,8 +25,11 @@ for arg in "$@"; do
     --no-system)    SYSTEM=0 ;;
     --no-desktop)   DESKTOP=0 ;;
     --with-dotnet)  WITH_DOTNET=1 ;;
+    --extras=*)     EXTRAS="voice,control,ocr,${arg#*=}" ;;
+    --full)         EXTRAS="voice,control,ocr,vision,data,export" ;;
+    --keep-torch-dev) STRIP_TORCH=0 ;;
     -y|--yes)       YES=1 ;;
-    -h|--help)      sed -n '2,11p' "$0"; exit 0 ;;
+    -h|--help)      sed -n '2,14p' "$0"; exit 0 ;;
     *) echo "Bilinmeyen seçenek: $arg"; exit 1 ;;
   esac
 done
@@ -84,7 +91,7 @@ if [[ ! -x "$VENV/bin/python" ]]; then
   python3 -m venv "$VENV" || die "venv oluşturulamadı (python3-venv paketini kurun)."
 fi
 PY="$VENV/bin/python"
-"$PY" -m pip install -q --upgrade pip wheel
+"$PY" -m pip install -q --no-cache-dir --upgrade pip wheel
 ok "$("$PY" --version) → $VENV"
 
 # ── 3. PyTorch (GPU'ya göre) ─────────────────────────────────────────────────
@@ -112,19 +119,35 @@ echo -e "  ${c_dim}Arka uç: $GPU${INDEX:+ ($INDEX)}${c_0}"
 if "$PY" -c "import torch" 2>/dev/null; then
   ok "PyTorch zaten kurulu: $("$PY" -c 'import torch; print(torch.__version__)')"
 else
-  "$PY" -m pip install ${INDEX:+--index-url "$INDEX"} torch numpy || die "PyTorch kurulamadı."
+  # --no-cache-dir: tekerlek pip önbelleğinde ikinci kez yer kaplamasın
+  "$PY" -m pip install --no-cache-dir ${INDEX:+--index-url "$INDEX"} torch numpy || die "PyTorch kurulamadı."
   ok "PyTorch $("$PY" -c 'import torch; print(torch.__version__)')"
+fi
+# PyTorch parça parça kurulamaz; Nova yalnızca torch.nn / optim kullandığı için
+# çalışma zamanında gerekmeyen C++ test ikilileri ve başlık dosyaları silinir (~200 MB).
+if (( STRIP_TORCH )); then
+  TORCH_DIR="$("$PY" -c 'import torch, os; print(os.path.dirname(torch.__file__))')"
+  before=$(du -sm "$TORCH_DIR" | cut -f1)
+  find "$TORCH_DIR/bin" -type f ! -name torch_shm_manager -delete 2>/dev/null || true   # C++ test ikilileri
+  rm -rf "$TORCH_DIR/test" "$TORCH_DIR/include" "$TORCH_DIR/share/cmake" \
+         "$TORCH_DIR/lib/libtorchbind_test.so" "$TORCH_DIR/lib/libjitbackend_test.so" "$TORCH_DIR/lib/libbackend_with_compiler.so"
+  "$PY" -c "import torch; torch.nn.Linear(4, 4)(torch.zeros(1, 4)).sum().backward()" || die "PyTorch temizliği sonrası test başarısız."
+  ok "Gereksiz PyTorch dosyaları silindi: ${before} MB → $(du -sm "$TORCH_DIR" | cut -f1) MB"
 fi
 
 # ── 4. Python paketleri ──────────────────────────────────────────────────────
 step "Python paketleri"
-"$PY" -m pip install -q -r "$APP_DIR/requirements.txt" || die "Çekirdek paketler kurulamadı."
+"$PY" -m pip install -q --no-cache-dir -r "$APP_DIR/requirements.txt" || die "Çekirdek paketler kurulamadı."
 ok "Çekirdek paketler"
+echo -e "  ${c_dim}İsteğe bağlı gruplar: $EXTRAS${c_0}"
 while read -r line; do
   pkg="${line%%#*}"; pkg="${pkg// /}"
-  [[ -z "$pkg" ]] && continue
-  if "$PY" -m pip install -q "$pkg" >/dev/null 2>&1; then ok "$pkg"; else warn "$pkg kurulamadı (isteğe bağlı)"; fi
+  grp="$(sed -n 's/.*# *\[\([a-z]*\)\].*/\1/p' <<<"$line")"
+  [[ -z "$pkg" || -z "$grp" ]] && continue
+  [[ ",$EXTRAS," == *",$grp,"* ]] || continue
+  if "$PY" -m pip install -q --no-cache-dir "$pkg" >/dev/null 2>&1; then ok "$pkg"; else warn "$pkg kurulamadı (isteğe bağlı)"; fi
 done < "$APP_DIR/requirements-extra.txt"
+ok "Python ortamı: $(du -sh "$VENV" | cut -f1)"
 
 # ── 5. Masaüstü uygulaması (Avalonia / .NET) ─────────────────────────────────
 if (( DESKTOP )); then

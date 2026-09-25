@@ -864,6 +864,10 @@ class BeynYoneticisi:
     def onnx_disa_aktar(self, cikis_yolu: Optional[str] = None) -> str:
         """Modeli ONNX formatına dönüştürür (veri dizinine)."""
         cikis_yolu = cikis_yolu or get_data_path("nova_model.onnx")
+        try:
+            import onnx  # noqa: F401
+        except ImportError:
+            raise RuntimeError("ONNX dışa aktarma için 'onnx' paketi gerekli: ./install.sh --extras=export") from None
         with self._lock:
             target = self.raw_model.to("cpu").eval()
             try:

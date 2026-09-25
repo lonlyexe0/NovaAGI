@@ -43,6 +43,13 @@ cd NovaAGI
 `--gpu=cuda|rocm|xpu|cpu` kullanın. Diğer seçenekler: `--no-system` (sudo yok), `--no-desktop`,
 `--with-dotnet` (modern arayüz için .NET SDK'yı `~/.dotnet` altına kurar), `-y`.
 
+**Hafif kurulum.** PyTorch parça parça kurulamaz. Bu yüzden `install.sh`, Nova'nın çalışırken hiç
+kullanmadığı kısımları siler: C++ test ikilileri, başlık ve CMake dosyaları (~200 MB). pip önbelleği
+de tutulmaz. Ağır isteğe bağlı gruplar varsayılan olarak kurulmaz: `vision` (OpenCV), `data`
+(Hugging Face `datasets`) ve `export` (ONNX). Gerekirse `--extras=vision,data,export` veya `--full`
+ile ekleyin. CPU kurulumu ~1.5 GB'tan ~870 MB'a iner. `torch.compile` veya C++ eklentisi
+gerekiyorsa `--keep-torch-dev` kullanın.
+
 | Komut | Görevi |
 |---|---|
 | `./nova.sh` | Avalonia masaüstü uygulaması (.NET yoksa Tk arayüzü) |

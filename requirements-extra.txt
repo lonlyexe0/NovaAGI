@@ -1,12 +1,15 @@
 # ═══════════════════════════════════════════════════════════════════════════════
-# requirements-extra.txt — İsteğe bağlı modüller (./install.sh tek tek dener)
+# requirements-extra.txt — İsteğe bağlı modüller, gruplara ayrılmış.
+# ./install.sh varsayılan olarak yalnızca hafif grupları kurar (voice, control, ocr).
+# Ağır gruplar isteğe bağlıdır:  ./install.sh --extras=vision,data,export   veya  --full
+# Biçim:  paket  # [grup]
 # ═══════════════════════════════════════════════════════════════════════════════
-SpeechRecognition>=3.10   # mikrofon ile dinleme
-pyaudio>=0.2.13           # sistem paketi gerekir: portaudio19-dev / portaudio-devel
-pyautogui>=0.9.54         # fare/klavye kontrolü (X11)
-pyperclip>=1.8            # pano (xclip / wl-clipboard gerekir)
-opencv-python-headless>=4.8
-pytesseract>=0.3.10       # OCR (tesseract-ocr tesseract-ocr-tur)
-datasets>=2.14            # Hugging Face Wikipedia akışı
-huggingface-hub>=0.20
-onnx>=1.15                # ONNX dışa aktarma
+SpeechRecognition>=3.10     # [voice]    mikrofon ile dinleme (~45 MB)
+pyaudio>=0.2.13             # [voice]    sistem paketi: portaudio19-dev / portaudio-devel
+pyautogui>=0.9.54           # [control]  fare/klavye kontrolü (X11)
+pyperclip>=1.8              # [control]  pano (xclip / wl-clipboard)
+pytesseract>=0.3.10         # [ocr]      OCR köprüsü (tesseract-ocr sistem paketi)
+opencv-python-headless>=4.8 # [vision]   ekran hareket analizi (~150 MB; yoksa Pillow kullanılır)
+datasets>=2.14              # [data]     toplu Wikipedia içe aktarma (~250 MB, pyarrow+pandas)
+huggingface-hub>=0.20       # [data]     HF girişi
+onnx>=1.15                  # [export]   ONNX dışa aktarma

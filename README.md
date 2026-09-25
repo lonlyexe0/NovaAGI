@@ -43,6 +43,12 @@ cd NovaAGI
 `--gpu=cuda|rocm|xpu|cpu`. Useful flags: `--no-system` (no sudo), `--no-desktop`, `--with-dotnet`
 (installs the .NET SDK into `~/.dotnet` so the modern UI can be built), `-y`.
 
+**Lean install.** PyTorch can't be installed piece by piece, so `install.sh` removes what Nova never
+loads at runtime: C++ test binaries, headers and CMake files (~200 MB). It also skips the pip cache.
+Heavy optional groups are off by default: `vision` (OpenCV), `data` (Hugging Face `datasets`) and
+`export` (ONNX). Add them with `--extras=vision,data,export` or `--full`. A CPU install drops from
+~1.5 GB to ~870 MB. Use `--keep-torch-dev` if you need `torch.compile` or C++ extensions.
+
 | Command | What it does |
 |---|---|
 | `./nova.sh` | Avalonia desktop app (falls back to the Tk UI if .NET is missing) |
