@@ -48,8 +48,9 @@ class BilgisayarKontrol:
             self._gui.PAUSE    = 0.05   # Her eylem arası 50ms — güvenli
             self._aktif = True
             logger.info("[Bilgisayar] pyautogui hazır.")
-        except ImportError:
-            logger.warning("[Bilgisayar] pyautogui bulunamadı → pip install pyautogui pillow")
+        except (Exception, SystemExit) as e:
+            # tkinter eksikse pyautogui import sırasında sys.exit() çağırır; motoru öldürmemeli
+            logger.warning(f"[Bilgisayar] pyautogui kullanılamıyor ({e!r}) → pip install pyautogui pillow")
 
     @property
     def aktif(self) -> bool:

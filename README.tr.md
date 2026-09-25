@@ -37,6 +37,21 @@
 
 ---
 
+## ⚡ Performans Güncellemesi
+
+- **Metin üretimi ~3.4 kat hızlı:** KV-cache sayesinde her yeni karakterde bağlam yeniden
+  hesaplanmıyor (200 karakter: 1.04 sn → 0.3 sn, CPU).
+- **Hızlı dikkat katmanı:** CUDA/CPU'da `scaled_dot_product_attention` kullanılıyor. DirectML'de aynı
+  sonucu veren uyumlu klasik yol çalışıyor ve örnekleme CPU'da yapılıyor.
+- **Eğitim kuyruktaki tüm kayıtları öğreniyor.** Eskiden yalnızca ilki öğreniliyordu. Hazırlanan veri
+  de birkaç adımda kullanılıyor.
+- **Büyüme düzeltmesi:** Embedding büyürken Q/K/V ağırlıkları artık karışmıyor.
+- **Hafıza:** URL indeksi, SQL içinde ön filtreli arama, toplu güncelleme.
+- **Kararlı köprü:** Büyüme mesajları artık C# arayüzünün JSON akışını bozmuyor. tkinter eksik olsa
+  bile motor kapanmıyor.
+
+---
+
 ## 🚀 Öne Çıkan Özellikler
 
 ### 🌟 1. Yerel C# .NET 9.0 WPF Arayüzü & Canlı Daktilo Akışı (Streaming)

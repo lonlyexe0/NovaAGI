@@ -38,6 +38,21 @@
 
 ---
 
+## ⚡ Performance Update
+
+- **~3.4× faster text generation** with a KV-cache: the context is no longer recomputed for every new
+  character (200 characters: 1.04 s → 0.3 s on CPU).
+- **Faster attention:** `scaled_dot_product_attention` on CUDA/CPU. On DirectML Nova uses a compatible
+  classic attention path with identical results, and sampling runs on the CPU.
+- **Training learns every queued record.** Before, only the first one was learned. Each prepared batch
+  is also reused for several steps.
+- **Growth fix:** Q/K/V weights are no longer scrambled when the embedding grows.
+- **Memory:** URL index, SQL pre-filtered search, batched updates.
+- **Stable bridge output:** growth messages no longer break the C# app's JSON stream. A missing
+  tkinter no longer stops the engine.
+
+---
+
 ## 🚀 Key Flagship Features
 
 ### 🌟 1. Native C# .NET 9.0 WPF Desktop Interface & Live Streaming
