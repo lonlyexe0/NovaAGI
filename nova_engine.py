@@ -177,12 +177,10 @@ class NovaMotoru:
 
         # 1. ! komutları
         if girdi.startswith("!"):
-            cmd = girdi.split()[0].lower()
-            if cmd not in ("!istatistik", "!stats"):
-                arac = self.beden.akilli_arac_isleyici(girdi)
-                if arac:
-                    return bitir(arac, tool_used=True)
-            return bitir(self._komut_isle(girdi), rol="system", kaydet=False)
+            arac = self._arac_komutu(girdi)
+            if arac:
+                return bitir(arac, tool_used=True)
+            return bitir(self._motor_komutu(girdi), rol="system", kaydet=False)
 
         # 2. Saf matematik (örn: 145 * 24 + 10)
         mat = girdi.replace("x", "*").replace("^", "**")
@@ -257,6 +255,18 @@ class NovaMotoru:
 
     # ── ! Komutları ───────────────────────────────────────────────────────────
     def _komut_isle(self, girdi: str) -> str:
+        """`command` eylemi: sohbetteki ! komutlarıyla aynı yönlendirme (önce araçlar, sonra motor)."""
+        girdi = girdi.strip()
+        return self._arac_komutu(girdi) or self._motor_komutu(girdi)
+
+    def _arac_komutu(self, girdi: str) -> Optional[str]:
+        """body.py araç komutları (!hesapla, !wiki, !ara, !python, !oku <dosya>, !brifing...)."""
+        cmd = (girdi.split() or [""])[0].lower()
+        if not cmd.startswith("!") or cmd in ("!istatistik", "!stats"):
+            return None
+        return self.beden.akilli_arac_isleyici(girdi)
+
+    def _motor_komutu(self, girdi: str) -> str:
         parcalar = girdi[1:].split(maxsplit=1)
         cmd = parcalar[0].lower() if parcalar else ""
         arg = parcalar[1].strip() if len(parcalar) > 1 else ""
