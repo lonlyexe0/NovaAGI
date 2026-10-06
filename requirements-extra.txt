@@ -5,10 +5,9 @@
 # Biçim:  paket  # [grup]
 # ═══════════════════════════════════════════════════════════════════════════════
 SpeechRecognition>=3.10     # [voice]    mikrofon ile dinleme (~45 MB)
-pyaudio>=0.2.13             # [voice]    sistem paketi: portaudio19-dev / portaudio-devel
-pyautogui>=0.9.54           # [control]  fare/klavye kontrolü (X11)
-pyperclip>=1.8              # [control]  pano (xclip / wl-clipboard)
-pytesseract>=0.3.10         # [ocr]      OCR köprüsü (tesseract-ocr sistem paketi)
+pyaudio>=0.2.13             # [voice]    Homebrew paketi: portaudio
+pyautogui>=0.9.54           # [control]  fare/klavye kontrolü (pyobjc; Erişilebilirlik izni)
+pytesseract>=0.3.10         # [ocr]      OCR köprüsü (brew install tesseract tesseract-lang)
 opencv-python-headless>=4.8 # [vision]   ekran hareket analizi (~150 MB; yoksa Pillow kullanılır)
 datasets>=2.14              # [data]     toplu Wikipedia içe aktarma (~250 MB, pyarrow+pandas)
 huggingface-hub>=0.20       # [data]     HF girişi

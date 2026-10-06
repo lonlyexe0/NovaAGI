@@ -1,6 +1,6 @@
 from __future__ import annotations
 # ═══════════════════════════════════════════════════════════════════════════════
-# body.py  —  Nova'nın Tam Bedeni  (Linux)
+# body.py  —  Nova'nın Tam Bedeni  (macOS)
 # ═══════════════════════════════════════════════════════════════════════════════
 #
 # Modüller:
@@ -10,12 +10,12 @@ from __future__ import annotations
 #   🌐  MerakMotoru        → Wikipedia linklerini keşfet, özerk tara
 #   🤖  AjanBeden          → hepsini birleştiren ana sınıf
 #
-# Linux bağımlılıkları (isteğe bağlı, ./install.sh kurar):
-#   Ses çıkışı : pipewire (pw-play) veya pulseaudio-utils (paplay), ffmpeg
-#   TTS yedeği : espeak-ng        Mikrofon : portaudio19-dev + pyaudio
-#   Ekran      : python-mss (X11) / grim / gnome-screenshot (Wayland)
-#   OCR        : tesseract-ocr tesseract-ocr-tur
-#   Kontrol    : pyautogui (X11), xdotool, wmctrl, xclip / wl-clipboard
+# macOS bağımlılıkları (isteğe bağlı, ./install.sh kurar):
+#   Ses çıkışı : afplay (sistemde)      TTS yedeği : say (sistemde)
+#   Mikrofon   : brew install portaudio + pyaudio      (izin: Mikrofon)
+#   Ekran      : mss / screencapture                   (izin: Ekran Kaydı)
+#   OCR        : brew install tesseract tesseract-lang
+#   Kontrol    : pyautogui (pyobjc), pbcopy            (izin: Erişilebilirlik)
 # ═══════════════════════════════════════════════════════════════════════════════
 
 import os, re, time, logging, inspect, textwrap, importlib
@@ -27,7 +27,7 @@ from bs4 import BeautifulSoup
 
 import yetenekler
 import config_manager
-import linux_desktop
+import mac_desktop
 logger = logging.getLogger("nova.body")
 
 
@@ -42,7 +42,7 @@ class BilgisayarKontrol:
 
     def __init__(self):
         self._aktif = False
-        if linux_desktop.oturum_turu() == "tty":
+        if mac_desktop.oturum_turu() == "tty":
             logger.info("[Bilgisayar] Grafik oturum yok; fare/klavye kontrolü devre dışı.")
             return
         try:
@@ -51,14 +51,15 @@ class BilgisayarKontrol:
             self._gui.FAILSAFE = True   # Sol üst köşeye götürünce dur
             self._gui.PAUSE    = 0.05   # Her eylem arası 50ms — güvenli
             self._aktif = True
-            if linux_desktop.oturum_turu() == "wayland":
-                logger.info("[Bilgisayar] Wayland: pyautogui yalnızca XWayland pencerelerini kontrol edebilir.")
-            else:
+            if mac_desktop.erisilebilirlik_izni():
                 logger.info("[Bilgisayar] pyautogui hazır.")
+            else:
+                logger.info("[Bilgisayar] pyautogui hazır; fare/klavye için Erişilebilirlik izni gerekli "
+                            "(Sistem Ayarları › Gizlilik ve Güvenlik › Erişilebilirlik).")
         except (Exception, SystemExit) as e:
             # pyautogui → mouseinfo, tkinter yoksa sys.exit() çağırır; motoru öldürmemeli
-            logger.warning(f"[Bilgisayar] pyautogui kullanılamıyor ({e or 'python3-tk eksik'}) → "
-                           "sudo apt install python3-tk && pip install pyautogui")
+            logger.warning(f"[Bilgisayar] pyautogui kullanılamıyor ({e or 'tkinter eksik'}) → "
+                           "brew install python-tk && pip install pyautogui")
 
     @property
     def aktif(self) -> bool:
@@ -112,14 +113,18 @@ class BilgisayarKontrol:
     def pano_yaz(self, metin: str):
         """Metni panoya kopyalayıp yapıştır (Türkçe karakter uyumlu)."""
         if not self._aktif: return "Bilgisayar kontrolü aktif değil."
-        import pyperclip
-        pyperclip.copy(metin)
-        self._gui.hotkey("ctrl", "v")
+        subprocess.run(["pbcopy"], input=metin.encode("utf-8"), check=False)
+        self._gui.hotkey("command", "v")
         return f"Panoya yazıldı: {metin[:50]}"
 
+    # Windows/Linux alışkanlığıyla yazılan kısayollar macOS karşılığına çevrilir
+    # (ctrl+c → ⌘C). Gerçek Control tuşu için 'ctrlleft' kullanın.
+    _MAC_TUS = {"ctrl": "command", "cmd": "command", "super": "command", "win": "command", "alt": "option"}
+
     def kisa_yol(self, *tuslar: str):
-        """Klavye kısayolu çalıştır. Örn: kisa_yol('ctrl', 'c')"""
+        """Klavye kısayolu çalıştır. Örn: kisa_yol('ctrl', 'c') → ⌘C"""
         if not self._aktif: return "Bilgisayar kontrolü aktif değil."
+        tuslar = tuple(self._MAC_TUS.get(t.lower(), t) for t in tuslar)
         self._gui.hotkey(*tuslar)
         return f"Kısayol: {'+'.join(tuslar)}"
 
@@ -132,15 +137,22 @@ class BilgisayarKontrol:
     # ── Ekran ─────────────────────────────────────────────────────────────────
     def ekran_goruntus_al(self, dosya_yolu: str = "ekran.png",
                            bolge: Optional[Tuple] = None) -> str:
-        """Ekran görüntüsü al ve kaydet (X11 ve Wayland)."""
-        img = linux_desktop.ekran_goruntusu()
+        """Ekran görüntüsü al ve kaydet. bolge fare koordinatlarıyla (nokta) verilir."""
+        img = mac_desktop.ekran_goruntusu()
         if img is None:
             return "Ekran görüntüsü alınamadı."
         if bolge:
-            x, y, w, h = bolge
+            x, y, w, h = (int(v * self._olcek(img)) for v in bolge)
             img = img.crop((x, y, x + w, y + h))
         img.save(dosya_yolu)
         return f"Ekran görüntüsü: {dosya_yolu}"
+
+    def _olcek(self, img) -> float:
+        """Retina ölçeği: ekran görüntüsü pikseli / fare noktası (genelde 2.0)."""
+        if not self._aktif or img is None:
+            return 1.0
+        w, _ = self._gui.size()
+        return img.size[0] / w if w else 1.0
 
     def ekran_boyutu(self) -> Tuple[int, int]:
         """Ekran boyutunu döndür."""
@@ -164,8 +176,8 @@ class BilgisayarKontrol:
 
     # ── Uygulama ──────────────────────────────────────────────────────────────
     def uygulama_ac(self, komut: str) -> str:
-        """Uygulama, dosya veya URL aç. Örn: uygulama_ac('gedit'), uygulama_ac('code .')"""
-        return linux_desktop.uygulama_ac(komut)
+        """Uygulama, dosya veya URL aç. Örn: uygulama_ac('Safari'), uygulama_ac('code .')"""
+        return mac_desktop.uygulama_ac(komut)
 
     def fare_konumu(self) -> Tuple[int, int]:
         """Mevcut fare konumunu döndür."""
@@ -181,7 +193,7 @@ class SesMotoru:
     Nova'nın kulakları ve sesi.
     Dinleme : speech_recognition + pyaudio (Google STT, TR/EN otomatik)
     Konuşma : edge-tts nöral ses (en-IE-EmilyNeural / tr-TR-EmelNeural)
-              → çevrimdışı yedek: espeak-ng / spd-say / pyttsx3
+              → çevrimdışı yedek: macOS 'say' (Yelda / Moira)
     """
 
     SESLER = {"en": "en-IE-EmilyNeural", "tr": "tr-TR-EmelNeural"}
@@ -203,7 +215,7 @@ class SesMotoru:
             self._sr_aktif = True
             logger.info("[Ses] speech_recognition hazır.")
         except ImportError:
-            logger.warning("[Ses] speech_recognition bulunamadı → pip install SpeechRecognition pyaudio")
+            logger.warning("[Ses] speech_recognition bulunamadı → brew install portaudio && pip install SpeechRecognition pyaudio")
 
         self._tts_thread = threading.Thread(target=self._tts_dongusu, daemon=True, name="NovaTTS")
         self._tts_thread.start()
@@ -240,7 +252,7 @@ class SesMotoru:
         os.close(fd)
         try:
             asyncio.run(edge_tts.Communicate(metin, self.SESLER.get(lang, self.SESLER["en"])).save(mp3))
-            return os.path.getsize(mp3) > 0 and self._surec_calistir(linux_desktop.ses_cal(mp3))
+            return os.path.getsize(mp3) > 0 and self._surec_calistir(mac_desktop.ses_cal(mp3))
         except Exception as e:
             logger.debug(f"[TTS] edge-tts atlandı: {e}")
             return False
@@ -251,7 +263,7 @@ class SesMotoru:
                 pass
 
     def _yerel_tts(self, metin: str, lang: str) -> bool:
-        cmd = linux_desktop.yerel_tts_komutu(metin, lang)
+        cmd = mac_desktop.yerel_tts_komutu(metin, lang)
         if cmd:
             try:
                 return self._surec_calistir(subprocess.Popen(cmd, stdout=subprocess.DEVNULL,
@@ -279,7 +291,7 @@ class SesMotoru:
                 if temiz:
                     lang = config_manager.get_language() or "tr"
                     if not self._edge_tts(temiz, lang) and not self._yerel_tts(temiz, lang):
-                        logger.debug("[TTS] Hiçbir TTS motoru çalışmadı (espeak-ng kurun).")
+                        logger.debug("[TTS] Hiçbir TTS motoru çalışmadı.")
             except Exception as e:
                 logger.debug(f"[TTS Döngü] Hata: {e}")
             finally:
@@ -394,7 +406,7 @@ class GoruntMotoru:
     def ekran_yakala(self, bolge: Optional[Tuple] = None) -> Optional[Any]:
         """Ekran görüntüsünü PIL Image olarak döndür (bolge = (x1, y1, x2, y2))."""
         if not self._pil_aktif: return None
-        img = linux_desktop.ekran_goruntusu()
+        img = mac_desktop.ekran_goruntusu()
         return img.crop(bolge) if (img is not None and bolge) else img
 
     def ekran_kaydet(self, dosya: str = "ekran.png",
@@ -417,7 +429,7 @@ class GoruntMotoru:
             if img is None: return "Görüntü alınamadı"
             return pytesseract.image_to_string(img, lang="tur+eng")
         except ImportError:
-            return "OCR için: sudo apt install tesseract-ocr tesseract-ocr-tur && pip install pytesseract"
+            return "OCR için: brew install tesseract tesseract-lang && pip install pytesseract"
         except Exception as e:
             return f"OCR hatası: {e}"
 
@@ -530,6 +542,18 @@ class GorselGozlemci:
         self.hafiza = hafiza
         self._cv2 = getattr(goruntu_motoru, "_cv2", None)
 
+    @staticmethod
+    def _ekran_hata_mesaji(hata: str, lang: str) -> str:
+        """Ekran yakalanamadıysa macOS izin yolunu gösterir."""
+        if mac_desktop.oturum_turu() != "tty" and not mac_desktop.ekran_kaydi_izni():
+            mac_desktop.izin_ayarlarini_ac("screen")
+            if lang == "en":
+                return ("⚠️ macOS has not granted Screen Recording permission. I opened System Settings › Privacy & Security › "
+                        "Screen & System Audio Recording: turn on Nova AGI (or your terminal), then restart Nova.")
+            return ("⚠️ macOS Ekran Kaydı izni verilmemiş. Sistem Ayarları › Gizlilik ve Güvenlik › Ekran ve Sistem Sesi "
+                    "Kaydı sayfasını açtım: Nova AGI'yi (veya terminali) etkinleştirip Nova'yı yeniden başlatın.")
+        return f"⚠️ {hata}"
+
     def karar_ver(self, istek: str) -> str:
         """Kullanıcı isteğine göre otonom olarak 'video' mu yoksa 'snapshot' mı olacağını belirler."""
         if not istek:
@@ -545,8 +569,8 @@ class GorselGozlemci:
         return "snapshot"
 
     def _ekran_yakala_pil(self):
-        """Masaüstü ekran görüntüsü (X11 / Wayland)."""
-        return linux_desktop.ekran_goruntusu()
+        """Masaüstü ekran görüntüsü (macOS; Ekran Kaydı izni gerekir)."""
+        return mac_desktop.ekran_goruntusu()
 
     def _ocr_metin_cikar(self, img) -> str:
         """Görüntüden metin çıkarır (Tesseract; Türkçe + İngilizce)."""
@@ -655,7 +679,7 @@ class GorselGozlemci:
         if mod == "video":
             analiz = self._video_analiz(sure_sn=2.4, fps=4)
             if "hata" in analiz:
-                return f"⚠️ {analiz['hata']}"
+                return self._ekran_hata_mesaji(analiz['hata'], lang)
 
             if lang == "en":
                 rapor = (
@@ -679,7 +703,7 @@ class GorselGozlemci:
             img = self._ekran_yakala_pil()
             analiz = self._statik_analiz(img)
             if "hata" in analiz:
-                return f"⚠️ {analiz['hata']}"
+                return self._ekran_hata_mesaji(analiz['hata'], lang)
 
             if lang == "en":
                 rapor = (
@@ -1243,7 +1267,7 @@ class AjanBeden:
 
         if pl.startswith("!eylem ") or pl.startswith("!action "):
             eylem_adi = p.split(" ", 1)[1]
-            return linux_desktop.sistem_eylemi(eylem_adi, en=(lang == "en"))
+            return mac_desktop.sistem_eylemi(eylem_adi, en=(lang == "en"))
 
 
         # 2. Matematik Hesabı Niyet Tespiti (örn: 154 * 28 + 19 kaç eder)

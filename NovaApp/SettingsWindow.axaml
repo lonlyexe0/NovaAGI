@@ -30,12 +30,11 @@
           <TextBlock x:Name="LblDevice" Classes="label" />
           <ComboBox x:Name="CmbDevice">
             <ComboBoxItem x:Name="DevAuto" Tag="auto" />
-            <ComboBoxItem Content="NVIDIA CUDA / AMD ROCm" Tag="cuda" />
-            <ComboBoxItem Content="Intel XPU (Arc)" Tag="xpu" />
+            <ComboBoxItem Content="Apple GPU (Metal / MPS)" Tag="mps" />
             <ComboBoxItem x:Name="DevCpu" Tag="cpu" />
           </ComboBox>
           <TextBlock x:Name="HintDevice" Classes="muted" FontSize="12" TextWrapping="Wrap" Margin="0,4,0,14" />
-          <CheckBox x:Name="ChkMultiGpu" />
+          <CheckBox x:Name="ChkMultiGpu" IsVisible="False" />
           <TextBlock x:Name="LblWorkers" Classes="label" Margin="0,14,0,6" />
           <Grid ColumnDefinitions="*,48">
             <Slider x:Name="SliderWorkers" Minimum="1" Maximum="16" TickFrequency="1" IsSnapToTickEnabled="True" />

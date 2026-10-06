@@ -187,18 +187,18 @@ class NovaGUI:
 
         # Logo ve isim
         logo = tk.Label(baslik_frame, text="🌟 NOVA",
-                        font=("Monospace", 20, "bold"),
+                        font=("Menlo", 20, "bold"),
                         bg=Palet.PANEL, fg="#a0c0ff")
         logo.pack(side="left", padx=16, pady=10)
 
         alt = tk.Label(baslik_frame, text="Otonom Öğrenen AGI Prototipi",
-                       font=("Sans", 9),
+                       font=("Helvetica Neue", 9),
                        bg=Palet.PANEL, fg=Palet.ALTYAZI)
         alt.pack(side="left", pady=14)
 
         # GPU durum badge
         self._gpu_etiket = tk.Label(baslik_frame, text="⚙ Başlatılıyor...",
-                                    font=("Monospace", 9, "bold"),
+                                    font=("Menlo", 9, "bold"),
                                     bg="#1a2a1a", fg=Palet.DURUM_BEKLE,
                                     padx=10, pady=4)
         self._gpu_etiket.pack(side="right", padx=16, pady=12)
@@ -224,7 +224,7 @@ class NovaGUI:
             state="disabled",
             bg=Palet.ARKAPLAN,
             fg=Palet.BASLIK,
-            font=("Monospace", 11),
+            font=("Menlo", 11),
             relief="flat",
             wrap="word",
             padx=14,
@@ -239,21 +239,21 @@ class NovaGUI:
 
         # Renk etiketleri
         self._sohbet.tag_configure("kullanici_isim",
-            foreground=Palet.KULLANICI_METIN, font=("Monospace", 10, "bold"))
+            foreground=Palet.KULLANICI_METIN, font=("Menlo", 10, "bold"))
         self._sohbet.tag_configure("kullanici_metin",
-            foreground="#d0e8ff",             font=("Monospace", 11))
+            foreground="#d0e8ff",             font=("Menlo", 11))
         self._sohbet.tag_configure("nova_isim",
-            foreground=Palet.NOVA_METIN,      font=("Monospace", 10, "bold"))
+            foreground=Palet.NOVA_METIN,      font=("Menlo", 10, "bold"))
         self._sohbet.tag_configure("nova_metin",
-            foreground="#d0ffd0",             font=("Monospace", 11))
+            foreground="#d0ffd0",             font=("Menlo", 11))
         self._sohbet.tag_configure("sistem_isim",
-            foreground=Palet.SISTEM_METIN,    font=("Monospace", 10, "bold"))
+            foreground=Palet.SISTEM_METIN,    font=("Menlo", 10, "bold"))
         self._sohbet.tag_configure("sistem_metin",
-            foreground="#e8d0ff",             font=("Monospace", 10, "italic"))
+            foreground="#e8d0ff",             font=("Menlo", 10, "italic"))
         self._sohbet.tag_configure("zaman",
-            foreground=Palet.ZAMAN_METIN,     font=("Monospace", 8))
+            foreground=Palet.ZAMAN_METIN,     font=("Menlo", 8))
         self._sohbet.tag_configure("bekliyor",
-            foreground=Palet.DURUM_BEKLE,     font=("Monospace", 10, "italic"))
+            foreground=Palet.DURUM_BEKLE,     font=("Menlo", 10, "italic"))
         self._sohbet.tag_configure("ayirac",
             foreground=Palet.KENAR)
 
@@ -337,7 +337,7 @@ class NovaGUI:
                 bg=Palet.KOMUT_DUGME,
                 fg=Palet.KOMUT_METIN,
                 relief="flat",
-                font=("Sans", 8),
+                font=("Helvetica Neue", 8),
                 padx=8, pady=3,
                 cursor="hand2",
                 command=lambda c=cmd: self._hizli_gonder(c),
@@ -355,7 +355,7 @@ class NovaGUI:
             height=3,
             bg=Palet.GIRIS_BG,
             fg=Palet.BASLIK,
-            font=("Monospace", 12),
+            font=("Menlo", 12),
             relief="flat",
             wrap="word",
             padx=10, pady=8,
@@ -382,7 +382,7 @@ class NovaGUI:
             text="➤ Gönder",
             bg=Palet.GONDER_DUGME,
             fg="white",
-            font=("Sans", 10, "bold"),
+            font=("Helvetica Neue", 10, "bold"),
             relief="flat",
             padx=14, pady=8,
             cursor="hand2",
@@ -397,7 +397,7 @@ class NovaGUI:
             text="🗑 Temizle",
             bg=Palet.TEMIZLE_DUGME,
             fg="white",
-            font=("Sans", 9),
+            font=("Helvetica Neue", 9),
             relief="flat",
             padx=10, pady=5,
             cursor="hand2",
@@ -465,7 +465,7 @@ class NovaGUI:
     def _durum_paneli_olustur(self, parent: tk.Frame):
         # Başlık
         tk.Label(parent, text="⚡ CANLI DURUM",
-                 font=("Monospace", 10, "bold"),
+                 font=("Menlo", 10, "bold"),
                  bg=Palet.PANEL, fg=Palet.ALTYAZI,
                  pady=10).pack(fill="x")
         tk.Frame(parent, bg=Palet.KENAR, height=1).pack(fill="x")
@@ -491,18 +491,18 @@ class NovaGUI:
             satir.pack(fill="x", pady=2)
             tk.Label(satir, text=etiket + ":", width=16, anchor="w",
                      bg=Palet.PANEL, fg=Palet.ALTYAZI,
-                     font=("Sans", 9)).pack(side="left")
+                     font=("Helvetica Neue", 9)).pack(side="left")
             var = tk.StringVar(value=varsayilan)
             self._metrikler[anahtar] = var
             tk.Label(satir, textvariable=var, anchor="e",
                      bg=Palet.PANEL, fg="#aad4ff",
-                     font=("Monospace", 9, "bold")).pack(side="right")
+                     font=("Menlo", 9, "bold")).pack(side="right")
 
         tk.Frame(parent, bg=Palet.KENAR, height=1).pack(fill="x", pady=4)
 
         # ── GPU Bellek Çubuğu ─────────────────────────────────────────────────
         tk.Label(parent, text="GPU VRAM",
-                 font=("Sans", 8), bg=Palet.PANEL,
+                 font=("Helvetica Neue", 8), bg=Palet.PANEL,
                  fg=Palet.ALTYAZI).pack(padx=12, anchor="w")
 
         self._vram_cubuk = ttk.Progressbar(
@@ -512,7 +512,7 @@ class NovaGUI:
         self._vram_cubuk.pack(padx=12, pady=(2, 6), fill="x")
 
         self._vram_etiket = tk.Label(parent, text="— / — MB",
-                                     font=("Monospace", 8),
+                                     font=("Menlo", 8),
                                      bg=Palet.PANEL, fg=Palet.ALTYAZI)
         self._vram_etiket.pack(anchor="center")
 
@@ -520,7 +520,7 @@ class NovaGUI:
 
         # ── Loss Mini Grafik ──────────────────────────────────────────────────
         tk.Label(parent, text="LOSS GRAFİĞİ",
-                 font=("Sans", 8), bg=Palet.PANEL,
+                 font=("Helvetica Neue", 8), bg=Palet.PANEL,
                  fg=Palet.ALTYAZI).pack(padx=12, anchor="w", pady=(4, 2))
 
         self._grafik = tk.Canvas(
@@ -534,7 +534,7 @@ class NovaGUI:
         tk.Frame(parent, bg=Palet.KENAR, height=1).pack(fill="x")
         self._sistem_etiket = tk.Label(
             parent, text="Sistem bilgisi yükleniyor...",
-            font=("Sans", 8), bg=Palet.PANEL,
+            font=("Helvetica Neue", 8), bg=Palet.PANEL,
             fg=Palet.ZAMAN_METIN, wraplength=260, justify="left"
         )
         self._sistem_etiket.pack(padx=12, pady=8, anchor="w")
@@ -566,7 +566,7 @@ class NovaGUI:
         if len(g) < 2:
             canvas.create_text(
                 130, 45, text="Veri bekleniyor...",
-                fill=Palet.ZAMAN_METIN, font=("Monospace", 8)
+                fill=Palet.ZAMAN_METIN, font=("Menlo", 8)
             )
             return
 
@@ -606,10 +606,10 @@ class NovaGUI:
         # Etiketler
         canvas.create_text(pad, pad, text=f"{mx:.3f}",
                             anchor="nw", fill=Palet.ZAMAN_METIN,
-                            font=("Monospace", 7))
+                            font=("Menlo", 7))
         canvas.create_text(pad, h - pad, text=f"{mn:.3f}",
                             anchor="sw", fill=Palet.ZAMAN_METIN,
-                            font=("Monospace", 7))
+                            font=("Menlo", 7))
 
     # ══════════════════════════════════════════════════════════════════════════
     # ALT DURUM ÇUBUĞU
@@ -622,12 +622,12 @@ class NovaGUI:
 
         self._durum_str = tk.StringVar(value="Sistem başlatılıyor...")
         tk.Label(cubuk, textvariable=self._durum_str,
-                 font=("Sans", 8), bg=Palet.PANEL,
+                 font=("Helvetica Neue", 8), bg=Palet.PANEL,
                  fg=Palet.ALTYAZI).pack(side="left", padx=10)
 
         self._zaman_str = tk.StringVar()
         tk.Label(cubuk, textvariable=self._zaman_str,
-                 font=("Monospace", 8), bg=Palet.PANEL,
+                 font=("Menlo", 8), bg=Palet.PANEL,
                  fg=Palet.ZAMAN_METIN).pack(side="right", padx=10)
 
     # ══════════════════════════════════════════════════════════════════════════
@@ -882,7 +882,7 @@ class NovaGUI:
             pass
 
     def _vram_guncelle(self):
-        """GPU VRAM ve cihaz durumunu güncelle (CUDA / ROCm / XPU / CPU)."""
+        """GPU VRAM ve cihaz durumunu güncelle (Apple Metal MPS / CPU)."""
         try:
             import hardware
             gpu = hardware.get_gpu_info()

@@ -41,6 +41,13 @@ public sealed class BackendService : IDisposable
             var env = Environment.GetEnvironmentVariable("NOVA_HOME");
             if (!string.IsNullOrEmpty(env) && File.Exists(Path.Combine(env, "nova_bridge.py")))
                 return env;
+            // Nova AGI.app/Contents/Resources/nova_home → proje klasörü (build_app.sh yazar)
+            var marker = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "Resources", "nova_home"));
+            if (File.Exists(marker))
+            {
+                var home = File.ReadAllText(marker).Trim();
+                if (File.Exists(Path.Combine(home, "nova_bridge.py"))) return home;
+            }
             for (var dir = new DirectoryInfo(AppContext.BaseDirectory); dir != null; dir = dir.Parent)
                 if (File.Exists(Path.Combine(dir.FullName, "nova_bridge.py")))
                     return dir.FullName;
@@ -81,6 +88,15 @@ public sealed class BackendService : IDisposable
             psi.ArgumentList.Add(Path.Combine(root, "nova_bridge.py"));
             psi.Environment["PYTHONIOENCODING"] = "utf-8";
             psi.Environment["PYTHONUNBUFFERED"] = "1";
+            psi.Environment["NOVA_HOME"] = root;
+            // Finder/Dock'tan açılan uygulamaların PATH'i yalnızca /usr/bin:/bin içerir;
+            // Homebrew araçları (tesseract, ffmpeg …) motor tarafından bulunabilsin.
+            var path = psi.Environment.TryGetValue("PATH", out var p) && !string.IsNullOrEmpty(p) ? p : "/usr/bin:/bin:/usr/sbin:/sbin";
+            foreach (var dir in new[] { "/opt/homebrew/bin", "/usr/local/bin" })
+                if (Directory.Exists(dir) && !path.Split(':').Contains(dir)) path += ":" + dir;
+            psi.Environment["PATH"] = path;
+            if (string.IsNullOrEmpty(psi.Environment.TryGetValue("LANG", out var lang) ? lang : null))
+                psi.Environment["LANG"] = "en_US.UTF-8";
 
             _stopping = false;
             _process = new Process { StartInfo = psi, EnableRaisingEvents = true };
@@ -104,8 +120,8 @@ public sealed class BackendService : IDisposable
         }
         catch (Exception ex)
         {
-            ErrorReceived?.Invoke(L($"Nova motoru başlatılamadı: {ex.Message}\nPython ortamını kurmak için: ./install.sh",
-                                    $"Could not start the Nova engine: {ex.Message}\nSet up the Python environment with: ./install.sh"));
+            ErrorReceived?.Invoke(L($"Nova motoru başlatılamadı: {ex.Message}\nPython ortamını kurmak için proje klasöründe: ./install.sh\n(Klasör: {AppRoot})",
+                                    $"Could not start the Nova engine: {ex.Message}\nSet up the Python environment in the project folder with: ./install.sh\n(Folder: {AppRoot})"));
             ConnectionStateChanged?.Invoke(false);
             return false;
         }

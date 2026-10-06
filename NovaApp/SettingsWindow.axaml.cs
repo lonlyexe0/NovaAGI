@@ -48,8 +48,8 @@ public partial class SettingsWindow : Window
         LblDevice.Text = L("Hızlandırıcı", "Accelerator");
         DevAuto.Content = L("Otomatik (önerilen)", "Automatic (recommended)");
         DevCpu.Content = L("Yalnızca CPU", "CPU only");
-        HintDevice.Text = L("Değişiklik uygulamayı yeniden başlatınca geçerli olur. AMD kartlar ROCm, Intel Arc kartlar XPU PyTorch derlemesi gerektirir (./install.sh otomatik seçer).",
-                            "Takes effect after restarting the app. AMD cards need the ROCm build and Intel Arc the XPU build of PyTorch (./install.sh picks it).");
+        HintDevice.Text = L("Değişiklik uygulamayı yeniden başlatınca geçerli olur. Apple Silicon (M1 ve sonrası) GPU'su Metal (MPS) ile kullanılır; bellek CPU ile paylaşılır.",
+                            "Takes effect after restarting the app. The Apple Silicon (M1 and later) GPU is used through Metal (MPS); memory is shared with the CPU.");
         ChkMultiGpu.Content = L("Birden fazla GPU varsa DataParallel ile dağıtık eğit", "Train with DataParallel when several GPUs are present");
         LblWorkers.Text = L("Veri hazırlama iş parçacıkları", "Data preparation workers");
         ChkTraining.Content = L("Sürekli arka plan eğitimi", "Continuous background training");
@@ -84,7 +84,7 @@ public partial class SettingsWindow : Window
     {
         (_settings, _token) = await _backend.GetSettingsAsync();
         CmbLanguage.SelectedIndex = _settings.IsEnglish ? 0 : 1;
-        CmbDevice.SelectedIndex = _settings.Device switch { "cuda" or "rocm" => 1, "xpu" => 2, "cpu" => 3, _ => 0 };
+        CmbDevice.SelectedIndex = _settings.Device switch { "mps" or "metal" => 1, "cpu" => 2, _ => 0 };
         ChkMultiGpu.IsChecked = _settings.MultiGpuEnabled;
         SliderWorkers.Value = Math.Clamp(_settings.WorkerThreads, 1, 16);
         ChkTraining.IsChecked = _settings.ContinuousTrainingEnabled;
@@ -141,7 +141,7 @@ public partial class SettingsWindow : Window
 
     private void BtnOpenUrl_Click(object? sender, RoutedEventArgs e)
     {
-        try { Process.Start(new ProcessStartInfo("xdg-open", Url("localhost")) { UseShellExecute = false }); }
+        try { Process.Start(new ProcessStartInfo("open", Url("localhost")) { UseShellExecute = false }); }
         catch (Exception ex) { TxtUrl.Text = ex.Message; }
     }
 

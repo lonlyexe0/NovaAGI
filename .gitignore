@@ -66,7 +66,8 @@ logs/
 *.bak
 scratch/
 
-# ── 8. Linux paketleme çıktıları ─────────────────────────────────────────────
+# ── 8. Paketleme çıktıları ───────────────────────────────────────────────────
 nova_env/
 NovaApp/bin/
 NovaApp/obj/
+.DS_Store

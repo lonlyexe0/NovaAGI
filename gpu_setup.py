@@ -1,19 +1,16 @@
 # ═══════════════════════════════════════════════════════════════════════════════
-# gpu_setup.py  —  Nova AGI Linux GPU / CPU Hazırlık Katmanı
+# gpu_setup.py  —  Nova AGI macOS GPU / CPU Hazırlık Katmanı
 # ═══════════════════════════════════════════════════════════════════════════════
 #
 # PyTorch import edilmeden ÖNCE çağrılmalıdır (ortam değişkenleri torch
 # başlatılırken okunur). Desteklenen arka uçlar:
-#   1. CUDA  — NVIDIA           (pip install torch)
-#   2. ROCm  — AMD Radeon       (pip install torch --index-url .../rocm6.x)
-#   3. XPU   — Intel Arc        (pip install torch --index-url .../xpu)
-#   4. CPU   — Fallback
+#   1. MPS  — Apple Silicon GPU (Metal)   pip install torch  (macOS paketi MPS içerir)
+#   2. CPU  — Fallback
 #
-# Ayarlardaki "device" (auto / cuda / xpu / cpu) değeri tercih olarak kullanılır.
+# Ayarlardaki "device" (auto / mps / cpu) değeri tercih olarak kullanılır.
 # ═══════════════════════════════════════════════════════════════════════════════
 
 import os
-import glob
 import logging
 
 import hardware
@@ -21,40 +18,11 @@ import hardware
 logger = logging.getLogger("nova.gpu")
 
 _threads = str(hardware.get_optimal_cpu_threads())
-for _var in ("OMP_NUM_THREADS", "MKL_NUM_THREADS", "OPENBLAS_NUM_THREADS", "NUMEXPR_NUM_THREADS"):
+for _var in ("OMP_NUM_THREADS", "MKL_NUM_THREADS", "OPENBLAS_NUM_THREADS", "NUMEXPR_NUM_THREADS",
+             "VECLIB_MAXIMUM_THREADS"):
     os.environ.setdefault(_var, _threads)
-os.environ.setdefault("MALLOC_ARENA_MAX", "4")
-os.environ.setdefault("PYTORCH_CUDA_ALLOC_CONF", "expandable_segments:True")
-os.environ.setdefault("PYTORCH_HIP_ALLOC_CONF", "expandable_segments:True")
-
-
-def _rocm_gfx_override() -> None:
-    """
-    Resmi ROCm listesinde olmayan tüketici Radeon kartları (ör. RX 6500 XT = gfx1034,
-    RX 7600 = gfx1102) için HSA_OVERRIDE_GFX_VERSION ayarlar. Kullanıcı zaten
-    ayarladıysa dokunmaz.
-    """
-    if "HSA_OVERRIDE_GFX_VERSION" in os.environ:
-        return
-    for props in glob.glob("/sys/class/kfd/kfd/topology/nodes/*/properties"):
-        try:
-            with open(props, encoding="utf-8") as f:
-                for line in f:
-                    if line.startswith("gfx_target_version"):
-                        v = int(line.split()[1])
-                        if 100301 <= v < 100400:      # RDNA2 (gfx1031-1036)
-                            os.environ["HSA_OVERRIDE_GFX_VERSION"] = "10.3.0"
-                        elif 110001 <= v < 110100:    # RDNA3 (gfx1101/1102/1103)
-                            os.environ["HSA_OVERRIDE_GFX_VERSION"] = "11.0.0"
-                        if "HSA_OVERRIDE_GFX_VERSION" in os.environ:
-                            logger.info(f"[GPU] ROCm uyumluluk: HSA_OVERRIDE_GFX_VERSION="
-                                        f"{os.environ['HSA_OVERRIDE_GFX_VERSION']} (gfx {v})")
-                            return
-        except (OSError, ValueError, IndexError):
-            continue
-
-
-_rocm_gfx_override()
+# MPS'te henüz olmayan bir işlem çıkarsa hata vermek yerine o işlem CPU'da çalışsın
+os.environ.setdefault("PYTORCH_ENABLE_MPS_FALLBACK", "1")
 
 
 def _tercih_edilen_cihaz() -> str:
@@ -65,10 +33,20 @@ def _tercih_edilen_cihaz() -> str:
         return "auto"
 
 
+def _cpu_hazirla(torch) -> None:
+    n = hardware.get_optimal_cpu_threads()
+    torch.set_num_threads(n)
+    try:
+        torch.set_num_interop_threads(max(1, min(4, n // 2)))
+    except RuntimeError:
+        pass  # interop thread sayısı yalnızca bir kez ayarlanabilir
+    logger.info(f"[GPU] 💻 CPU modu — {hardware.get_cpu_info()['full_name']} ({n} thread)")
+
+
 def gpu_hazirla() -> str:
     """
     GPU'yu algılar ve yapılandırır. Sonucu NOVA_DEVICE ortam değişkenine yazar.
-    Döner: "cuda", "xpu" veya "cpu".
+    Döner: "mps" veya "cpu".
     """
     if os.environ.get("NOVA_DEVICE"):
         return os.environ["NOVA_DEVICE"]
@@ -78,26 +56,14 @@ def gpu_hazirla() -> str:
     try:
         import torch
 
-        if tercih in ("auto", "cuda", "rocm") and torch.cuda.is_available():
-            torch.backends.cuda.matmul.allow_tf32 = True
-            torch.backends.cudnn.allow_tf32 = True
-            torch.backends.cudnn.benchmark = True
-            props = torch.cuda.get_device_properties(0)
-            backend = "ROCm" if getattr(torch.version, "hip", None) else "CUDA"
-            logger.info(f"[GPU] 🔥 {backend} etkin: {props.name} | VRAM: {props.total_memory // 1024**2} MB")
-            cihaz = "cuda"
-        elif tercih in ("auto", "xpu") and getattr(torch, "xpu", None) is not None and torch.xpu.is_available():
-            logger.info(f"[GPU] ⚡ Intel XPU etkin: {torch.xpu.get_device_name(0)}")
-            cihaz = "xpu"
+        if tercih in ("auto", "mps", "metal", "gpu") and torch.backends.mps.is_available():
+            gpu = hardware.get_gpu_info()
+            logger.info(f"[GPU] ⚡ Apple Metal (MPS) etkin: {gpu['name']} | Paylaşımlı bellek: {gpu['vram_str']}")
+            cihaz = "mps"
         else:
-            n = hardware.get_optimal_cpu_threads()
-            torch.set_num_threads(n)
-            try:
-                torch.set_num_interop_threads(max(1, min(4, n // 2)))
-            except RuntimeError:
-                pass  # interop thread sayısı yalnızca bir kez ayarlanabilir
-            torch.set_flush_denormal(True)
-            logger.info(f"[GPU] 💻 CPU modu — {hardware.get_cpu_info()['full_name']} ({n} thread)")
+            if tercih in ("auto", "mps") and not torch.backends.mps.is_built():
+                logger.warning("[GPU] Bu PyTorch derlemesi MPS desteği içermiyor; CPU kullanılacak.")
+            _cpu_hazirla(torch)
     except ImportError:
         logger.warning("[GPU] PyTorch kurulu değil! ./install.sh çalıştırın.")
     except Exception as e:
@@ -116,12 +82,9 @@ def vram_durumu() -> dict:
 
 
 KURULUM_REHBERI = """
-  NOVA — PYTORCH KURULUMU (Linux)
+  NOVA — PYTORCH KURULUMU (macOS)
   ───────────────────────────────
-  NVIDIA (CUDA) : pip install torch
-  AMD (ROCm)    : pip install torch --index-url https://download.pytorch.org/whl/rocm6.2
-  Intel (XPU)   : pip install torch --index-url https://download.pytorch.org/whl/xpu
-  Sadece CPU    : pip install torch --index-url https://download.pytorch.org/whl/cpu
+  Apple Silicon (M1 ve sonrası) : pip install torch   (Metal / MPS desteği dahil)
 
   Otomatik kurulum için:  ./install.sh
   Doğrulama:              ./nova.sh doctor
@@ -139,8 +102,8 @@ if __name__ == "__main__":
     print(hardware.get_system_summary())
     try:
         import torch
-        print(f"PyTorch       : {torch.__version__} | CUDA/ROCm: {torch.cuda.is_available()}"
-              f" | HIP: {getattr(torch.version, 'hip', None)}")
+        print(f"PyTorch       : {torch.__version__} | MPS: {torch.backends.mps.is_available()}"
+              f" (derleme: {torch.backends.mps.is_built()})")
     except ImportError:
         print(KURULUM_REHBERI)
     print(f"Platform      : {platform.system()} {platform.machine()}")

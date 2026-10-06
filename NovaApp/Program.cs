@@ -12,6 +12,6 @@ internal static class Program
         AppBuilder.Configure<App>()
             .UsePlatformDetect()
             .WithInterFont()
-            .With(new X11PlatformOptions { WmClass = "nova-agi" })
+            .With(new MacOSPlatformOptions { ShowInDock = true })
             .LogToTrace();
 }

@@ -20,7 +20,7 @@
               <TextBlock Text="Nova" FontSize="17" FontWeight="Bold" />
               <TextBlock Text="AGI" FontSize="17" FontWeight="Bold" Foreground="{StaticResource AccentBrush}" />
               <Border Background="#1F2A44" CornerRadius="6" Padding="6,1" VerticalAlignment="Center" Margin="4,0,0,0">
-                <TextBlock Text="Linux" FontSize="10" FontWeight="SemiBold" Foreground="#9DB6FF" />
+                <TextBlock Text="macOS" FontSize="10" FontWeight="SemiBold" Foreground="#9DB6FF" />
               </Border>
             </StackPanel>
             <TextBlock x:Name="TxtSubtitle" FontSize="11" Classes="muted" />

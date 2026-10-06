@@ -35,7 +35,7 @@ if sys.stderr is None:
     sys.stderr = _NullWriter()
 
 
-# GPU (CUDA / ROCm / XPU) ve CPU iş parçacığı ayarları gpu_setup içinde yapılır
+# GPU (Apple Metal / MPS) ve CPU iş parçacığı ayarları gpu_setup içinde yapılır
 import gpu_setup
 gpu_setup.gpu_hazirla()
 

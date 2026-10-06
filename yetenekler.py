@@ -325,7 +325,7 @@ def json_degerle(json_str: str, anahtar: str) -> str:
 # İNTERNET, WIKIPEDIA VE BİLGİ ARAMA
 # ══════════════════════════════════════════════════════════════════════════════
 
-_UA = {"User-Agent": "NovaAGI/4.0 (Linux; research assistant)"}
+_UA = {"User-Agent": "NovaAGI/4.0 (Macintosh; research assistant)"}
 
 
 @functools.lru_cache(maxsize=256)
@@ -441,10 +441,10 @@ def selamla(): return "Komutanım, sistemler tam kapasite calisiyor!"
 # ══════════════════════════════════════════════════════════════════════════════
 
 def aktif_pencere_basligi() -> str:
-    """Odaktaki pencerenin başlığı (X11); bulunamazsa 'Masaüstü'."""
+    """Öndeki uygulama / pencere (macOS); bulunamazsa 'Masaüstü'."""
     try:
-        import linux_desktop
-        return linux_desktop.aktif_pencere_basligi() or "Masaüstü"
+        import mac_desktop
+        return mac_desktop.aktif_pencere_basligi() or "Masaüstü"
     except Exception:
         return "Masaüstü"
 
@@ -543,11 +543,11 @@ evangelion_senkron = nova_senkron
 
 
 def sistem_eylemi(eylem: str) -> str:
-    """Sistem eylemleri: lock, mute, vol_up, vol_down, desktop, taskmgr (Linux)."""
-    import linux_desktop
+    """Sistem eylemleri: lock, mute, vol_up, vol_down, desktop, taskmgr (macOS)."""
+    import mac_desktop
     try:
         from config_manager import is_english
         en = is_english()
     except Exception:
         en = False
-    return linux_desktop.sistem_eylemi(eylem, en=en)
+    return mac_desktop.sistem_eylemi(eylem, en=en)

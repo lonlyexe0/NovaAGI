@@ -1,6 +1,6 @@
 from __future__ import annotations
 # ═══════════════════════════════════════════════════════════════════════════════
-# brain.py  —  Nova Sınırsız Büyüyen Dinamik Sinir Ağı  (Linux / CUDA · ROCm · XPU · CPU)
+# brain.py  —  Nova Sınırsız Büyüyen Dinamik Sinir Ağı  (macOS / Metal MPS · CPU)
 # ═══════════════════════════════════════════════════════════════════════════════
 #
 # Nova çıkmaza girdiğinde (loss platosu) kendi kendine büyür:
@@ -12,7 +12,7 @@ from __future__ import annotations
 # NETWORK MORPHISM: Büyüme sırasında eski ağırlıklar korunur; yeni nöronlar ≈0
 # ile başlar, çıktıyı bozmaz ve zamanla öğrenir.
 #
-# Linux sürümü iyileştirmeleri:
+# İyileştirmeler (Linux sürümünden devralındı):
 #   • scaled_dot_product_attention (Flash/Memory-efficient attention çekirdekleri)
 #   • KV-cache ile token üretimi (her token için tüm diziyi yeniden hesaplamaz)
 #   • Vektörize tekrar cezası (Python döngüsü yok)
@@ -40,10 +40,8 @@ KVCache = List[Tuple[torch.Tensor, torch.Tensor]]
 def varsayilan_cihaz() -> str:
     if os.environ.get("NOVA_DEVICE"):
         return os.environ["NOVA_DEVICE"]
-    if torch.cuda.is_available():
-        return "cuda"
-    if getattr(torch, "xpu", None) is not None and torch.xpu.is_available():
-        return "xpu"
+    if torch.backends.mps.is_available():
+        return "mps"
     return "cpu"
 
 
@@ -550,7 +548,7 @@ class BeynYoneticisi:
         ]
         kw = dict(lr=self.cfg.lr, betas=(0.9, 0.95), eps=1e-8)
         opt = None
-        if self.device.type == "cuda":
+        if self.device.type in ("cuda", "mps"):
             try:
                 opt = AdamW(groups, fused=True, **kw)
             except (RuntimeError, TypeError, ValueError):
@@ -735,8 +733,8 @@ class BeynYoneticisi:
             if not _bellek_hatasi_mi(e):
                 raise
             self.cfg.batch_size = max(4, self.cfg.batch_size // 2)
-            if self.device.type == "cuda":
-                torch.cuda.empty_cache()
+            if self.device.type == "mps":
+                torch.mps.empty_cache()
             logger.warning(f"[Beyin] Bellek yetersiz, batch → {self.cfg.batch_size}")
             return 0.0
 

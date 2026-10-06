@@ -1,36 +1,37 @@
 #!/usr/bin/env bash
 # ═══════════════════════════════════════════════════════════════════════════════
-# install.sh — Nova AGI Linux kurulumu
+# install.sh — Nova AGI macOS kurulumu (Apple Silicon)
 # ═══════════════════════════════════════════════════════════════════════════════
 #   ./install.sh                 # her şeyi otomatik kur
-#   ./install.sh --gpu=cuda      # GPU'lu PyTorch indir (auto|cuda|rocm|xpu|cpu)
-#                                # varsayılan: CPU paketi (~175 MB); CUDA ~1.8 GB, ROCm 3+ GB indirir
-#   ./install.sh --no-system     # sudo ile sistem paketi kurma
-#   ./install.sh --no-desktop    # masaüstü uygulamasını derleme / menüye ekleme
-#   ./install.sh --with-dotnet   # .NET SDK yoksa ~/.dotnet altına kur
+#   ./install.sh --no-brew       # Homebrew paketlerini kurma (mikrofon / OCR / Tk olmadan)
+#   ./install.sh --no-desktop    # Nova AGI.app'i derleme / Uygulamalar'a ekleme
+#   ./install.sh --with-dotnet   # .NET SDK yoksa Homebrew ile kur (app derlemek için)
 #   ./install.sh --extras=vision,data,export   # ağır isteğe bağlı gruplar (varsayılan: voice,control,ocr)
 #   ./install.sh --full          # tüm isteğe bağlı gruplar
+#   ./install.sh --minimal       # yalnızca çekirdek (en az indirme: ~155 MB; ses tanıma / fare kontrolü / OCR yok)
 #   ./install.sh --keep-torch-dev  # PyTorch başlık/test dosyalarını silme (C++ eklentisi / torch.compile için)
 #   ./install.sh -y              # soru sorma
 # ═══════════════════════════════════════════════════════════════════════════════
+# Not: macOS'un bash'i 3.2'dir; bu betik ilişkisel dizi / ${x^^} gibi bash 4
+# özelliklerini kullanmaz.
 set -euo pipefail
 
 APP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 VENV="$APP_DIR/.venv"
-GPU="auto"; SYSTEM=1; DESKTOP=1; WITH_DOTNET=0; YES=0; STRIP_TORCH=1
+BREW_PKGS=1; DESKTOP=1; WITH_DOTNET=0; YES=0; STRIP_TORCH=1
 EXTRAS="voice,control,ocr"
 
 for arg in "$@"; do
   case "$arg" in
-    --gpu=*)        GPU="${arg#*=}" ;;
-    --no-system)    SYSTEM=0 ;;
+    --no-brew|--no-system) BREW_PKGS=0 ;;
     --no-desktop)   DESKTOP=0 ;;
     --with-dotnet)  WITH_DOTNET=1 ;;
     --extras=*)     EXTRAS="voice,control,ocr,${arg#*=}" ;;
     --full)         EXTRAS="voice,control,ocr,vision,data,export" ;;
+    --minimal)      EXTRAS="" ;;
     --keep-torch-dev) STRIP_TORCH=0 ;;
     -y|--yes)       YES=1 ;;
-    -h|--help)      sed -n '2,14p' "$0"; exit 0 ;;
+    -h|--help)      sed -n '2,13p' "$0"; exit 0 ;;
     *) echo "Bilinmeyen seçenek: $arg"; exit 1 ;;
   esac
 done
@@ -41,124 +42,75 @@ ok()   { echo -e "  ${c_ok}✓${c_0} $*"; }
 warn() { echo -e "  ${c_warn}!${c_0} $*"; }
 die()  { echo -e "  ${c_err}✗ $*${c_0}"; exit 1; }
 have() { command -v "$1" >/dev/null 2>&1; }
+ask()  { # ask "soru" → 0 = evet
+  (( YES )) && return 0
+  local a; read -r -p "  $1 [Y/n] " a || a="y"; [[ ! "$a" =~ ^[Nn] ]]
+}
 
-echo -e "${c_b}Nova AGI — Linux kurulumu${c_0}  ${c_dim}($APP_DIR)${c_0}"
+echo -e "${c_b}Nova AGI — macOS kurulumu${c_0}  ${c_dim}($APP_DIR)${c_0}"
+[[ "$(uname -s)" == "Darwin" ]] || die "Bu dal macOS içindir. Linux için 'claude-verison' dalını kullanın."
+[[ "$(uname -m)" == "arm64" ]] || warn "Intel Mac algılandı: GPU (MPS) hızlandırması yok, CPU kullanılacak."
 
-# ── 1. Sistem paketleri ──────────────────────────────────────────────────────
-if (( SYSTEM )); then
-  step "Sistem paketleri"
-  SUDO=""; (( EUID != 0 )) && have sudo && SUDO="sudo"
-  if have apt-get; then
-    PKGS="python3 python3-venv python3-pip python3-tk python3-dev portaudio19-dev espeak-ng ffmpeg
-          tesseract-ocr tesseract-ocr-tur xdotool wmctrl xclip wl-clipboard libnotify-bin pciutils"
-    INSTALL="$SUDO apt-get install -y --no-install-recommends"; UPDATE="$SUDO apt-get update"
-  elif have dnf; then
-    PKGS="python3 python3-pip python3-tkinter python3-devel portaudio-devel espeak-ng ffmpeg-free
-          tesseract tesseract-langpack-tur xdotool wmctrl xclip wl-clipboard pciutils"
-    INSTALL="$SUDO dnf install -y"; UPDATE=":"
-  elif have pacman; then
-    PKGS="python python-pip tk portaudio espeak-ng ffmpeg tesseract tesseract-data-tur xdotool wmctrl xclip wl-clipboard pciutils"
-    INSTALL="$SUDO pacman -S --needed --noconfirm"; UPDATE=":"
-  elif have zypper; then
-    PKGS="python3 python3-pip python3-tk python3-devel portaudio-devel espeak-ng ffmpeg tesseract-ocr
-          tesseract-ocr-traineddata-turkish xdotool wmctrl xclip wl-clipboard pciutils"
-    INSTALL="$SUDO zypper --non-interactive install"; UPDATE=":"
+# Homebrew'un PATH'te olmadığı durumlar (yeni terminal / .app'ten çağrı)
+for d in /opt/homebrew/bin /usr/local/bin; do
+  [[ -x "$d/brew" && ":$PATH:" != *":$d:"* ]] && PATH="$d:$PATH"
+done
+
+# ── 1. Homebrew paketleri ────────────────────────────────────────────────────
+if (( BREW_PKGS )); then
+  step "Homebrew paketleri"
+  if have brew; then
+    # portaudio → mikrofon (pyaudio), tesseract → ekrandan yazı okuma, python-tk → yedek arayüz
+    PY_MINOR="$(python3 -c 'import sys; print(f"{sys.version_info[0]}.{sys.version_info[1]}")' 2>/dev/null || echo "")"
+    PKGS="portaudio tesseract tesseract-lang"
+    [[ -n "$PY_MINOR" ]] && [[ "$(command -v python3)" == "$(brew --prefix)"/* ]] && PKGS="$PKGS python-tk@$PY_MINOR"
+    MISSING=""
+    for p in $PKGS; do brew list --formula "$p" >/dev/null 2>&1 || MISSING="$MISSING $p"; done
+    if [[ -z "$MISSING" ]]; then
+      ok "Zaten kurulu: $PKGS"
+    else
+      echo -e "  ${c_dim}Eksik:$MISSING  (tesseract-lang ~650 MB; Türkçe OCR için gerekli)${c_0}"
+      if ask "Bu paketler kurulsun mu?"; then
+        for p in $MISSING; do
+          if brew install -q "$p" >/dev/null 2>&1; then ok "$p"; else warn "atlandı: $p"; fi
+        done
+      fi
+    fi
   else
-    INSTALL=""
-    warn "Paket yöneticisi tanınmadı; python3-venv, espeak-ng, ffmpeg ve tesseract'ı elle kurun."
-  fi
-  if [[ -n "$INSTALL" ]]; then
-    answer="y"
-    if (( ! YES )); then
-      echo -e "  ${c_dim}$(echo $PKGS)${c_0}"
-      read -r -p "  Bu paketler kurulsun mu? [Y/n] " answer || answer="y"
-    fi
-    if [[ ! "$answer" =~ ^[Nn] ]]; then
-      $UPDATE >/dev/null 2>&1 || true
-      # Tek tek dene: dağıtımda olmayan bir paket kurulumu durdurmasın
-      $INSTALL $PKGS 2>/dev/null || for p in $PKGS; do $INSTALL "$p" >/dev/null 2>&1 || warn "atlandı: $p"; done
-      ok "Sistem paketleri hazır"
-    fi
+    warn "Homebrew yok → mikrofon, OCR ve Tk arayüzü olmadan devam ediliyor. Kurmak için: https://brew.sh"
   fi
 fi
 
 # ── 2. Python sanal ortamı ───────────────────────────────────────────────────
 step "Python sanal ortamı"
-have python3 || die "python3 bulunamadı."
-python3 - <<'PY' || die "Python 3.10 veya üstü gerekli."
+have python3 || die "python3 bulunamadı (brew install python)."
+python3 - <<'PY' || die "Python 3.10 veya üstü gerekli (brew install python)."
 import sys; sys.exit(0 if sys.version_info >= (3, 10) else 1)
 PY
 if [[ ! -x "$VENV/bin/python" ]]; then
-  # Sistemde PyTorch zaten varsa (dağıtım paketi vb.) onu kullan → tekrar indirilmez
-  VENV_ARGS=()
-  if python3 -c "import torch" 2>/dev/null; then
-    VENV_ARGS=(--system-site-packages)
-    ok "Sistemdeki PyTorch kullanılacak (indirme yok)"
-  fi
-  python3 -m venv "${VENV_ARGS[@]}" "$VENV" || die "venv oluşturulamadı (python3-venv paketini kurun)."
+  python3 -m venv "$VENV" || die "venv oluşturulamadı."
 fi
 PY="$VENV/bin/python"
-"$PY" -m pip install -q --no-cache-dir --upgrade pip wheel
 ok "$("$PY" --version) → $VENV"
 
-# ── 3. PyTorch (GPU'ya göre) ─────────────────────────────────────────────────
+# ── 3. PyTorch (Metal / MPS dahil) ───────────────────────────────────────────
 step "PyTorch"
-FOUND="cpu"
-PCI="$(lspci 2>/dev/null | grep -Ei 'vga|3d|display' || true)"
-if have nvidia-smi && nvidia-smi -L >/dev/null 2>&1 || grep -qi nvidia <<<"$PCI"; then
-  FOUND="cuda"
-elif grep -qiE 'amd|ati|radeon' <<<"$PCI" && [[ -e /dev/kfd ]]; then
-  FOUND="rocm"
-elif grep -qiE 'intel.*(arc|dg2|battlemage)' <<<"$PCI"; then
-  FOUND="xpu"
-fi
-declare -A SIZE=([cpu]="~175 MB" [cuda]="~1.8 GB" [rocm]="3+ GB" [xpu]="~1 GB")
-if [[ "$GPU" == "auto" ]]; then
-  GPU="cpu"
-  # Nova'nın modeli küçük; CPU yeterli. GPU paketi çok büyük olduğu için yalnızca istenirse indirilir.
-  if [[ "$FOUND" != "cpu" ]]; then
-    answer="c"
-    if (( ! YES )); then
-      echo -e "  ${FOUND^^} ekran kartı bulundu."
-      echo -e "  ${c_dim}CPU paketi ${SIZE[cpu]}, $FOUND paketi ${SIZE[$FOUND]} indirir. Küçük model için CPU yeterlidir.${c_0}"
-      read -r -p "  Hangisi kurulsun? [C]PU / [g]pu: " answer || answer="c"
-    fi
-    [[ "$answer" =~ ^[Gg] ]] && GPU="$FOUND"
-  fi
-fi
-case "$GPU" in
-  cuda) INDEX="" ;;
-  rocm) INDEX="https://download.pytorch.org/whl/${NOVA_ROCM_INDEX:-rocm6.4}" ;;
-  xpu)  INDEX="https://download.pytorch.org/whl/xpu" ;;
-  cpu)  INDEX="https://download.pytorch.org/whl/cpu" ;;
-  *) die "Geçersiz --gpu değeri: $GPU (auto|cuda|rocm|xpu|cpu)" ;;
-esac
-echo -e "  ${c_dim}Arka uç: $GPU (paket boyutu ${SIZE[$GPU]})${c_0}"
-
-# Kurulu PyTorch istenen arka uçla uyuşuyorsa yeniden indirme
-CURRENT="$("$PY" - 2>/dev/null <<'PY' || true
-import torch
-v = torch.version
-print("rocm" if getattr(v, "hip", None) else "cuda" if v.cuda else
-      "xpu" if "xpu" in torch.__version__ else "cpu")
-PY
-)"
-if [[ -n "$CURRENT" && "$CURRENT" == "$GPU" ]]; then
+if "$PY" -c "import torch" 2>/dev/null; then
   ok "PyTorch zaten kurulu: $("$PY" -c 'import torch; print(torch.__version__)') (indirme yok)"
 else
-  [[ -n "$CURRENT" && -d "$VENV/lib" ]] && "$PY" -m pip uninstall -y -q torch 2>/dev/null || true
-  # --no-cache-dir: tekerlek pip önbelleğinde ikinci kez yer kaplamasın
-  "$PY" -m pip install --no-cache-dir ${INDEX:+--index-url "$INDEX"} torch numpy || die "PyTorch kurulamadı."
+  # macOS paketi tek tiptir (~130 MB) ve Apple GPU (MPS) desteğini içerir
+  "$PY" -m pip install --no-cache-dir torch numpy || die "PyTorch kurulamadı."
   ok "PyTorch $("$PY" -c 'import torch; print(torch.__version__)')"
 fi
+"$PY" -c "import torch; print('  MPS (Apple GPU):', 'hazır' if torch.backends.mps.is_available() else 'yok → CPU')"
 # PyTorch parça parça kurulamaz; Nova yalnızca torch.nn / optim kullandığı için
-# çalışma zamanında gerekmeyen C++ test ikilileri ve başlık dosyaları silinir (~200 MB).
+# çalışma zamanında gerekmeyen C++ test ikilileri ve başlık dosyaları silinir.
 TORCH_DIR="$("$PY" -c 'import torch, os; print(os.path.dirname(torch.__file__))')"
-if (( STRIP_TORCH )) && [[ "$TORCH_DIR" == "$VENV"/* ]]; then   # sistem PyTorch'una dokunma
+if (( STRIP_TORCH )) && [[ "$TORCH_DIR" == "$VENV"/* ]] && [[ -d "$TORCH_DIR/include" ]]; then
   before=$(du -sm "$TORCH_DIR" | cut -f1)
-  find "$TORCH_DIR/bin" -type f ! -name torch_shm_manager -delete 2>/dev/null || true   # C++ test ikilileri
+  find "$TORCH_DIR/bin" -type f ! -name torch_shm_manager -delete 2>/dev/null || true
   rm -rf "$TORCH_DIR/test" "$TORCH_DIR/include" "$TORCH_DIR/share/cmake" \
-         "$TORCH_DIR/lib/libtorchbind_test.so" "$TORCH_DIR/lib/libjitbackend_test.so" "$TORCH_DIR/lib/libbackend_with_compiler.so"
+         "$TORCH_DIR"/lib/libtorchbind_test.* "$TORCH_DIR"/lib/libjitbackend_test.* "$TORCH_DIR"/lib/libbackend_with_compiler.*
   "$PY" -c "import torch; torch.nn.Linear(4, 4)(torch.zeros(1, 4)).sum().backward()" || die "PyTorch temizliği sonrası test başarısız."
   ok "Gereksiz PyTorch dosyaları silindi: ${before} MB → $(du -sm "$TORCH_DIR" | cut -f1) MB"
 fi
@@ -167,46 +119,44 @@ fi
 step "Python paketleri"
 "$PY" -m pip install -q --no-cache-dir -r "$APP_DIR/requirements.txt" || die "Çekirdek paketler kurulamadı."
 ok "Çekirdek paketler"
-echo -e "  ${c_dim}İsteğe bağlı gruplar: $EXTRAS${c_0}"
+echo -e "  ${c_dim}İsteğe bağlı gruplar: ${EXTRAS:-yok (--minimal)}${c_0}"
+# pyaudio, Homebrew'un portaudio'sunu bulabilsin
+if have brew && brew list --formula portaudio >/dev/null 2>&1; then
+  BP="$(brew --prefix)"; export CFLAGS="-I$BP/include ${CFLAGS:-}"; export LDFLAGS="-L$BP/lib ${LDFLAGS:-}"
+fi
 while read -r line; do
   pkg="${line%%#*}"; pkg="${pkg// /}"
   grp="$(sed -n 's/.*# *\[\([a-z]*\)\].*/\1/p' <<<"$line")"
   [[ -z "$pkg" || -z "$grp" ]] && continue
-  [[ ",$EXTRAS," == *",$grp,"* ]] || continue
+  [[ -n "$EXTRAS" && ",$EXTRAS," == *",$grp,"* ]] || continue
   if "$PY" -m pip install -q --no-cache-dir "$pkg" >/dev/null 2>&1; then ok "$pkg"; else warn "$pkg kurulamadı (isteğe bağlı)"; fi
 done < "$APP_DIR/requirements-extra.txt"
 ok "Python ortamı: $(du -sh "$VENV" | cut -f1)"
 
-# ── 5. Masaüstü uygulaması (Avalonia / .NET) ─────────────────────────────────
+# ── 5. Masaüstü uygulaması (Nova AGI.app) ────────────────────────────────────
 if (( DESKTOP )); then
   step "Masaüstü uygulaması"
   DOTNET="$(command -v dotnet || true)"
   [[ -z "$DOTNET" && -x "$HOME/.dotnet/dotnet" ]] && DOTNET="$HOME/.dotnet/dotnet"
   if [[ -z "$DOTNET" && $WITH_DOTNET -eq 1 ]]; then
-    curl -sSL https://dot.net/v1/dotnet-install.sh -o /tmp/dotnet-install.sh
-    bash /tmp/dotnet-install.sh --channel 9.0 --install-dir "$HOME/.dotnet" >/dev/null && DOTNET="$HOME/.dotnet/dotnet"
-  fi
-  if [[ -n "$DOTNET" ]]; then
-    case "$(uname -m)" in aarch64|arm64) RID="linux-arm64" ;; *) RID="linux-x64" ;; esac
-    if "$DOTNET" publish "$APP_DIR/NovaApp/NovaApp.csproj" -c Release -r "$RID" --self-contained true \
-         -p:PublishSingleFile=false -o "$APP_DIR/build/desktop" --nologo -v q >/dev/null; then
-      ok "Avalonia arayüzü derlendi → build/desktop/nova-agi"
+    if have brew; then
+      brew install -q dotnet >/dev/null && DOTNET="$(command -v dotnet || true)"
     else
-      warn "Derleme başarısız; yedek Tk arayüzü kullanılacak."
+      curl -sSL https://dot.net/v1/dotnet-install.sh -o "${TMPDIR:-/tmp}/dotnet-install.sh"
+      bash "${TMPDIR:-/tmp}/dotnet-install.sh" --channel 9.0 --install-dir "$HOME/.dotnet" >/dev/null && DOTNET="$HOME/.dotnet/dotnet"
+    fi
+  fi
+  # .NET yoksa ama sürüm arşivinden hazır gelen build/Nova AGI.app varsa o kurulur
+  if [[ -n "$DOTNET" || -d "$APP_DIR/build/Nova AGI.app" ]]; then
+    if DOTNET="$DOTNET" "$APP_DIR/packaging/build_app.sh" --install; then
+      ok "Nova AGI.app → ~/Applications (Launchpad ve Spotlight'ta görünür)"
+    else
+      warn "Uygulama derlenemedi; ./nova.sh tk ile yedek arayüz kullanılabilir."
     fi
   else
-    warn ".NET SDK yok → yedek Tk arayüzü kullanılacak. Modern arayüz için: ./install.sh --with-dotnet"
+    warn ".NET SDK yok → Nova AGI.app derlenmedi. Kurmak için: ./install.sh --with-dotnet"
   fi
-
-  APPS="${XDG_DATA_HOME:-$HOME/.local/share}/applications"
-  ICONS="${XDG_DATA_HOME:-$HOME/.local/share}/icons/hicolor/512x512/apps"
-  mkdir -p "$APPS" "$ICONS"
-  cp "$APP_DIR/assets/nova_icon.png" "$ICONS/nova-agi.png"
-  sed "s|@APP_DIR@|$APP_DIR|g" "$APP_DIR/packaging/nova-agi.desktop" > "$APPS/nova-agi.desktop"
-  chmod +x "$APPS/nova-agi.desktop" "$APP_DIR/nova.sh"
-  have update-desktop-database && update-desktop-database "$APPS" >/dev/null 2>&1 || true
-  have gtk-update-icon-cache && gtk-update-icon-cache -q "${ICONS%/512x512/apps}" >/dev/null 2>&1 || true
-  ok "Uygulama menüsüne eklendi (Nova AGI)"
+  chmod +x "$APP_DIR/nova.sh" "$APP_DIR/uninstall.sh"
 fi
 
 # ── Özet ─────────────────────────────────────────────────────────────────────
@@ -215,8 +165,11 @@ step "Hazır!"
 cat <<EOF
 
   ${c_b}Başlatma${c_0}
-    ./nova.sh            masaüstü arayüzü
+    open ~/Applications/"Nova AGI.app"   masaüstü uygulaması (veya Launchpad / Spotlight)
     ./nova.sh term       terminal sohbeti
     ./nova.sh web        telefon / tarayıcı erişimi
-    ./nova.sh doctor     donanım ve bağımlılık kontrolü
+    ./nova.sh doctor     donanım, bağımlılık ve izin kontrolü
+
+  ${c_b}macOS izinleri${c_0} ${c_dim}(ilk kullanımda sorulur; Sistem Ayarları › Gizlilik ve Güvenlik)${c_0}
+    Ekran Kaydı → ekran izleme · Erişilebilirlik → fare/klavye · Mikrofon → sesli komut
 EOF

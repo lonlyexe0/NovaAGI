@@ -1,11 +1,11 @@
 # ═══════════════════════════════════════════════════════════════════════════════
-# config_manager.py  —  Nova AGI Konfigürasyon ve Dil Yöneticisi (Linux)
+# config_manager.py  —  Nova AGI Konfigürasyon ve Dil Yöneticisi (macOS)
 # ═══════════════════════════════════════════════════════════════════════════════
 #
 # Veri dizini önceliği:
 #   1. $NOVA_DATA_DIR
 #   2. Kaynak dizininde zaten veri varsa (nova.db / .nova_config.json) → taşınabilir mod
-#   3. $XDG_DATA_HOME/nova-agi  (varsayılan: ~/.local/share/nova-agi)
+#   3. ~/Library/Application Support/NovaAGI
 #
 # Ayarlar dosyası mtime tabanlı önbelleklenir; yazma işlemleri atomiktir.
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -57,8 +57,7 @@ def get_data_dir() -> str:
         if has_data and os.access(APP_DIR, os.W_OK):
             return APP_DIR
 
-    xdg = os.environ.get("XDG_DATA_HOME") or os.path.join(os.path.expanduser("~"), ".local", "share")
-    nova_dir = os.path.join(xdg, "nova-agi")
+    nova_dir = os.path.join(os.path.expanduser("~"), "Library", "Application Support", "NovaAGI")
     os.makedirs(nova_dir, exist_ok=True)
     return nova_dir
 
@@ -214,13 +213,27 @@ def ask_language_on_first_launch(arg_lang: Optional[str] = None) -> str:
 
     if sys.stdin is not None and hasattr(sys.stdin, "isatty") and sys.stdin.isatty():
         return _ask_language_terminal()
-    if os.environ.get("DISPLAY") or os.environ.get("WAYLAND_DISPLAY"):
+    if not (os.environ.get("SSH_CONNECTION") or os.environ.get("SSH_TTY")):
         return _ask_language_gui()
 
-    # Başsız ortam (servis, pipe): sistem yereline göre seç
-    lang = "tr" if os.environ.get("LANG", "").lower().startswith("tr") else "en"
+    # Başsız ortam (SSH, pipe): sistem diline göre seç
+    lang = _sistem_dili()
     set_language(lang)
     return lang
+
+
+def _sistem_dili() -> str:
+    """macOS sistem dili (Sistem Ayarları › Genel › Dil ve Bölge); 'tr' veya 'en'."""
+    if os.environ.get("LANG", "").lower().startswith("tr"):
+        return "tr"
+    try:
+        import subprocess
+        out = subprocess.run(["defaults", "read", "-g", "AppleLanguages"], capture_output=True,
+                             text=True, timeout=2).stdout
+        ilk = out.replace("(", "").replace('"', "").split(",")[0].strip().lower()
+        return "tr" if ilk.startswith("tr") else "en"
+    except Exception:
+        return "en"
 
 
 def _ask_language_gui() -> str:
@@ -238,9 +251,9 @@ def _ask_language_gui() -> str:
         root.geometry(f"{w}x{h}+{(root.winfo_screenwidth() - w) // 2}+{(root.winfo_screenheight() - h) // 2}")
 
         tk.Label(root, text="Language / Dil", bg=bg, fg="#eef1f8",
-                 font=("Sans", 15, "bold")).pack(pady=(26, 4))
+                 font=("Helvetica Neue", 15, "bold")).pack(pady=(26, 4))
         tk.Label(root, text="Select Nova's working language\nNova'nın çalışma dilini seçin",
-                 bg=bg, fg="#8b93a8", font=("Sans", 10), justify="center").pack(pady=(0, 18))
+                 bg=bg, fg="#8b93a8", font=("Helvetica Neue", 10), justify="center").pack(pady=(0, 18))
 
         frame = tk.Frame(root, bg=bg)
         frame.pack()
@@ -252,16 +265,17 @@ def _ask_language_gui() -> str:
         for col, (text, dil, fg) in enumerate((("English", "en", "#7aa2ff"), ("Türkçe", "tr", "#34d399"))):
             tk.Button(frame, text=text, bg=card, fg=fg, activebackground="#1f2638",
                       activeforeground="#ffffff", relief="flat", bd=0, highlightthickness=0,
-                      font=("Sans", 12, "bold"), width=12, height=2, cursor="hand2",
+                      font=("Helvetica Neue", 12, "bold"), width=12, height=2, cursor="hand2",
                       command=lambda d=dil: sec(d)).grid(row=0, column=col, padx=10)
 
         root.mainloop()
         set_language(secim[0])
         return secim[0]
     except Exception as e:
-        logger.warning(f"[Config] GUI dil seçimi başarısız, varsayılan 'en': {e}")
-        set_language("en")
-        return "en"
+        lang = _sistem_dili()
+        logger.warning(f"[Config] GUI dil seçimi başarısız, sistem dili kullanılıyor ('{lang}'): {e}")
+        set_language(lang)
+        return lang
 
 
 def _ask_language_terminal() -> str:

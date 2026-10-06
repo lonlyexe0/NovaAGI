@@ -21,7 +21,6 @@ import socket
 import base64
 import logging
 import threading
-import subprocess
 from collections import OrderedDict
 from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
 from urllib.parse import urlparse, parse_qs
@@ -67,7 +66,7 @@ def clean_tts_text(text: str) -> str:
 
 
 def get_tts_audio_bytes(text: str, voice: Optional[str] = None) -> Optional[bytes]:
-    """Telefon/tarayıcı için ses üretir: edge-tts (MP3) → espeak-ng (WAV)."""
+    """Telefon/tarayıcı için ses üretir: edge-tts (MP3) → macOS say (WAV)."""
     clean = clean_tts_text(text)
     if not clean:
         return None
@@ -96,14 +95,21 @@ def get_tts_audio_bytes(text: str, voice: Optional[str] = None) -> Optional[byte
         logger.debug(f"[WebTTS] edge-tts başarısız: {e}")
 
     if ses is None:
-        import linux_desktop
-        prog = linux_desktop.ilk_bulunan("espeak-ng", "espeak")
-        if prog:
+        import tempfile
+        import mac_desktop
+        fd, wav = tempfile.mkstemp(suffix=".wav", prefix="nova_webtts_")
+        os.close(fd)
+        try:
+            if mac_desktop.tts_dosyaya(clean, "tr" if turkce else "en", wav):
+                with open(wav, "rb") as f:
+                    ses = f.read() or None
+        except Exception as e:
+            logger.debug(f"[WebTTS] say başarısız: {e}")
+        finally:
             try:
-                ses = subprocess.run([prog, "-v", "tr" if turkce else "en-us", "-s", "165", "--stdout", clean],
-                                     capture_output=True, timeout=20).stdout or None
-            except Exception as e:
-                logger.debug(f"[WebTTS] espeak başarısız: {e}")
+                os.remove(wav)
+            except OSError:
+                pass
 
     if ses:
         with _tts_lock:
@@ -187,7 +193,7 @@ class NovaHttpHandler(BaseHTTPRequestHandler):
             return self._gonder(200, veri, _ICERIK_TURU.get(os.path.splitext(yol)[1], "application/octet-stream"))
 
         if yol == "/api/status":
-            return self._json(200, {"online": True, "version": "4.0-linux", "auth": self._yetkili()})
+            return self._json(200, {"online": True, "version": "4.0-macos", "auth": self._yetkili()})
         if not self._yetkili():
             return self._json(401, {"error": "Erişim anahtarı gerekli"})
 
@@ -199,8 +205,8 @@ class NovaHttpHandler(BaseHTTPRequestHandler):
                 return self._json(500, {"error": "TTS üretilemedi"})
             return self._gonder(200, ses, "audio/wav" if ses[:4] == b"RIFF" else "audio/mpeg")
         if yol == "/api/screen":
-            import linux_desktop
-            img = linux_desktop.ekran_goruntusu()
+            import mac_desktop
+            img = mac_desktop.ekran_goruntusu()
             if img is None:
                 return self._json(500, {"error": "Ekran yakalanamadı"})
             img.thumbnail((1280, 1280))

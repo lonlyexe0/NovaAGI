@@ -24,7 +24,7 @@ from body import AjanBeden
 
 logger = logging.getLogger("nova.engine")
 
-VERSION = "4.0-linux"
+VERSION = "4.0-macos"
 
 
 class NovaMotoru:
@@ -89,10 +89,8 @@ class NovaMotoru:
             return 0
         try:
             import torch
-            if dev.type == "cuda":
-                return int(torch.cuda.memory_allocated() // 1024 ** 2)
-            if dev.type == "xpu":
-                return int(torch.xpu.memory_allocated() // 1024 ** 2)
+            if dev.type == "mps":
+                return int(torch.mps.current_allocated_memory() // 1024 ** 2)
         except Exception:
             pass
         return 0

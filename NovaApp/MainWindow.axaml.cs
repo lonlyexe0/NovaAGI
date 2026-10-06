@@ -18,7 +18,9 @@ public partial class MainWindow : Window
     private readonly DispatcherTimer _pollTimer = new() { Interval = TimeSpan.FromSeconds(1.5) };
     private readonly DispatcherTimer _clockTimer = new() { Interval = TimeSpan.FromSeconds(1) };
 
-    private bool _en = !(Environment.GetEnvironmentVariable("LANG") ?? "").StartsWith("tr", StringComparison.OrdinalIgnoreCase);
+    // Finder'dan açılınca LANG boş olur; sistem dili (CurrentUICulture) kullanılır
+    private bool _en = !((Environment.GetEnvironmentVariable("LANG") ?? "").StartsWith("tr", StringComparison.OrdinalIgnoreCase)
+                         || System.Globalization.CultureInfo.CurrentUICulture.TwoLetterISOLanguageName == "tr");
     private bool _voiceOn = true;
     private bool _listening;
     private bool _training = true;
@@ -123,7 +125,7 @@ public partial class MainWindow : Window
         var gpu = hw.GpuSummary;
         var (badge, color) = gpu.IsGpu
             ? ($"⚡ {gpu.ShortName} · {gpu.Backend}", gpu.IsMultiGpu ? "#FB923C" : "#34D399")
-            : ($"💻 {hw.Cpu.ShortName} · {hw.Cpu.Threads}T", "#FBBF24");
+            : ($"💻 {hw.Cpu.ShortName} · CPU", "#FBBF24");
         DeviceBadgeText.Text = badge;
         DeviceBadgeText.Foreground = new SolidColorBrush(Color.Parse(color));
         DeviceBadge.BorderBrush = new SolidColorBrush(Color.Parse(color), 0.45);
@@ -343,7 +345,7 @@ public partial class MainWindow : Window
     private async void BtnSettings_Click(object? sender, RoutedEventArgs e) => await OpenSettingsAsync(0);
     private async void BtnWeb_Click(object? sender, RoutedEventArgs e) => await OpenSettingsAsync(4);
 
-    private async Task OpenSettingsAsync(int tab)
+    public async Task OpenSettingsAsync(int tab)
     {
         if (!_ready)
         {

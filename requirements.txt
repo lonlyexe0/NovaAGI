@@ -1,11 +1,8 @@
 # ═══════════════════════════════════════════════════════════════════════════════
-# requirements.txt — Nova AGI (Linux) çekirdek bağımlılıkları
+# requirements.txt — Nova AGI (macOS) çekirdek bağımlılıkları
 # ═══════════════════════════════════════════════════════════════════════════════
-# PyTorch'u GPU'nuza uygun derlemeden kurmak için ./install.sh kullanın
-# (NVIDIA CUDA / AMD ROCm / Intel XPU / CPU otomatik seçilir). Elle kurulum:
-#   pip install torch --index-url https://download.pytorch.org/whl/rocm6.2   (AMD)
-#   pip install torch --index-url https://download.pytorch.org/whl/cpu       (CPU)
-#   pip install torch                                                         (NVIDIA)
+# ./install.sh hepsini kurar. macOS'ta PyTorch tek paket hâlindedir ve Apple
+# GPU (Metal / MPS) desteğini içerir:  pip install torch
 torch>=2.2
 
 numpy>=1.24
@@ -13,5 +10,5 @@ requests>=2.28
 beautifulsoup4>=4.12
 psutil>=5.9
 pillow>=10.0
-mss>=9.0              # hızlı X11 ekran görüntüsü
-edge-tts>=6.1         # nöral sesli yanıt (internet gerekir; çevrimdışı yedek: espeak-ng)
+mss>=9.0              # hızlı ekran görüntüsü (CoreGraphics; Ekran Kaydı izni gerekir)
+edge-tts>=6.1         # nöral sesli yanıt (internet gerekir; çevrimdışı yedek: macOS 'say')

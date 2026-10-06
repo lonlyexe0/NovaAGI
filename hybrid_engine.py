@@ -67,6 +67,25 @@ QUEUE_MAKS_BOYUT    = 24      # Pinned-memory kuyruk kapasitesi (batch adedi)
 
 VRAM_ESIGI          = 0.72    # Bu oran aşılırsa taşma → CPU'ya
 GRAD_BIRIKME        = 4       # N adımda bir optimizer.step() (gradient accumulation)
+
+
+def _mps_bellek_orani() -> float:
+    """0.0–1.0 arası GPU (birleşik bellek) doluluk oranı."""
+    try:
+        if not torch.backends.mps.is_available():
+            return 0.0
+        sinir = torch.mps.recommended_max_memory()
+        return torch.mps.current_allocated_memory() / sinir if sinir else 0.0
+    except Exception:
+        return 0.0
+
+
+def _gpu_bellegi_bosalt() -> None:
+    try:
+        if torch.backends.mps.is_available():
+            torch.mps.empty_cache()
+    except Exception:
+        pass
 CPU_BATCH_BOYUTU    = 16      # CPU taşma işleyicisi batch boyutu
 LOG_ARALIK          = 100     # N adımda bir performans logu
 
@@ -83,9 +102,9 @@ class PinnedBatch:
     __slots__ = ("x", "y", "kaynak")
 
     def __init__(self, x: torch.Tensor, y: torch.Tensor, kaynak: str = "cpu"):
-        # pin_memory() → DMA-capable sayfa kilit belleği
-        self.x      = x.pin_memory() if not x.is_cuda else x
-        self.y      = y.pin_memory() if not y.is_cuda else y
+        # Apple Silicon'da CPU ve GPU aynı belleği paylaşır; pin_memory() gerekmez
+        self.x      = x
+        self.y      = y
         self.kaynak = kaynak   # "bilgi" | "ani" | "tasma"
 
     def gpu_ye_gonder(self, device: torch.device) -> tuple[torch.Tensor, torch.Tensor]:
@@ -260,8 +279,8 @@ class GPUEgitimTuketicisi:
         self.grad_birikme= grad_birikme
         self.device      = beyin.device
 
-        # GPU kontrolü (CUDA / ROCm)
-        self.gpu_var     = self.device.type == "cuda"
+        # GPU kontrolü (Apple Metal / MPS)
+        self.gpu_var     = self.device.type == "mps"
         self._mikro_adim = 0    # Gradient accumulation sayacı
 
         self._thread = threading.Thread(
@@ -277,12 +296,7 @@ class GPUEgitimTuketicisi:
         """0.0–1.0 arası VRAM doluluk oranı."""
         if not self.gpu_var:
             return 0.0
-        try:
-            toplam    = torch.cuda.get_device_properties(0).total_memory
-            kullanilan = torch.cuda.memory_allocated(0)
-            return kullanilan / toplam
-        except Exception:
-            return 0.0
+        return _mps_bellek_orani()
 
     def _bir_adim(self, batch: PinnedBatch) -> float:
         """
@@ -380,9 +394,9 @@ class GPUEgitimTuketicisi:
                     # Normal GPU adımı
                     self._bir_adim(batch)
 
-            except torch.cuda.OutOfMemoryError:
+            except torch.OutOfMemoryError:
                 logger.warning("[GPU] OOM! Batch CPU'ya taşındı.")
-                torch.cuda.empty_cache()
+                _gpu_bellegi_bosalt()
                 try:
                     self.tasma_q.put_nowait(batch)
                 except queue.Full:
@@ -489,7 +503,7 @@ class CPUTasmaIsleyicisi:
                         )
 
                     del cpu_model
-                    torch.cuda.empty_cache() if torch.cuda.is_available() else None
+                    _gpu_bellegi_bosalt()
 
             except Exception as e:
                 logger.warning(f"[CPU-Taşma] Hata: {e}")
@@ -655,14 +669,9 @@ class HibridMotor:
         dev = getattr(self.beyin, "device", None)
         dev_type = getattr(dev, "type", str(dev)) if dev else ""
 
-        if torch.cuda.is_available():
-            gpu_adi  = torch.cuda.get_device_name(0).strip("\x00 \t\n\r")
-            vram_mb  = torch.cuda.get_device_properties(0).total_memory // (1024**2)
-            gpu_str  = f"✅ {gpu_adi} ({vram_mb} MB VRAM)"
-        elif dev_type == "xpu":
-            gpu_str  = f"⚡ {hardware.get_gpu_info().get('name', 'Intel XPU')} (XPU)"
-        elif hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
-            gpu_str  = "⚡ Apple Silicon GPU (Metal MPS)"
+        if dev_type == "mps":
+            gpu = hardware.get_gpu_info()
+            gpu_str  = f"⚡ {gpu['short_name']} (Metal MPS, {gpu['vram_str']})"
         else:
             gpu_str  = "❌ GPU yok — sadece CPU modu"
 
@@ -691,7 +700,7 @@ class HibridMotor:
         sure = time.monotonic() - self.baslangic_zamani
         dev = getattr(self.beyin, "device", None)
         dev_type = getattr(dev, "type", str(dev)) if dev else ""
-        gpu_aktif = dev_type in ("cuda", "xpu")
+        gpu_aktif = dev_type == "mps"
         return {
             "sure_saniye":     round(sure),
             "egitim_adimi":    self.beyin.adim,
@@ -705,13 +714,7 @@ class HibridMotor:
         }
 
     def _vram_oran(self) -> float:
-        if not torch.cuda.is_available():
-            return 0.0
-        try:
-            return (torch.cuda.memory_allocated(0) /
-                    torch.cuda.get_device_properties(0).total_memory)
-        except Exception:
-            return 0.0
+        return _mps_bellek_orani()
 
 
 # ═══════════════════════════════════════════════════════════════════════════════

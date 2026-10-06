@@ -6,13 +6,13 @@
 
 <img src="assets/nova_icon.png" width="96" alt="Nova AGI">
 
-# Nova AGI — Linux Sürümü
+# Nova AGI — macOS Sürümü
 
-*Hafızası, sesi, ekran farkındalığı ve yerel masaüstü uygulaması olan, kendi kendine büyüyen sinir ağı.*
+*Hafızası, sesi, ekran farkındalığı ve yerel Mac uygulaması olan, kendi kendine büyüyen sinir ağı.*
 
-[![Platform](https://img.shields.io/badge/Platform-Linux-blue?style=for-the-badge&logo=linux&logoColor=white)](#hızlı-başlangıç)
+[![Platform](https://img.shields.io/badge/Platform-macOS%20(Apple%20Silicon)-black?style=for-the-badge&logo=apple&logoColor=white)](#hızlı-başlangıç)
 [![Python](https://img.shields.io/badge/Python-3.10%2B-yellow?style=for-the-badge&logo=python&logoColor=white)](https://www.python.org/)
-[![PyTorch](https://img.shields.io/badge/PyTorch-CUDA%20%7C%20ROCm%20%7C%20XPU%20%7C%20CPU-red?style=for-the-badge&logo=pytorch&logoColor=white)](https://pytorch.org/)
+[![PyTorch](https://img.shields.io/badge/PyTorch-Metal%20MPS%20%7C%20CPU-red?style=for-the-badge&logo=pytorch&logoColor=white)](https://pytorch.org/)
 [![Arayüz](https://img.shields.io/badge/Aray%C3%BCz-Avalonia%20.NET%209-purple?style=for-the-badge&logo=dotnet)](https://avaloniaui.net/)
 [![Lisans](https://img.shields.io/badge/Lisans-GPL--3.0-green?style=for-the-badge)](LICENSE)
 
@@ -26,141 +26,161 @@
 > kullanışlı bir dil modeli eğitmek bir masaüstü bilgisayarın çok ötesinde işlem gücü ister. Eğitilmemiş
 > model anlamsız metin üretir; araç yanıtları (Wikipedia, hesap makinesi, saat, ekran analizi…) hemen çalışır.
 
-Bu dal, **`windows-part` dalının Linux'a çevrilmiş hâlidir**: Windows'a özgü tüm parçalar (WPF,
-DirectML, `winreg`, `winsound`, GDI, Windows OCR, `.bat` betikleri, Inno Setup) Linux karşılıklarıyla
-değiştirildi ve bu sırada kod optimize edildi.
+Bu dal (`mac-version`), **Linux sürümünün (`claude-verison`) macOS'a çevrilmiş hâlidir**. Linux'a özgü
+tüm parçalar (CUDA/ROCm/XPU, `/proc`, PipeWire, espeak-ng, grim, `wpctl`, `loginctl`, `xdotool`, `.desktop`
+dosyaları) macOS karşılıklarıyla değiştirildi. Apple Silicon'ın GPU'su **Metal (MPS)** ile kullanılır.
 
 ## Hızlı başlangıç
 
 ```bash
-git clone -b claude-verison https://github.com/lonlyexe0/NovaAGI.git
+git clone -b mac-version https://github.com/lonlyexe0/NovaAGI.git
 cd NovaAGI
-./install.sh          # sistem paketleri, Python ortamı, doğru PyTorch, masaüstü uygulaması, menü girdisi
-./nova.sh             # başlat
+./install.sh --with-dotnet   # Python ortamı, PyTorch (Metal), Homebrew ekleri, Nova AGI.app
+./nova.sh                    # başlat (veya Launchpad / Spotlight'tan "Nova AGI")
 ```
 
-`install.sh` varsayılan olarak **PyTorch'un CPU paketini kurar (~175 MB indirme)**. Nova'nın modeli küçük
-olduğu için CPU yeterlidir. Ekran kartı bulunursa önce sorar, çünkü CUDA paketi ~1.8 GB, ROCm 3+ GB
-indirir. Belirli bir paketi zorlamak için `--gpu=cuda|rocm|xpu|cpu` kullanın. Sistemde veya venv'de
-uygun PyTorch zaten kuruluysa tekrar indirilmez. Diğer seçenekler: `--no-system` (sudo yok), `--no-desktop`,
-`--with-dotnet` (modern arayüz için .NET SDK'yı `~/.dotnet` altına kurar), `-y`.
+Gereksinimler: **Apple Silicon (M1 ve sonrası)** bir Mac, macOS 13+, Python 3.10+ (`brew install python`).
+Intel Mac'lerde de çalışır ama yalnızca CPU ile.
 
-**Hafif kurulum.** PyTorch parça parça kurulamaz. Bu yüzden `install.sh`, Nova'nın çalışırken hiç
-kullanmadığı kısımları siler: C++ test ikilileri, başlık ve CMake dosyaları (~200 MB). pip önbelleği
-de tutulmaz. Ağır isteğe bağlı gruplar varsayılan olarak kurulmaz: `vision` (OpenCV), `data`
-(Hugging Face `datasets`) ve `export` (ONNX). Gerekirse `--extras=vision,data,export` veya `--full`
-ile ekleyin. CPU kurulumu ~1.5 GB'tan ~870 MB'a iner. `torch.compile` veya C++ eklentisi
-gerekiyorsa `--keep-torch-dev` kullanın.
+`install.sh` seçenekleri:
+
+| Seçenek | Etkisi |
+|---|---|
+| *(yok)* | Homebrew ekleri (önce sorar), venv, PyTorch, ses/kontrol/OCR köprüleri, .NET varsa uygulama |
+| `--minimal` | Yalnızca çekirdek — **en az indirme (~155 MB)**: ses tanıma, fare kontrolü ve OCR yok |
+| `--no-brew` | Homebrew paketlerini atla (`portaudio`, `tesseract`, `tesseract-lang`, `python-tk`) |
+| `--with-dotnet` | `Nova AGI.app` derlenebilsin diye .NET SDK'yı kur (`brew install dotnet`) |
+| `--no-desktop` | Uygulamayı derleme / kurma |
+| `--extras=vision,data,export`, `--full` | Ağır isteğe bağlı gruplar (OpenCV, Hugging Face `datasets`, ONNX) |
+| `-y` | Soru sorma |
+
+macOS'ta PyTorch tek bir ~130 MB'lık pakettir ve Metal desteği içinde gelir. Kurulum, Nova'nın hiç
+kullanmadığı C++ başlık dosyalarını ve test ikililerini siler (`--keep-torch-dev` korur).
 
 | Komut | Görevi |
 |---|---|
-| `./nova.sh` | Avalonia masaüstü uygulaması (.NET yoksa Tk arayüzü) |
+| `./nova.sh` | `Nova AGI.app`'i açar (derlenmemişse Tk arayüzü) |
 | `./nova.sh term` | Terminal sohbeti (`main.py`) |
 | `./nova.sh launcher` | Hugging Face akışlı gelişmiş terminal başlatıcı |
 | `./nova.sh web` | Web/telefon sunucusu, erişim adresini yazdırır |
 | `./nova.sh tunnel` | Web sunucusunu Cloudflare tüneliyle internete açar |
-| `./nova.sh doctor` | GPU, araç ve Python paketi kontrolü |
-| `./nova.sh build` | Masaüstü uygulamasını yeniden derler |
-| `./uninstall.sh` | Menü girdisini, derlemeleri ve (isteğe bağlı) verileri kaldırır |
+| `./nova.sh doctor` | GPU, araç, Python paketi ve macOS izin kontrolü |
+| `./nova.sh permissions` | Nova'nın ihtiyaç duyduğu Gizlilik ve Güvenlik sayfalarını açar |
+| `./nova.sh build` | `Nova AGI.app`'i yeniden derler ve `~/Applications`'a kurar |
+| `./uninstall.sh` | Uygulamayı, derlemeleri ve (isteğe bağlı) verileri kaldırır |
 
-## Windows sürümünden farklar
+## Mac uygulaması
 
-**Platform**
-- **Masaüstü arayüzü:** WPF → **Avalonia 11** (.NET 9). Yeniden tasarlanmış koyu tema, akışlı sohbet,
-  telemetri kartları, loss grafiği ve yakınlaştırılıp kaydırılabilen kuvvet yönlendirmeli hafıza
-  grafiği. Grafik binlerce UI öğesi yerine tek geçişte çizilir.
-- **GPU:** DirectML → **CUDA, ROCm (AMD) ve XPU (Intel Arc)**. ROCm'un resmi listesinde olmayan Radeon
-  kartlar (ör. RX 6500 XT / RX 7600) için `HSA_OVERRIDE_GFX_VERSION` otomatik ayarlanır.
-- **Donanım algılama:** registry → `/proc`, `/sys/class/drm`, `nvidia-smi`, `lspci`. Sonuç
-  önbelleklenir, telemetri sorgusu ucuzdur.
-- **Ses:** winsound/MCI → PipeWire, PulseAudio, ALSA, ffplay veya mpv. Çevrimdışı TTS yedeği: **espeak-ng**.
-- **Ekran ve OCR:** GDI/Windows OCR → `mss` (X11), Pillow, `grim`, `gnome-screenshot`, `spectacle` ve
-  **Tesseract**.
-- **Sistem eylemleri:** `user32` tuş olayları → `loginctl`, `wpctl`/`pactl`/`amixer`,
-  `wmctrl`/`xdotool` ve masaüstünüzün sistem izleyicisi.
-- **Betikler ve paketleme:** `.bat`/Inno Setup → `install.sh`, `nova.sh`, `.desktop` girdisi ve
-  `packaging/build_release.sh`.
-- **Veriler** `~/.local/share/nova-agi` altında (XDG) tutulur. Değiştirmek için `NOVA_DATA_DIR` kullanın.
+`packaging/build_app.sh`, Avalonia arayüzünü gerçek bir **`Nova AGI.app`** paketine dönüştürür. Paket
+kendi .NET çalışma ortamını içerir, yani çalıştırmak için .NET gerekmez. Ayrıca şunlar eklenir:
+- `.icns` simgesi
+- İzin açıklamalarını içeren `Info.plist`
+- Mac menüsü (**⌘,** Ayarları açar)
+- Yerel (ad-hoc) imza
 
-**Hız**
-- Metin üretimi **KV-cache** ve vektörize örnekleme kullanır. Eskiden her token için tüm bağlam yeniden
-  hesaplanıyor ve Python döngüsü çalışıyordu.
-- Dikkat katmanı **`scaled_dot_product_attention`** ile çalışır (Flash / bellek-verimli çekirdekler).
-  CUDA'da fused AdamW kullanılır.
-- Eğitim, kuyruktaki **tüm** kayıtlardan pencere örnekler. Eskiden yalnızca ilk belge öğreniliyor ama
-  40 kaydın hepsi "işlendi" sayılıyordu.
-- SQLite: kaynak URL indeksi sayesinde veritabanı büyüdükçe içe aktarma yavaşlamıyor. Ayrıca SQL içinde
-  RAG ön-filtresi, toplu güncelleme ve tek sorguluk istatistik var. Hafıza grafiği verisi kısaltılır;
-  artık her yenilemede MB'larca JSON gönderilmez.
+Uygulama `~/Applications` klasörüne kurulur. Launchpad'de ve Spotlight'ta görünür, Dock'a eklenebilir.
 
-**Düzeltmeler**
-- Embedding büyümesi artık Q/K/V ağırlıklarını karıştırmıyor; network morphism Q/K/V için gerçekten
-  işlevi koruyor.
-- Masaüstü köprüsünün stdout'u **yalnızca protokol** içindir. Önceden araya giren `print()` çıktıları
-  JSON akışını bozuyordu.
-- Arayüz kapanınca motor ağırlıkları kaydedip çıkar. Önceden kapanan stdin üzerinde sonsuza dek dönüyordu.
-- Yavaş işlemler (ekran izleme, dışa aktarma, dinleme) köprüyü kilitlemek yerine iş parçacığı havuzunda
-  çalışır.
-- Arayüzden gelen eşzamanlı yazmalar sıraya alınır.
-- Ayarlar üzerine yazılmak yerine birleştirilir; cihaz ayarı artık gerçekten uygulanır.
-- Hesap makinesi `eval` yerine güvenli AST değerlendiricisi kullanır. `!python` artık `sys.stdout`'u ele
-  geçirmez.
-- Web sunucusu **erişim anahtarı** ister. Önceden aynı Wi-Fi'deki herkes kod çalıştırabilir veya
-  ekranınızı görebilirdi. Sunucu ayrıca statik dosyaları `web/` klasöründen sunar, yanıtları akışla
-  (NDJSON) gönderir ve istek boyutunu sınırlar.
-- Ünlü birinin sesini klonlamak için kullanılan örnek kayıtlar ve XTTS betikleri kaldırıldı. Nova artık
-  standart nöral sesler kullanır (`en-IE-EmilyNeural`, `tr-TR-EmelNeural`).
+Python motoru proje klasöründe kalır. Uygulama onu `Nova AGI.app/Contents/Resources/nova_home` dosyası
+sayesinde bulur. Proje klasörünü taşırsanız `./nova.sh build` komutunu tekrar çalıştırın.
+
+## macOS izinleri
+
+macOS her özellik için bir kez izin sorar. İzinleri **Sistem Ayarları › Gizlilik ve Güvenlik**
+bölümünden verebilirsiniz (veya `./nova.sh permissions`). İzin yoksa Nova çalışmaya devam eder ve
+hangi anahtarı açmanız gerektiğini söyler.
+
+| İzin | Ne için |
+|---|---|
+| Ekran ve Sistem Sesi Kaydı | `!watch`, ekran analizi, telefondan ekran görüntüleme |
+| Erişilebilirlik | Fare/klavye kontrolü, pencere başlıkları, ⌃⌘Q ekran kilidi |
+| Mikrofon | Sesli komut (`brew install portaudio` gerekir) |
+| Otomasyon (System Events) | Masaüstünü göster, pencere başlıkları |
+
+İzinler Nova'yı başlatan uygulamaya verilir: `Nova AGI.app` veya `./nova.sh term` kullanıyorsanız
+terminaliniz. Uygulama ad-hoc imzalı olduğu için yeniden derlemeden sonra macOS izni tekrar sorabilir.
+
+## Apple Silicon performansı
+
+M5 (10 çekirdekli GPU, 16 GB), batch 48 × 256 token ile ölçüldü:
+
+| Model boyutu | CPU eğitim adımı | Metal eğitim adımı | Metal üretim |
+|---|---|---|---|
+| Başlangıç (128 × 2 katman) | 145 ms | **56 ms** | ~1.100 token/sn |
+| Büyümüş (384 × 8 katman) | 1.565 ms | **563 ms** | ~500 token/sn |
+
+Eğitim GPU'da yaklaşık 2,7 kat daha hızlı olduğu için `auto` ayarı Metal'i seçer. Açılıştan sonraki ilk
+yanıt, Metal çekirdeklerini derlerken yaklaşık bir saniye daha yavaştır. GPU'yu boşta tutmak için
+**Ayarlar → Donanım → Yalnızca CPU** seçeneğini kullanın.
+
+## Linux sürümünden farklar
+
+- **GPU:** CUDA / ROCm / XPU yerine **Metal (MPS)**. Metal'de olmayan işlemler CPU'ya düşer
+  (`PYTORCH_ENABLE_MPS_FALLBACK=1`). Ayrıca birleşik AdamW (fused), paylaşımlı bellek telemetrisi ve
+  Apple Silicon eğitim profilleri eklendi.
+- **Donanım algılama:** `/proc`, `lspci`, `nvidia-smi` yerine `sysctl`, `ioreg`, `psutil`. CPU
+  thread'leri performans çekirdeklerine göre ayarlanır.
+- **Ses:** PipeWire/PulseAudio yerine `afplay`. Çevrimdışı ses espeak-ng yerine **`say`** (Türkçe için
+  Yelda, İngilizce için Moira). Nöral edge-tts sesleri aynı kaldı.
+- **Ekran:** grim / gnome-screenshot yerine `mss` (CoreGraphics) / `screencapture`, Ekran Kaydı izni
+  kontrolüyle birlikte.
+- **Sistem eylemleri:** `wpctl`/`loginctl`/`wmctrl` yerine şunlar kullanılıyor:
+  - AppleScript ile ses düzeyi
+  - ⌃⌘Q / `pmset displaysleepnow` ile kilit
+  - Tüm uygulamaları gizleyerek masaüstünü gösterme
+  - Etkinlik Monitörü
+  - `xdg-open` yerine `open` / `open -a`
+- **Klavye:** `ctrl+c` diye yazılan kısayollar ⌘C olarak gönderilir (gerçek Control tuşu için
+  `ctrlleft`). Pano için `pbcopy` kullanılır. Ekran kırpma koordinatları Retina piksellerine çevrilir.
+- **Veriler** `~/Library/Application Support/NovaAGI` altında tutulur (`NOVA_DATA_DIR` hâlâ geçerli).
+- **Betikler:** `install.sh` / `nova.sh` macOS ile gelen bash 3.2'de çalışır. apt/dnf/pacman yerine
+  Homebrew, `.desktop` girdisi yerine `.app` paketi kullanılır.
 
 ## Telefon ve web erişimi
 
 **Ayarlar → Mobil & Web** bölümünden açın (veya `./nova.sh web`). Uygulama
-`http://192.168.1.20:8080/?token=…` gibi bir adres gösterir. Aynı Wi-Fi'deki cihazda açın; uygulama
-gibi kullanmak için **Ana Ekrana Ekle**'ye dokunun. Anahtar ilk ziyarette cihaza kaydedilir. İnternet
-üzerinden erişim için `./nova.sh tunnel` çalıştırın ve `trycloudflare.com` adresinin sonuna `?token=…`
-ekleyin.
+`http://192.168.1.20:8080/?token=…` gibi bir adres gösterir. Aynı Wi-Fi'deki bir cihazda açıp
+**Ana Ekrana Ekle** ile uygulama gibi kullanabilirsiniz. Erişim anahtarı ilk ziyaretten sonra cihazda
+saklanır. İnternet üzerinden erişim için `./nova.sh tunnel` çalıştırın ve `trycloudflare.com` adresinin
+sonuna `?token=…` ekleyin. macOS, Python'un gelen bağlantıları kabul etmesine izin verip vermediğinizi
+bir kez sorabilir. Telefon erişimi için izin verin.
 
 ## Sohbet komutları
 
-`!yardim` hepsini listeler. Öne çıkanlar: `!istatistik`, `!egitim durdur|baslat`, `!wiki <konu>`,
-`!ara <sorgu>`, `!hesapla 2^10+sqrt(144)`, `!python <kod>`, `!oku <dosya>`, `!izle` (ekran analizi),
-`!brifing`, `!anilar 5`, `!kaydet`, `!buyut`, `!hf <token>`, `!lang en|tr`.
-
-## Masaüstü uyumluluk tablosu
-
-| Özellik | X11 | Wayland |
-|---|---|---|
-| Sohbet, ses, hafıza, eğitim, web | ✅ | ✅ |
-| Ekran izleme / görüntü alma | ✅ `mss` | ✅ `grim` (wlroots), `gnome-screenshot`, `spectacle` |
-| Fare ve klavye kontrolü (`pyautogui`) | ✅ | Yalnızca XWayland pencereleri |
-| Aktif pencere başlığı, "masaüstünü göster" | ✅ `xdotool` / `wmctrl` | — |
+`!yardim` tüm komutları listeler. Öne çıkanlar: `!istatistik`, `!egitim durdur|baslat`, `!wiki <konu>`,
+`!python <kod>`, `!watch` (ekran analizi), `!brifing`, `!kaydet`, `!buyu`, `!hf <token>`, `!lang en|tr`,
+`!eylem kilitle|sessiz|ses_artir|ses_azalt|masaustu|gorev_yoneticisi`.
 
 ## Proje yapısı
 
 ```
 nova_engine.py      çekirdek motor: sohbet akışı, ! komutları, telemetri, ayarlar
-nova_bridge.py      masaüstü uygulaması için JSON-lines IPC (stdout = yalnızca protokol)
+nova_bridge.py      masaüstü uygulaması için JSON-lines IPC (stdout yalnızca protokol)
 brain.py            kendi kendine büyüyen transformer (KV-cache, SDPA, network morphism)
-memory.py           SQLite epizodik + semantik hafıza, RAG, grafik verisi
+memory.py           SQLite epizodik + semantik hafıza, RAG, graf verisi
 body.py             ajan bedeni: web tarayıcı, ses, görüntü, yetenekler
-linux_desktop.py    Linux'ta ses / ekran görüntüsü / sistem eylemleri
-hardware.py         CPU/GPU/RAM algılama ve eğitim profili
-gpu_setup.py        CUDA · ROCm · XPU · CPU hazırlığı (torch'tan önce çalışır)
+mac_desktop.py      macOS'ta ses / ekran görüntüsü / sistem eylemleri / izinler
+hardware.py         Apple Silicon CPU/GPU/RAM algılama ve eğitim profili
+gpu_setup.py        Metal (MPS) · CPU hazırlığı (torch'tan önce çalışır)
 web_server.py       REST API + web uygulaması (web/)
 NovaApp/            Avalonia masaüstü uygulaması (C#)
+packaging/          build_app.sh (Nova AGI.app) · build_release.sh (tar.gz)
 main.py · nova_launcher.py · gui.py   terminal REPL, başlatıcı, yedek Tk arayüzü
-nova_headless_trainer/                bulut/Colab eğiticisi
+nova_headless_trainer/                bulut/Colab eğitici
 ```
 
 ## Sorun giderme
 
-- **AMD GPU kullanılmıyor:** `./nova.sh doctor` çalıştırın. ROCm PyTorch derlemesi
-  (`./install.sh --gpu=rocm`) gerekir ve kullanıcınız `render` ile `video` gruplarında olmalıdır.
-- **Mikrofon çalışmıyor:** `pyaudio` için `portaudio19-dev` (Debian/Ubuntu) veya `portaudio-devel`
-  (Fedora) gerekir.
-- **Ses çıkmıyor:** `espeak-ng` kurun (çevrimdışı) veya internet bağlantınızı kontrol edin (edge-tts).
-- **Masaüstü uygulaması açılmıyor:** `./install.sh --with-dotnet` ile derleyin. `./nova.sh tk` her zaman
-  çalışır.
+- **"Nova AGI hasarlı / açılamıyor":** Uygulama indirilen bir arşivden geldiyse olur. `./nova.sh build`
+  çalıştırın (karantina işaretini kaldırır ve yeniden imzalar) veya sağ tık → Aç.
+- **Uygulama "motor başlatılamadı" diyor:** Proje klasöründe `./install.sh` çalıştırın. Klasörü
+  taşıdıysanız ardından `./nova.sh build` çalıştırın.
+- **Ekran analizi boş dönüyor:** Nova AGI'ye (veya terminale) Ekran Kaydı izni verin ve Nova'yı
+  yeniden başlatın.
+- **Mikrofon çalışmıyor:** `brew install portaudio` ardından `./install.sh` (`pyaudio`'yu kurar). macOS
+  sorduğunda mikrofona izin verin.
+- **Tk arayüzü açılmıyor:** `brew install python-tk@3.x` (`python3 --version` ile aynı sürüm).
+- **Metal sorunları:** Ayarlar'dan CPU seçin veya `NOVA_DEVICE=cpu ./nova.sh term` ile başlatın.
 
 ## Lisans
 
-GPL-3.0. Ayrıntılar için [LICENSE](LICENSE) dosyasına bakın.
+GPL-3.0 — bkz. [LICENSE](LICENSE).

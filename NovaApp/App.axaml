@@ -1,7 +1,15 @@
 <Application xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              x:Class="NovaApp.App"
+             Name="Nova AGI"
              RequestedThemeVariant="Dark">
+
+  <!-- macOS uygulama menüsü (varsayılan "About Avalonia" yerine) -->
+  <NativeMenu.Menu>
+    <NativeMenu>
+      <NativeMenuItem Header="Ayarlar…" Gesture="Cmd+OemComma" Click="MenuSettings_Click" />
+    </NativeMenu>
+  </NativeMenu.Menu>
 
   <Application.Resources>
     <ResourceDictionary>
@@ -41,7 +49,7 @@
         <GradientStop Color="#A78BFA" Offset="1" />
       </LinearGradientBrush>
 
-      <FontFamily x:Key="MonoFont">JetBrains Mono, Fira Code, DejaVu Sans Mono, Noto Sans Mono, monospace</FontFamily>
+      <FontFamily x:Key="MonoFont">SF Mono, Menlo, JetBrains Mono, monospace</FontFamily>
     </ResourceDictionary>
   </Application.Resources>
 

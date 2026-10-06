@@ -23,4 +23,10 @@ public partial class App : Application
             desktop.MainWindow = new MainWindow();
         base.OnFrameworkInitializationCompleted();
     }
+
+    private async void MenuSettings_Click(object? sender, EventArgs e)
+    {
+        if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime { MainWindow: MainWindow w })
+            await w.OpenSettingsAsync(0);
+    }
 }

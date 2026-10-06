@@ -75,7 +75,7 @@ class OtonomMerakMotoru:
             # 2. Wikipedia API'den özet çek
             encoded = urllib.parse.quote(aday_konu.strip().replace(" ", "_"))
             url = f"https://{lang}.wikipedia.org/api/rest_v1/page/summary/{encoded}"
-            req = urllib.request.Request(url, headers={"User-Agent": "NovaAGI/4.0 (Linux; autonomous research)"})
+            req = urllib.request.Request(url, headers={"User-Agent": "NovaAGI/4.0 (Macintosh; autonomous research)"})
 
             with urllib.request.urlopen(req, timeout=6) as resp:
                 data = json.loads(resp.read().decode("utf-8"))
